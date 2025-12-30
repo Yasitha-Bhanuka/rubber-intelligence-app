@@ -60,6 +60,7 @@ adb reverse tcp:5001 tcp:5001
 
 ## Troubleshooting
 
+<<<<<<< HEAD
 ### MongoDB Connection Issues (Backend)
 
 If you see errors like **`SocketException: No such host is known`** or **`Failed to connect to MongoDB`** in your backend terminal:
@@ -91,6 +92,8 @@ If you see **`No service for type 'MongoDB.Driver.IMongoClient' has been registe
 
 ### App Connection Issues (Frontend)
 
+=======
+>>>>>>> 1fe7ec9c5bb6e6fac9c6f65377414d287a77100c
 -   **"Network Error" or Connection Refused**:
     -   Check if `adb reverse` was successful. Run `adb reverse --list` to see active mappings.
     -   Run `adb reverse tcp:5001 tcp:5001` again.
