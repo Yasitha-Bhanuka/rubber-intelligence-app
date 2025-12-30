@@ -45,8 +45,8 @@ export const MainTabNavigator = () => {
                 )
             })}
         >
-            {/* Farmer / Grower Routes */}
-            {role === 'grower' && (
+            {/* Farmer Routes */}
+            {role === 'farmer' && (
                 <>
                     <Tab.Screen name="Grading" component={HomeScreen} />
                     <Tab.Screen name="Disease" component={DiseaseScreen} />
