@@ -8,6 +8,7 @@ import { colors } from '../shared/styles/colors';
 const Tab = createBottomTabNavigator();
 
 import { DiseaseNavigator } from '../features/diseaseDetection/DiseaseNavigator';
+import { PriceForecastingScreen } from '../features/priceForecasting/screens/PriceForecastingScreen';
 
 // Placeholder screens for features
 const HomeScreen = () => <View style={styles.center}><Text>Home / Grading</Text></View>;
@@ -27,6 +28,7 @@ export const MainTabNavigator = () => {
 
                     if (route.name === 'Grading') iconName = focused ? 'leaf' : 'leaf-outline';
                     else if (route.name === 'Disease') iconName = focused ? 'medkit' : 'medkit-outline';
+                    else if (route.name === 'Price') iconName = focused ? 'cash' : 'cash-outline';
                     else if (route.name === 'Monitoring') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
                     else if (route.name === 'DPP') iconName = focused ? 'qr-code' : 'qr-code-outline';
                     else if (route.name === 'Chatbot') iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
@@ -51,6 +53,7 @@ export const MainTabNavigator = () => {
                 <>
                     <Tab.Screen name="Grading" component={HomeScreen} />
                     <Tab.Screen name="Disease" component={DiseaseNavigator} />
+                    <Tab.Screen name="Price" component={PriceForecastingScreen} />
                 </>
             )}
 
