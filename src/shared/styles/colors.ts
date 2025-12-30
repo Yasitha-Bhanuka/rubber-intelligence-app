@@ -6,4 +6,5 @@ export const colors = {
     error: '#D32F2F',
     gray: '#9E9E9E',
     lightGray: '#F5F5F5',
+    success: '#4CAF50',
 };

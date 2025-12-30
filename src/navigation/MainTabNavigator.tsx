@@ -7,9 +7,10 @@ import { colors } from '../shared/styles/colors';
 
 const Tab = createBottomTabNavigator();
 
+import { DiseaseNavigator } from '../features/diseaseDetection/DiseaseNavigator';
+
 // Placeholder screens for features
 const HomeScreen = () => <View style={styles.center}><Text>Home / Grading</Text></View>;
-const DiseaseScreen = () => <View style={styles.center}><Text>Disease Detection</Text></View>;
 const MonitoringScreen = () => <View style={styles.center}><Text>Monitoring Dashboard</Text></View>;
 const DPPScreen = () => <View style={styles.center}><Text>Digital Product Passport</Text></View>;
 const ChatbotScreen = () => <View style={styles.center}><Text>AI Chatbot</Text></View>;
@@ -49,7 +50,7 @@ export const MainTabNavigator = () => {
             {role === 'farmer' && (
                 <>
                     <Tab.Screen name="Grading" component={HomeScreen} />
-                    <Tab.Screen name="Disease" component={DiseaseScreen} />
+                    <Tab.Screen name="Disease" component={DiseaseNavigator} />
                 </>
             )}
 
