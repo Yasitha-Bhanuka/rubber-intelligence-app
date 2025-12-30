@@ -2,7 +2,7 @@ export interface User {
     id: string;
     email: string;
     name: string;
-    role: 'admin' | 'researcher' | 'grower';
+    role: 'admin' | 'researcher' | 'grower'; // 'grower' = farmer
 }
 
 export interface AuthResponse {

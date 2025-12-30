@@ -1,21 +1,13 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { LoginScreen } from '../features/auth/screens/LoginScreen';
 import { View, Text, Button } from 'react-native';
 
 const Stack = createNativeStackNavigator();
 
-// Temporary Placeholder Screens
-const LoginScreen = ({ navigation }: any) => (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>Login Screen</Text>
-        <Button title="Login" onPress={() => { }} />
-    </View>
-);
-
 const RegisterScreen = () => (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>Register Screen</Text>
-    </View>
+    // Placeholder - not in scope for this task
+    <></>
 );
 
 export const AuthNavigator = () => {
