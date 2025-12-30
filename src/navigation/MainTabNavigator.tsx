@@ -9,9 +9,9 @@ const Tab = createBottomTabNavigator();
 
 import { DiseaseNavigator } from '../features/diseaseDetection/DiseaseNavigator';
 import { PriceForecastingScreen } from '../features/priceForecasting/screens/PriceForecastingScreen';
+import { GradingScreen } from '../features/grading/screens/GradingScreen';
 
 // Placeholder screens for features
-const HomeScreen = () => <View style={styles.center}><Text>Home / Grading</Text></View>;
 const MonitoringScreen = () => <View style={styles.center}><Text>Monitoring Dashboard</Text></View>;
 const DPPScreen = () => <View style={styles.center}><Text>Digital Product Passport</Text></View>;
 const ChatbotScreen = () => <View style={styles.center}><Text>AI Chatbot</Text></View>;
@@ -51,7 +51,7 @@ export const MainTabNavigator = () => {
             {/* Farmer Routes */}
             {role === 'farmer' && (
                 <>
-                    <Tab.Screen name="Grading" component={HomeScreen} />
+                    <Tab.Screen name="Grading" component={GradingScreen} />
                     <Tab.Screen name="Disease" component={DiseaseNavigator} />
                     <Tab.Screen name="Price" component={PriceForecastingScreen} />
                 </>
