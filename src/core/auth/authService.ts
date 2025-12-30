@@ -5,8 +5,12 @@ import { saveToken, removeToken } from './tokenStorage';
 export const AuthService = {
     login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
         const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
-        if (response.data.token) {
+        console.log('Login response status:', response.status);
+        if (response.data && response.data.token) {
+            console.log('Token received from backend:', response.data.token.substring(0, 10) + '...');
             await saveToken(response.data.token);
+        } else {
+            console.error('No token in login response!', response.data);
         }
         return response.data;
     },

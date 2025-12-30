@@ -40,7 +40,8 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            // @ts-ignore
+            mediaTypes: ImagePicker.MediaType.Images,
             allowsEditing: true,
             aspect: [4, 3],
             quality: 1,
@@ -80,8 +81,9 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
                     </View>
                 </View>
             ) : (
-                <CameraView style={styles.camera} ref={cameraRef}>
-                    <View style={styles.overlay}>
+                <View style={{ flex: 1 }}>
+                    <CameraView style={StyleSheet.absoluteFill} ref={cameraRef} />
+                    <View style={[styles.overlay, StyleSheet.absoluteFill]}>
                         <Text style={styles.headerText}>Detecting: {diseaseTypeName}</Text>
                         <View style={styles.controls}>
                             <TouchableOpacity onPress={pickImage} style={styles.iconBtn}>
@@ -93,7 +95,7 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
                             <View style={{ width: 30 }} />
                         </View>
                     </View>
-                </CameraView>
+                </View>
             )}
         </View>
     );

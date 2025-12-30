@@ -14,7 +14,10 @@ apiClient.interceptors.request.use(
     async (config) => {
         const token = await getToken();
         if (token) {
+            console.log('Attaching auth token');
             config.headers.Authorization = `Bearer ${token}`;
+        } else {
+            console.warn('No auth token found');
         }
         return config;
     },
