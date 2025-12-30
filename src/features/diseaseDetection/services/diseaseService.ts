@@ -7,6 +7,16 @@ interface PredictionResponse {
     severity: string;
 }
 
+export interface DiseaseRecord {
+    id: string;
+    userId: string;
+    diseaseType: number;
+    predictedLabel: string;
+    confidence: number;
+    timestamp: string;
+    imagePath: string;
+}
+
 export const DiseaseService = {
     detect: async (imageUri: string, type: number): Promise<PredictionResponse> => {
         try {
@@ -37,5 +47,10 @@ export const DiseaseService = {
             console.error('Disease Detection Error:', error);
             throw error;
         }
+    },
+
+    getHistory: async (): Promise<DiseaseRecord[]> => {
+        const response = await apiClient.get<DiseaseRecord[]>('/disease/history');
+        return response.data;
     }
 };

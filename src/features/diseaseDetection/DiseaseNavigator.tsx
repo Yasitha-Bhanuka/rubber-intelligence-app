@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { DiseaseCameraScreen } from './screens/DiseaseCameraScreen';
 import { DiseaseResultScreen } from './screens/DiseaseResultScreen';
+import { DiseaseHistoryScreen } from './screens/DiseaseHistoryScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../shared/styles/colors';
 
@@ -32,6 +33,15 @@ const DiseaseHomeScreen = ({ navigation }: any) => {
                 color="#FF9800"
                 onPress={() => navigation.navigate('DiseaseCamera', { type: 2 })}
             />
+
+            <View style={{ height: 20 }} />
+            <Text style={{ fontSize: 16, color: '#666', marginBottom: 10 }}>Records</Text>
+            <MenuButton
+                title="Recent History"
+                icon="time"
+                color="#607D8B"
+                onPress={() => navigation.navigate('DiseaseHistory')}
+            />
         </View>
     );
 };
@@ -52,6 +62,7 @@ export const DiseaseNavigator = () => {
             <Stack.Screen name="DiseaseHome" component={DiseaseHomeScreen} />
             <Stack.Screen name="DiseaseCamera" component={DiseaseCameraScreen} />
             <Stack.Screen name="DiseaseResult" component={DiseaseResultScreen} />
+            <Stack.Screen name="DiseaseHistory" component={DiseaseHistoryScreen} options={{ headerShown: true, title: 'History' }} />
         </Stack.Navigator>
     );
 };
