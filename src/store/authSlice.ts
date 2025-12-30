@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { User, AuthResponse } from '../core/auth/authTypes';
-import { MockAuthService } from '../core/auth/mockAuthService'; // Use Mock Service
+import { AuthService } from '../core/auth/authService';
 
 export interface AuthSlice {
     user: User | null;
@@ -21,27 +21,27 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
     login: async (credentials) => {
         set({ isLoading: true, error: null });
         try {
-            const response: AuthResponse = await MockAuthService.login(credentials);
+            const response: AuthResponse = await AuthService.login(credentials);
             set({ user: response.user, isAuthenticated: true, isLoading: false });
         } catch (error: any) {
-            set({ isLoading: false, error: error.message || 'Login failed' });
+            const msg = error.response?.data || error.message || 'Login failed';
+            set({ isLoading: false, error: typeof msg === 'string' ? msg : 'Login failed' });
             throw error;
         }
     },
 
     logout: async () => {
-        await MockAuthService.logout();
+        await AuthService.logout();
         set({ user: null, isAuthenticated: false });
     },
 
     checkAuth: async () => {
         // Logic to check token validity and fetch user profile
         try {
-            const token = await MockAuthService.getCurrentUser();
-            //   if (token) {
-            //      set({ isAuthenticated: true });
-            // Fetch user details if needed
-            //   }
+            const user = await AuthService.getCurrentUser();
+            // if (user) {
+            //      set({ isAuthenticated: true, user });
+            // }
         } catch (e) {
             set({ isAuthenticated: false, user: null });
         }
