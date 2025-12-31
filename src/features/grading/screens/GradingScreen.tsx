@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/styles/colors';
@@ -9,6 +9,15 @@ export const GradingScreen = () => {
     const [image, setImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<GradingResponse | null>(null);
+
+    // New Fields
+    const [testDate] = useState(new Date().toLocaleDateString());
+    const [testTime] = useState(new Date().toLocaleTimeString());
+    const [testerName, setTesterName] = useState('');
+    const [batchId] = useState(`BATCH-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`);
+    const [rubberCategory] = useState('RSS Rubber'); // Not editable
+    const [sheetCount, setSheetCount] = useState('');
+    const [sheetWeight, setSheetWeight] = useState('');
 
     const pickImage = async () => {
         const currentPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -64,6 +73,10 @@ export const GradingScreen = () => {
         }
     };
 
+    const handleGenerateReport = () => {
+        Alert.alert("Report Generation", `Report for Batch ${batchId} has been generated and saved.`);
+    };
+
     const renderResult = () => {
         if (!result) return null;
 
@@ -83,6 +96,11 @@ export const GradingScreen = () => {
 
                 <Text style={styles.suggestionTitle}>Suggestion:</Text>
                 <Text style={styles.suggestionText}>{result.suggestions}</Text>
+
+                <TouchableOpacity style={styles.reportBtn} onPress={handleGenerateReport}>
+                    <Ionicons name="document-text-outline" size={20} color="#FFF" />
+                    <Text style={styles.reportBtnText}>Generate Report</Text>
+                </TouchableOpacity>
             </View>
         );
     };
@@ -90,6 +108,67 @@ export const GradingScreen = () => {
     return (
         <ScrollView contentContainerStyle={[styles.container, result && styles.containerResult]}>
             <Text style={result ? styles.headerSmall : styles.header}>Rubber Sheet Grading</Text>
+
+            {/* New Form Fields */}
+            <View style={styles.formContainer}>
+                <View style={styles.row}>
+                    <View style={styles.halfInput}>
+                        <Text style={styles.label}>Batch ID</Text>
+                        <TextInput style={[styles.input, styles.readOnly]} value={batchId} editable={false} />
+                    </View>
+                    <View style={styles.halfInput}>
+                        <Text style={styles.label}>Category</Text>
+                        <TextInput style={[styles.input, styles.readOnly]} value={rubberCategory} editable={false} />
+                    </View>
+                </View>
+                <View style={styles.row}>
+                    <View style={styles.halfInput}>
+                        <Text style={styles.label}>Test Date</Text>
+                        <TextInput style={[styles.input, styles.readOnly]} value={testDate} editable={false} />
+                    </View>
+                    <View style={styles.halfInput}>
+                        <Text style={styles.label}>Test Time</Text>
+                        <TextInput style={[styles.input, styles.readOnly]} value={testTime} editable={false} />
+                    </View>
+                </View>
+
+                <View style={styles.fullInput}>
+                    <Text style={styles.label}>Tester Name</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={testerName}
+                        onChangeText={setTesterName}
+                        placeholder="Enter name"
+                        placeholderTextColor={colors.gray}
+                    />
+                </View>
+
+                <View style={styles.row}>
+                    <View style={styles.halfInput}>
+                        <Text style={styles.label}>Sheet Count</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={sheetCount}
+                            onChangeText={setSheetCount}
+                            keyboardType="numeric"
+                            placeholder="0"
+                            placeholderTextColor={colors.gray}
+                        />
+                    </View>
+                    <View style={styles.halfInput}>
+                        <Text style={styles.label}>Weight (kg)</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={sheetWeight}
+                            onChangeText={setSheetWeight}
+                            keyboardType="numeric"
+                            placeholder="0.0"
+                            placeholderTextColor={colors.gray}
+                        />
+                    </View>
+                </View>
+            </View>
+
             {!result && <Text style={styles.subHeader}>Detect defects like Bubbles or Marks</Text>}
 
             <View style={result ? styles.topRow : styles.centerContent}>
@@ -139,13 +218,13 @@ export const GradingScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flexGrow: 1, padding: 20, backgroundColor: '#F8F9FA', alignItems: 'center' },
+    container: { flexGrow: 1, padding: 20, backgroundColor: colors.lightGray, alignItems: 'center' },
     containerResult: { alignItems: 'flex-start', paddingTop: 40 }, // Move to top
 
-    header: { fontSize: 24, fontWeight: 'bold', color: '#2C3E50', marginBottom: 5, textAlign: 'center' },
-    headerSmall: { fontSize: 18, fontWeight: 'bold', color: '#2C3E50', marginBottom: 10, alignSelf: 'center' },
+    header: { fontSize: 24, fontWeight: 'bold', color: colors.text, marginBottom: 5, textAlign: 'center' },
+    headerSmall: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 10, alignSelf: 'center' },
 
-    subHeader: { fontSize: 14, color: '#7F8C8D', marginBottom: 20 },
+    subHeader: { fontSize: 14, color: colors.gray, marginBottom: 20 },
 
     centerContent: { width: '100%', alignItems: 'center' },
     topRow: { flexDirection: 'row', width: '100%', alignItems: 'center', marginBottom: 20 },
@@ -169,10 +248,10 @@ const styles = StyleSheet.create({
     buttonRow: { flexDirection: 'row', gap: 15, marginBottom: 20 },
     buttonRowSmall: { flexDirection: 'row', gap: 10, marginBottom: 10 },
 
-    actionBtn: { flexDirection: 'row', backgroundColor: '#3498DB', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 25, alignItems: 'center', gap: 8 },
+    actionBtn: { flexDirection: 'row', backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 25, alignItems: 'center', gap: 8 },
     actionBtnSmall: { paddingVertical: 8, paddingHorizontal: 12 },
 
-    cameraBtn: { backgroundColor: '#E67E22' },
+    cameraBtn: { backgroundColor: colors.secondary },
     btnText: { color: '#FFF', fontWeight: '600', fontSize: 16 },
 
     analyzeBtn: { backgroundColor: colors.primary, paddingVertical: 15, paddingHorizontal: 60, borderRadius: 30, elevation: 5 },
@@ -191,5 +270,17 @@ const styles = StyleSheet.create({
     confidence: { fontSize: 14, color: '#7F8C8D', marginBottom: 15 },
     separator: { height: 1, backgroundColor: '#EEE', marginVertical: 10 },
     suggestionTitle: { fontSize: 16, fontWeight: '600', color: '#2C3E50', marginBottom: 5 },
-    suggestionText: { fontSize: 14, color: '#555', lineHeight: 20 }
+    suggestionText: { fontSize: 14, color: '#555', lineHeight: 20 },
+
+    // Form Styles
+    formContainer: { width: '100%', marginBottom: 20 },
+    row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+    halfInput: { width: '48%' },
+    fullInput: { width: '100%', marginBottom: 10 },
+    label: { fontSize: 14, color: colors.text, fontWeight: '600', marginBottom: 5 },
+    input: { backgroundColor: '#FFF', borderRadius: 8, padding: 10, borderColor: '#EEE', borderWidth: 1, color: colors.text },
+    readOnly: { backgroundColor: '#F0F0F0', color: colors.gray },
+
+    reportBtn: { marginTop: 15, flexDirection: 'row', backgroundColor: colors.primary, padding: 12, borderRadius: 10, justifyContent: 'center', alignItems: 'center', gap: 8 },
+    reportBtnText: { color: '#FFF', fontWeight: 'bold' }
 });
