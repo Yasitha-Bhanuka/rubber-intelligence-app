@@ -8,7 +8,7 @@ import { colors } from '../shared/styles/colors';
 const Tab = createBottomTabNavigator();
 
 import { DiseaseNavigator } from '../features/diseaseDetection/DiseaseNavigator';
-import { PriceForecastingScreen } from '../features/priceForecasting/screens/PriceForecastingScreen';
+import { PriceForecastingNavigator } from '../features/priceForecasting/PriceForecastingNavigator';
 import { GradingNavigator } from './GradingNavigator';
 
 // Placeholder screens for features
@@ -53,7 +53,7 @@ export const MainTabNavigator = () => {
                 <>
                     <Tab.Screen name="Grading" component={GradingNavigator} />
                     <Tab.Screen name="Disease" component={DiseaseNavigator} />
-                    <Tab.Screen name="Price" component={PriceForecastingScreen} />
+                    <Tab.Screen name="Price" component={PriceForecastingNavigator} options={{ headerShown: false }} />
                 </>
             )}
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { colors } from '../../../shared/styles/colors';
+import { Ionicons } from '@expo/vector-icons';
 import { PriceForecastingService, PriceRequest } from '../services/priceForecastingService';
 
 const Grades = ['RSS1', 'RSS2', 'RSS3', 'RSS4', 'RSS5'];
@@ -14,7 +15,7 @@ const VisualQualities = [
 const MarketAvailability = ['Immediately', 'In 1 week', 'In 2 weeks'];
 const Districts = ['Colombo', 'Galle', 'Matara', 'Kalutara', 'Ratnapura', 'Kegalle'];
 
-export const PriceForecastingScreen = () => {
+export const PriceForecastingScreen = ({ navigation }: any) => {
     const [grade, setGrade] = useState(Grades[0]);
     const [quantity, setQuantity] = useState('');
     const [moisture, setMoisture] = useState('');
@@ -41,7 +42,8 @@ export const PriceForecastingScreen = () => {
             moistureContentPct: parseFloat(moisture),
             dirtContentPct: parseFloat(dirt),
             visualQualityScore: visualQuality.value,
-            district: district
+            district: district,
+            marketAvailability: availability
         };
 
         try {
@@ -82,7 +84,12 @@ export const PriceForecastingScreen = () => {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-            <Text style={styles.header}>Rubber Price Calculator</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 10, marginRight: 10 }}>
+                    <Ionicons name="arrow-back" size={24} color="#333" />
+                </TouchableOpacity>
+                <Text style={[styles.header, { marginBottom: 0 }]}>Rubber Price Calculator</Text>
+            </View>
 
             {/* Grade */}
             {renderButtonGroup("Rubber Sheet Grade", Grades, grade, setGrade)}
@@ -144,8 +151,14 @@ export const PriceForecastingScreen = () => {
             {/* Result */}
             {predictedPrice !== null && (
                 <View style={styles.resultContainer}>
-                    <Text style={styles.resultLabel}>Estimated Auction Price:</Text>
+                    <Text style={styles.resultLabel}>Estimated Auction Price (Per Kg):</Text>
                     <Text style={styles.resultValue}>LKR {predictedPrice.toFixed(2)}</Text>
+
+                    <View style={styles.divider} />
+
+                    <Text style={styles.resultLabel}>Total Estimated Value:</Text>
+                    <Text style={styles.totalValue}>LKR {(predictedPrice * parseFloat(quantity)).toFixed(2)}</Text>
+                    <Text style={styles.subResultLabel}>for {quantity} kg</Text>
                 </View>
             )}
         </ScrollView>
@@ -167,6 +180,9 @@ const styles = StyleSheet.create({
     predictBtn: { backgroundColor: colors.primary, padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 10 },
     predictBtnText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
     resultContainer: { marginTop: 30, padding: 20, backgroundColor: '#E8F5E9', borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: colors.primary },
-    resultLabel: { fontSize: 18, color: '#555' },
-    resultValue: { fontSize: 32, fontWeight: 'bold', color: colors.primary, marginTop: 5 }
+    resultLabel: { fontSize: 16, color: '#555' },
+    resultValue: { fontSize: 28, fontWeight: 'bold', color: colors.primary, marginTop: 5 },
+    divider: { height: 1, backgroundColor: '#CCC', width: '100%', marginVertical: 15 },
+    totalValue: { fontSize: 32, fontWeight: 'bold', color: '#2E7D32', marginTop: 5 },
+    subResultLabel: { fontSize: 14, color: '#777', marginTop: 2 }
 });
