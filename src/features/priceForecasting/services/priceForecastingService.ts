@@ -7,6 +7,7 @@ export interface PriceRequest {
     dirtContentPct: number;
     visualQualityScore: number;
     district: string;
+    marketAvailability: string;
 }
 
 export interface PriceResponse {
