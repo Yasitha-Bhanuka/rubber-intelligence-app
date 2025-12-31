@@ -12,7 +12,31 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors } from "../../../shared/styles/colors";
+
+const AnimatedHeader = ({ navigation, title, icon }: any) => (
+  <View>
+    <LinearGradient
+      colors={[colors.primary, "#1B5E20"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.header}
+    >
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="arrow-back" size={24} color="white" />
+      </TouchableOpacity>
+      <View style={styles.headerTitleContainer}>
+        <MaterialCommunityIcons name={icon} size={24} color="white" />
+        <Text style={styles.headerTitle}>{title}</Text>
+      </View>
+      <View style={styles.headerPlaceholder} />
+    </LinearGradient>
+  </View>
+);
 
 const RSSLogbook = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -456,7 +480,7 @@ const RSSLogbook = () => {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="colors.primary" />
+        <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
         <View style={styles.loadingContent}>
           <MaterialCommunityIcons
             name="clipboard-text-outline"
@@ -474,23 +498,10 @@ const RSSLogbook = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="colors.primary" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <MaterialCommunityIcons
-            name="clipboard-text-outline"
-            size={24}
-            color="white"
-          />
-          <Text style={styles.headerTitle}>RSS Quality Logbook</Text>
-        </View>
-        <View style={styles.headerPlaceholder} />
-      </View>
+      <AnimatedHeader navigation={navigation} title="RSS Quality Logbook" icon="clipboard-text-outline" />
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -520,7 +531,7 @@ const RSSLogbook = () => {
           <MaterialCommunityIcons
             name="alert-decagram-outline"
             size={20}
-            color={activeTab === "defects" ? "colors.primary" : "#6B7280"}
+            color={activeTab === "defects" ? colors.primary : "#6B7280"}
           />
           <Text
             style={[
@@ -538,7 +549,7 @@ const RSSLogbook = () => {
           <MaterialCommunityIcons
             name="factory"
             size={20}
-            color={activeTab === "process" ? "colors.primary" : "#6B7280"}
+            color={activeTab === "process" ? colors.primary : "#6B7280"}
           />
           <Text
             style={[
@@ -727,7 +738,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F9FAFB",
-    marginTop: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -761,17 +771,22 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
   },
   header: {
-    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+  },
+  headerGradient: {
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   backButton: {
     padding: 8,

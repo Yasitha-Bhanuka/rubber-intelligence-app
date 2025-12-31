@@ -10,12 +10,14 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../../../shared/styles/colors";
+import { ReportService } from "../../../core/services/ReportService";
 import { AnyComponent } from "react-native-reanimated/lib/typescript/createAnimatedComponent/commonTypes";
 
 const LatexQualityStatus = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sensorData, setSensorData] = useState({
     temperature: 0,
@@ -84,12 +86,31 @@ const LatexQualityStatus = () => {
 
   const assessment = getQualityAssessment();
 
-  const handleGenerateReport = () => {
-    Alert.alert(
-      "Report Generated",
-      "Quality assessment report has been generated successfully and saved to reports.",
-      [{ text: "OK", style: "default" }]
-    );
+  const handleGenerateReport = async () => {
+    try {
+      const html = ReportService.generateLatexHTML({ assessment, sensorData });
+      const filename = `Latex_${new Date().getTime()}.pdf`;
+      const pdfUri = await ReportService.generatePDF(html, filename);
+
+      if (pdfUri) {
+        navigation.navigate("TestReports", {
+          pdfUri,
+          source: "Latex",
+          result: {
+            predictedClass: assessment.isGoodQuality ? "Good Quality" : "Poor Quality",
+            confidence: 1.0,
+            severity: assessment.isGoodQuality ? "Low" : "High",
+            suggestions: assessment.reasons.join("\n")
+          },
+          params: {
+            testDate: formatDate(currentTime),
+            testTime: formatTime(currentTime as any)
+          }
+        });
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to generate report.");
+    }
   };
 
   const handleGoBack = () => {
@@ -150,18 +171,25 @@ const LatexQualityStatus = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="colors.primary" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <MaterialCommunityIcons name="test-tube" size={24} color="white" />
-          <Text style={styles.headerTitle}>Latex Quality Status</Text>
-        </View>
-        <View style={styles.headerPlaceholder} />
+      <View>
+        <LinearGradient
+          colors={[colors.primary, "#1B5E20"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.header}
+        >
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <MaterialCommunityIcons name="test-tube" size={24} color="white" />
+            <Text style={styles.headerTitle}>Latex Quality Status</Text>
+          </View>
+          <View style={styles.headerPlaceholder} />
+        </LinearGradient>
       </View>
 
       <ScrollView
@@ -338,15 +366,22 @@ const LatexQualityStatus = () => {
 
         {/* Report Generation */}
         <TouchableOpacity
-          style={styles.reportButton}
+          style={styles.reportBtnContainer}
           onPress={handleGenerateReport}
         >
-          <MaterialCommunityIcons
-            name="file-document-outline"
-            size={24}
-            color="white"
-          />
-          <Text style={styles.reportButtonText}>Generate Quality Report</Text>
+          <LinearGradient
+            colors={[colors.primary, "#1B5E20"]}
+            style={styles.reportBtnGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <MaterialCommunityIcons
+              name="file-document-outline"
+              size={24}
+              color="white"
+            />
+            <Text style={styles.reportButtonText}>Generate Quality Report</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
         {/* Last Updated */}
@@ -367,18 +402,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9FAFB",
   },
   header: {
-    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    marginTop: 20,
   },
   backButton: {
     padding: 8,
@@ -649,20 +684,22 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginBottom: 4,
   },
-  reportButton: {
-    backgroundColor: colors.primary,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  reportBtnContainer: {
     marginHorizontal: 16,
     marginBottom: 16,
-    padding: 16,
     borderRadius: 12,
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  reportBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
   },
   reportButtonText: {
     color: "white",

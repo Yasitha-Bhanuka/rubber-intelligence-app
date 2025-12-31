@@ -44,7 +44,7 @@ const qcMetrics = [
     label: "Next Audit",
     value: "35 Days",
     icon: "calendar-today",
-    color: "#3B82F6", // Keeping blue as info/primary distinction for now, or use primary?
+    color: "#3498DB", // Info blue
   },
 ];
 
@@ -64,13 +64,13 @@ const qcQuickActions = [
   {
     title: "Test Reports",
     icon: "file-document-multiple-outline",
-    color: "#0EA5E9",
-    screen: "TestReports",
+    color: colors.primary,
+    screen: "ReportsDashboard",
   },
   {
-    title: "Latex Quality Status",
-    icon: "tools",
-    color: "#7C3AED",
+    title: "Latex Quality",
+    icon: "flask-round-bottom",
+    color: colors.secondary,
     screen: "LatexQuality",
   },
 ];
@@ -165,14 +165,21 @@ export default function QcLabScreen() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* HEADER */}
-      <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
+      <Animated.View entering={FadeInDown.duration(400)}>
+        <LinearGradient
+          colors={[colors.primary, "#1B5E20"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.header}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>🔬 Quality Control Lab</Text>
+          <View style={styles.headerTitleWrap}>
+            <MaterialCommunityIcons name="microscope" size={28} color="rgba(255,255,255,0.9)" />
+            <View style={{ marginLeft: 12 }}>
+              <Text style={styles.headerTitle}>QC Lab Dashboard</Text>
+              <Text style={styles.headerSubtitle}>Monitor quality & testing</Text>
+            </View>
+          </View>
+        </LinearGradient>
       </Animated.View>
 
       {/* QC METRICS GRID - Primary Focus */}
@@ -407,26 +414,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: 10,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+    justifyContent: "center",
   },
-  backButton: {
-    marginRight: 10,
-    padding: 5,
+  headerTitleWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 1,
+    fontWeight: "500",
   },
   section: {
     paddingHorizontal: 24,
@@ -451,8 +466,8 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#4F46E5",
+    fontWeight: "700",
+    color: colors.primary,
   },
 
   // --- QC Metrics Grid Styles (Deep Color Accent) ---
