@@ -27,14 +27,14 @@ export const DiseaseService = {
             const match = /\.(\w+)$/.exec(filename || '');
             const ext = match ? match[1] : 'jpg';
 
-            formData.append('image', {
+            formData.append('Image', {
                 uri: imageUri,
                 name: filename || `photo.${ext}`,
                 type: `image/${ext}`
             } as any);
 
             // Append Disease Type (0=Leaf, 1=Pest, 2=Weed)
-            formData.append('type', type.toString());
+            formData.append('Type', type.toString());
 
             const response = await apiClient.post('/disease/detect', formData, {
                 headers: {
