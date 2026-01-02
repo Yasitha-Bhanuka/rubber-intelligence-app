@@ -189,5 +189,65 @@ export const ReportService = {
             </body>
             </html>
         `;
+    },
+
+    generatePriceForecastHTML(data: { type: string, grade: string, items: any[] }) {
+        const { type, grade, items } = data;
+        const title = type === 'prediction' ? 'Price Predictions' : 'Historical Prices';
+
+        return `
+            <html>
+            <head>
+                <style>
+                    body { font-family: Helvetica, Arial, sans-serif; padding: 30px; }
+                    h1 { color: #2E7D32; margin-bottom: 5px; }
+                    .header { border-bottom: 2px solid #2E7D32; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+                    .meta { color: #666; font-size: 14px; }
+                    
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th { text-align: left; padding: 12px; background-color: #f8f9fa; border-bottom: 2px solid #ddd; color: #333; }
+                    td { padding: 12px; border-bottom: 1px solid #eee; color: #555; }
+                    tr:nth-child(even) { background-color: #f9f9f9; }
+                    
+                    .price { font-weight: bold; color: #2E7D32; }
+                    .footer { margin-top: 50px; text-align: center; color: #999; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div>
+                        <h1>Rubber Price Report</h1>
+                        <div class="meta">${title} • Grade: <strong>${grade}</strong></div>
+                    </div>
+                    <div class="meta">
+                        Generated: ${new Date().toLocaleDateString()}
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Grade</th>
+                            <th>Forecasted Price (LKR)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map(item => `
+                        <tr>
+                            <td>${item.date}</td>
+                            <td>${item.grade}</td>
+                            <td class="price">${item.price.toFixed(2)}</td>
+                        </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <div class="footer">
+                    <p>Rubber Intelligence Agent • Automated Market Analysis</p>
+                </div>
+            </body>
+            </html>
+        `;
     }
 };

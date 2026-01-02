@@ -18,8 +18,9 @@ const Districts = ['Colombo', 'Galle', 'Matara', 'Kalutara', 'Ratnapura', 'Kegal
 export const PriceForecastingScreen = ({ navigation }: any) => {
     const [grade, setGrade] = useState(Grades[0]);
     const [quantity, setQuantity] = useState('');
-    const [moisture, setMoisture] = useState('');
-    const [dirt, setDirt] = useState('');
+    // UPDATED: Default to 'Normal'/'Clean'
+    const [moisture, setMoisture] = useState('Normal');
+    const [dirt, setDirt] = useState('Clean');
     const [visualQuality, setVisualQuality] = useState(VisualQualities[0]);
     const [availability, setAvailability] = useState(MarketAvailability[0]);
     const [district, setDistrict] = useState(Districts[0]);
@@ -39,8 +40,8 @@ export const PriceForecastingScreen = ({ navigation }: any) => {
         const request: PriceRequest = {
             rubberSheetGrade: grade,
             quantityKg: parseFloat(quantity),
-            moistureContentPct: parseFloat(moisture),
-            dirtContentPct: parseFloat(dirt),
+            moistureLevel: moisture,
+            cleanliness: dirt,
             visualQualityScore: visualQuality.value,
             district: district,
             marketAvailability: availability
@@ -49,9 +50,10 @@ export const PriceForecastingScreen = ({ navigation }: any) => {
         try {
             const result = await PriceForecastingService.predictPrice(request);
             setPredictedPrice(result.predictedPriceLkr);
-        } catch (error) {
-            Alert.alert("Error", "Failed to predict price. ensure backend is running.");
-            console.error(error);
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || "Failed to predict price. Ensure backend is running.";
+            Alert.alert("Prediction Failed", errorMessage);
+            console.error("Prediction Error:", error);
         } finally {
             setLoading(false);
         }
@@ -107,28 +109,9 @@ export const PriceForecastingScreen = ({ navigation }: any) => {
             </View>
 
             {/* Quality Factors */}
-            <View style={styles.row}>
-                <View style={[styles.section, { flex: 1, marginRight: 10 }]}>
-                    <Text style={styles.label}>Moisture (%)</Text>
-                    <TextInput
-                        style={styles.input}
-                        keyboardType="numeric"
-                        value={moisture}
-                        onChangeText={setMoisture}
-                        placeholder="0-100"
-                    />
-                </View>
-                <View style={[styles.section, { flex: 1 }]}>
-                    <Text style={styles.label}>Dirt (%)</Text>
-                    <TextInput
-                        style={styles.input}
-                        keyboardType="numeric"
-                        value={dirt}
-                        onChangeText={setDirt}
-                        placeholder="0-100"
-                    />
-                </View>
-            </View>
+            {/* Categorical Inputs */}
+            {renderButtonGroup("Moisture Level", ['Dry', 'Normal', 'Wet'], moisture, setMoisture)}
+            {renderButtonGroup("Cleanliness (Dirt)", ['Clean', 'Slight', 'Dirty'], dirt, setDirt)}
 
             {/* Visual Quality */}
             {renderButtonGroup("Visual Quality", VisualQualities, visualQuality, setVisualQuality, true)}
