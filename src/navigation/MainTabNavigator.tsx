@@ -62,9 +62,11 @@ export const MainTabNavigator = () => {
             {(role === 'admin' || role === 'researcher') && (
                 <>
                     <Tab.Screen name="Monitoring" component={MonitoringScreen} />
-                    <Tab.Screen name="DPP" component={DppNavigator} options={{ headerShown: false }} />
                 </>
             )}
+
+            {/* DPP Route - Always visible for Demo/Development */}
+            <Tab.Screen name="DPP" component={DppNavigator} options={{ headerShown: false }} />
 
             {/* Common Routes */}
             <Tab.Screen name="Chatbot" component={ChatbotScreen} />
