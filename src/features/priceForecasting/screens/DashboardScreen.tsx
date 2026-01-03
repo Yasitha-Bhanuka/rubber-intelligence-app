@@ -150,6 +150,90 @@ export const DashboardScreen = () => {
                 </View>
             </View>
 
+            {/* Active Auctions Section */}
+            <View style={styles.section}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Active Auctions</Text>
+                    <TouchableOpacity>
+                        <Text style={{ color: '#666', fontWeight: '500' }}>View All</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
+                    {/* Auction Card 1 */}
+                    <View style={styles.auctionCard}>
+                        <View style={styles.auctionHeader}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.auctionTitle}>Premium RSS1 Rubber - Kalutara District</Text>
+                                <Text style={styles.auctionSubtitle}>Ribbed Smoked Sheet Grade 1 - Premium Quality</Text>
+                            </View>
+                            <View style={styles.activeBadge}>
+                                <Text style={styles.activeBadgeText}>Active</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.auctionDetails}>
+                            <View>
+                                <Text style={styles.detailLabel}>Current Price</Text>
+                                <Text style={styles.detailValuePrice}>LKR 485/kg</Text>
+                            </View>
+                            <View>
+                                <Text style={styles.detailLabel}>Quantity</Text>
+                                <Text style={styles.detailValue}>2,500 kg</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.bidderSection}>
+                            <Text style={styles.detailLabel}>Highest Bidder</Text>
+                            <Text style={styles.detailValue}>Export Lanka Ltd</Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.placeBidBtn}
+                            onPress={() => navigation.navigate('AuctionBidding', { id: '1' })}
+                        >
+                            <Text style={styles.placeBidText}>Place Bid</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Auction Card 2 */}
+                    <View style={styles.auctionCard}>
+                        <View style={styles.auctionHeader}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.auctionTitle}>RSS3 Standard Grade - Ratnapura</Text>
+                                <Text style={styles.auctionSubtitle}>Ribbed Smoked Sheet Grade 3 - Standard Quality</Text>
+                            </View>
+                            <View style={styles.activeBadge}>
+                                <Text style={styles.activeBadgeText}>Active</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.auctionDetails}>
+                            <View>
+                                <Text style={styles.detailLabel}>Current Price</Text>
+                                <Text style={styles.detailValuePrice}>LKR 410/kg</Text>
+                            </View>
+                            <View>
+                                <Text style={styles.detailLabel}>Quantity</Text>
+                                <Text style={styles.detailValue}>1,800 kg</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.bidderSection}>
+                            <Text style={styles.detailLabel}>Highest Bidder</Text>
+                            <Text style={styles.detailValue}>Rubber Tech Manufacturing</Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.placeBidBtn}
+                            onPress={() => navigation.navigate('AuctionBidding', { id: '2' })}
+                        >
+                            <Text style={styles.placeBidText}>Place Bid</Text>
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
+            </View>
+
             {/* Quick Actions */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -228,5 +312,86 @@ const styles = StyleSheet.create({
     historyIcon: { width: 40, height: 40, backgroundColor: '#F5F5F5', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     historyGrade: { fontSize: 16, fontWeight: '600', color: '#333' },
     historyDate: { fontSize: 12, color: '#999', marginTop: 2 },
-    historyPrice: { fontSize: 16, fontWeight: 'bold', color: '#2E7D32' }
+    historyPrice: { fontSize: 16, fontWeight: 'bold', color: '#2E7D32' },
+
+    // Auction Styles
+    auctionCard: {
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        padding: 20,
+        width: SCREEN_WIDTH * 0.85,
+        marginRight: 15,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        borderWidth: 1,
+        borderColor: '#EEE'
+    },
+    auctionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 15
+    },
+    auctionTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        maxWidth: '80%'
+    },
+    auctionSubtitle: {
+        fontSize: 12,
+        color: '#666',
+        marginTop: 4
+    },
+    activeBadge: {
+        backgroundColor: '#E8F5E9',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 15
+    },
+    activeBadgeText: {
+        color: '#4CAF50',
+        fontSize: 12,
+        fontWeight: 'bold'
+    },
+    auctionDetails: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        backgroundColor: '#F9FAFB',
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 15
+    },
+    detailLabel: {
+        fontSize: 12,
+        color: '#888',
+        marginBottom: 4
+    },
+    detailValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333'
+    },
+    detailValuePrice: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#2E7D32'
+    },
+    bidderSection: {
+        marginBottom: 20
+    },
+    placeBidBtn: {
+        backgroundColor: '#2962FF',
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: 'center'
+    },
+    placeBidText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 16
+    }
 });

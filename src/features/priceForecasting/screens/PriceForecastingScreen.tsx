@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../../../shared/styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { PriceForecastingService, PriceRequest } from '../services/priceForecastingService';
@@ -24,9 +25,29 @@ export const PriceForecastingScreen = ({ navigation }: any) => {
     const [visualQuality, setVisualQuality] = useState(VisualQualities[0]);
     const [availability, setAvailability] = useState(MarketAvailability[0]);
     const [district, setDistrict] = useState(Districts[0]);
+    const [image, setImage] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(false);
     const [predictedPrice, setPredictedPrice] = useState<number | null>(null);
+
+    const pickImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+        }
+    };
 
     const handlePredict = async () => {
         if (!quantity || !moisture || !dirt) {
@@ -104,8 +125,22 @@ export const PriceForecastingScreen = ({ navigation }: any) => {
                     keyboardType="numeric"
                     value={quantity}
                     onChangeText={setQuantity}
-                    placeholder="e.g. 100"
                 />
+            </View>
+
+            {/* Image Upload */}
+            <View style={styles.section}>
+                <Text style={styles.label}>Rubber Sheet Stock Image</Text>
+                <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                    {image ? (
+                        <Image source={{ uri: image }} style={styles.previewImage} />
+                    ) : (
+                        <View style={styles.imagePlaceholder}>
+                            <Ionicons name="camera-outline" size={32} color="#666" />
+                            <Text style={styles.imagePlaceholderText}>Upload Rubber Sheet Image</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
             </View>
 
             {/* Quality Factors */}
@@ -155,6 +190,30 @@ const styles = StyleSheet.create({
     row: { flexDirection: 'row' },
     label: { fontSize: 16, fontWeight: '600', marginBottom: 8, color: '#555' },
     input: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DDD', borderRadius: 8, padding: 12, fontSize: 16 },
+    imagePicker: {
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: '#DDD',
+        borderRadius: 8,
+        height: 150,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+        borderStyle: 'dashed',
+    },
+    imagePlaceholder: {
+        alignItems: 'center',
+    },
+    imagePlaceholderText: {
+        color: '#666',
+        marginTop: 8,
+        fontSize: 14,
+    },
+    previewImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
     buttonGroup: { flexDirection: 'row', flexWrap: 'wrap' },
     optionBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: '#999', marginRight: 8, marginBottom: 8, backgroundColor: '#FFF' },
     optionBtnSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
