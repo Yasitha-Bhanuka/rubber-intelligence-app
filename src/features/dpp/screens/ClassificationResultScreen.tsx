@@ -53,7 +53,7 @@ export default function ClassificationResultScreen() {
                 {/* Confidence Card */}
                 <View style={styles.card}>
                     <View style={styles.rowBetween}>
-                        <Text style={styles.cardLabel}>AI Confidence</Text>
+                        <Text style={styles.cardLabel}> Confidence Score :</Text>
                         <Text style={[styles.confidenceValue, { color: themeColor }]}>
                             {(result.confidenceScore * 100).toFixed(1)}% ({result.confidenceLevel})
                         </Text>
