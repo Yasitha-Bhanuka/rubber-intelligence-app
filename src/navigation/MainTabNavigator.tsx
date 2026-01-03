@@ -11,9 +11,10 @@ import { DiseaseNavigator } from '../features/diseaseDetection/DiseaseNavigator'
 import { PriceForecastingNavigator } from '../features/priceForecasting/PriceForecastingNavigator';
 import { GradingNavigator } from './GradingNavigator';
 
+import DppNavigator from './DppNavigator';
+
 // Placeholder screens for features
 const MonitoringScreen = () => <View style={styles.center}><Text>Monitoring Dashboard</Text></View>;
-const DPPScreen = () => <View style={styles.center}><Text>Digital Product Passport</Text></View>;
 const ChatbotScreen = () => <View style={styles.center}><Text>AI Chatbot</Text></View>;
 
 export const MainTabNavigator = () => {
@@ -61,7 +62,7 @@ export const MainTabNavigator = () => {
             {(role === 'admin' || role === 'researcher') && (
                 <>
                     <Tab.Screen name="Monitoring" component={MonitoringScreen} />
-                    <Tab.Screen name="DPP" component={DPPScreen} />
+                    <Tab.Screen name="DPP" component={DppNavigator} options={{ headerShown: false }} />
                 </>
             )}
 
