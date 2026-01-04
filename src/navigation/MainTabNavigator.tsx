@@ -68,7 +68,7 @@ export const MainTabNavigator = () => {
                         name="DPP"
                         component={DppNavigator}
                         options={{ headerShown: false }}
-                        initialParams={role === 'exporter' ? { screen: 'ExporterScanner' } : undefined}
+                        initialParams={role === 'exporter' ? { screen: 'Marketplace' } : undefined}
                     />
                 </>
             )}

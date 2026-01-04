@@ -4,19 +4,25 @@ import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getBuyerDocuments } from '../services/dppService';
-import { DppDocument } from '../types';
+import { getMyTransactions } from '../services/marketplaceService';
+import { DppDocument, MarketplaceTransaction } from '../types';
 
 export default function BuyerDashboardScreen() {
     const navigation = useNavigation<any>();
     const [selectedQr, setSelectedQr] = useState<string | null>(null);
     const [documents, setDocuments] = useState<DppDocument[]>([]);
+    const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
     const [loading, setLoading] = useState(false);
 
-    const loadDocuments = async () => {
+    const loadData = async () => {
         setLoading(true);
         try {
-            const docs = await getBuyerDocuments();
+            const [docs, trans] = await Promise.all([
+                getBuyerDocuments(),
+                getMyTransactions()
+            ]);
             setDocuments(docs);
+            setTransactions(trans);
         } finally {
             setLoading(false);
         }
@@ -24,7 +30,7 @@ export default function BuyerDashboardScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            loadDocuments();
+            loadData();
         }, [])
     );
 
@@ -64,6 +70,38 @@ export default function BuyerDashboardScreen() {
                 </TouchableOpacity>
             </View>
 
+            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => navigation.navigate('CreateSellingPost')}
+                >
+                    <Ionicons name="pricetag" size={20} color="white" />
+                    <Text style={styles.actionBtnText}>Create Selling Post</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Requests Section */}
+            {transactions.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Incoming Requests</Text>
+                    {transactions.map(t => (
+                        <TouchableOpacity
+                            key={t.id}
+                            style={styles.reqCard}
+                            onPress={() => navigation.navigate('Negotiation', { transactionId: t.id })}
+                        >
+                            <View>
+                                <Text style={styles.reqTitle}>Offer: LKR {t.offerPrice}</Text>
+                                <Text style={styles.reqStatus}>{t.status}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
+
+            <Text style={[styles.sectionTitle, { marginHorizontal: 20, marginTop: 10 }]}>My Documents</Text>
+
             {loading && documents.length === 0 ? (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color="#007AFF" />
@@ -81,7 +119,7 @@ export default function BuyerDashboardScreen() {
                         </View>
                     }
                     refreshing={loading}
-                    onRefresh={loadDocuments}
+                    onRefresh={loadData}
                 />
             )}
 
@@ -189,5 +227,32 @@ const styles = StyleSheet.create({
     closeText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     emptyContainer: { alignItems: 'center', marginTop: 40 },
     emptyText: { fontSize: 18, fontWeight: '600', color: '#555' },
-    emptySubText: { fontSize: 14, color: '#999', marginTop: 8 }
+    emptySubText: { fontSize: 14, color: '#999', marginTop: 8 },
+    actionBtn: {
+        backgroundColor: '#007AFF',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        padding: 12,
+        borderRadius: 12
+    },
+    actionBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    section: { paddingHorizontal: 20, marginBottom: 10 },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+    reqCard: {
+        backgroundColor: 'white',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 8,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2
+    },
+    reqTitle: { fontSize: 16, fontWeight: 'bold', color: '#007AFF' },
+    reqStatus: { fontSize: 13, color: '#666', marginTop: 2 }
 });

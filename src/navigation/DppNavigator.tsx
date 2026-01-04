@@ -5,6 +5,9 @@ import ClassificationResultScreen from '../features/dpp/screens/ClassificationRe
 import BuyerDashboardScreen from '../features/dpp/screens/BuyerDashboardScreen';
 import ExporterScannerScreen from '../features/dpp/screens/ExporterScannerScreen';
 import DppDetailScreen from '../features/dpp/screens/DppDetailScreen';
+import CreateSellingPostScreen from '../features/dpp/screens/CreateSellingPostScreen';
+import MarketplaceScreen from '../features/dpp/screens/MarketplaceScreen';
+import NegotiationScreen from '../features/dpp/screens/NegotiationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -24,6 +27,10 @@ export default function DppNavigator() {
 
             <Stack.Screen name="ExporterScanner" component={ExporterScannerScreen} />
             <Stack.Screen name="DppDetail" component={DppDetailScreen} />
+
+            <Stack.Screen name="CreateSellingPost" component={CreateSellingPostScreen} />
+            <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
+            <Stack.Screen name="Negotiation" component={NegotiationScreen} />
         </Stack.Navigator>
     );
 }
