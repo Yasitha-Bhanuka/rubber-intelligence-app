@@ -2,6 +2,9 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import DocumentUploadScreen from '../features/dpp/screens/DocumentUploadScreen';
 import ClassificationResultScreen from '../features/dpp/screens/ClassificationResultScreen';
+import BuyerDashboardScreen from '../features/dpp/screens/BuyerDashboardScreen';
+import ExporterScannerScreen from '../features/dpp/screens/ExporterScannerScreen';
+import DppDetailScreen from '../features/dpp/screens/DppDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -13,8 +16,14 @@ export default function DppNavigator() {
                 contentStyle: { backgroundColor: '#F2F2F7' }
             }}
         >
+            {/* Logic to determine initial route based on Role could be handled here or in MainNavigator. 
+                For now we register all, and entry point can be decided by role. */}
+            <Stack.Screen name="BuyerDashboard" component={BuyerDashboardScreen} />
             <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
             <Stack.Screen name="ClassificationResult" component={ClassificationResultScreen} />
+
+            <Stack.Screen name="ExporterScanner" component={ExporterScannerScreen} />
+            <Stack.Screen name="DppDetail" component={DppDetailScreen} />
         </Stack.Navigator>
     );
 }
