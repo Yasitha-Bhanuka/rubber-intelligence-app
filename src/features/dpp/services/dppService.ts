@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { DppResult } from '../types';
+import { DppResult, DppDocument } from '../types';
 
 export const uploadDppDocument = async (fileUri: string, fileName: string, fileType: string): Promise<DppResult> => {
     const formData = new FormData();
@@ -20,5 +20,15 @@ export const uploadDppDocument = async (fileUri: string, fileName: string, fileT
     } catch (error) {
         console.error('DPP Upload Error:', error);
         throw error;
+    }
+};
+
+export const getBuyerDocuments = async (): Promise<DppDocument[]> => {
+    try {
+        const response = await apiClient.get<DppDocument[]>('/Dpp/my-uploads');
+        return response.data;
+    } catch (error) {
+        console.error('Fetch Documents Error:', error);
+        return []; // Return empty on error or propagate
     }
 };

@@ -1,25 +1,38 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-
-// Mock Data - In real app, fetch from API
-const MOCK_DOCS = [
-    { id: '1', fileName: 'Rubber_Lot_A12.pdf', classification: 'CONFIDENTIAL', date: '2025-10-14' },
-    { id: '2', fileName: 'Invoice_778.pdf', classification: 'CONFIDENTIAL', date: '2025-10-15' },
-    { id: '3', fileName: 'Quality_Report_B.pdf', classification: 'NON_CONFIDENTIAL', date: '2025-10-15' }
-];
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { getBuyerDocuments } from '../services/dppService';
+import { DppDocument } from '../types';
 
 export default function BuyerDashboardScreen() {
     const navigation = useNavigation<any>();
     const [selectedQr, setSelectedQr] = useState<string | null>(null);
+    const [documents, setDocuments] = useState<DppDocument[]>([]);
+    const [loading, setLoading] = useState(false);
 
-    const renderItem = ({ item }: { item: any }) => (
+    const loadDocuments = async () => {
+        setLoading(true);
+        try {
+            const docs = await getBuyerDocuments();
+            setDocuments(docs);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            loadDocuments();
+        }, [])
+    );
+
+    const renderItem = ({ item }: { item: DppDocument }) => (
         <View style={styles.card}>
             <View style={styles.cardInfo}>
-                <Text style={styles.fileName}>{item.fileName}</Text>
-                <Text style={styles.date}>{item.date}</Text>
+                <Text style={styles.fileName}>{item.originalFileName}</Text>
+                <Text style={styles.date}>{new Date(item.uploadedAt).toLocaleDateString()}</Text>
                 <View style={[
                     styles.tag,
                     { backgroundColor: item.classification === 'CONFIDENTIAL' ? '#FFE5E5' : '#E5FFE5' }
@@ -51,12 +64,26 @@ export default function BuyerDashboardScreen() {
                 </TouchableOpacity>
             </View>
 
-            <FlatList
-                data={MOCK_DOCS}
-                renderItem={renderItem}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.list}
-            />
+            {loading && documents.length === 0 ? (
+                <View style={styles.center}>
+                    <ActivityIndicator size="large" color="#007AFF" />
+                </View>
+            ) : (
+                <FlatList
+                    data={documents}
+                    renderItem={renderItem}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.list}
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyText}>No documents uploaded yet.</Text>
+                            <Text style={styles.emptySubText}>Tap + to upload a rubber lot document.</Text>
+                        </View>
+                    }
+                    refreshing={loading}
+                    onRefresh={loadDocuments}
+                />
+            )}
 
             <Modal visible={!!selectedQr} transparent animationType="fade">
                 <View style={styles.modalBg}>
@@ -90,6 +117,7 @@ export default function BuyerDashboardScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F2F2F7', paddingTop: 60 },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -158,5 +186,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#007AFF',
         borderRadius: 12
     },
-    closeText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
+    closeText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    emptyContainer: { alignItems: 'center', marginTop: 40 },
+    emptyText: { fontSize: 18, fontWeight: '600', color: '#555' },
+    emptySubText: { fontSize: 14, color: '#999', marginTop: 8 }
 });
