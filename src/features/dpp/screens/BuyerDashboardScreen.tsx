@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator, Alert } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import * as DocumentPicker from 'expo-document-picker';
 import { getBuyerDocuments } from '../services/dppService';
-import { getMyTransactions } from '../services/marketplaceService';
+import { getMyTransactions, uploadInvoice } from '../services/marketplaceService';
 import { DppDocument, MarketplaceTransaction } from '../types';
 
 export default function BuyerDashboardScreen() {
@@ -33,6 +34,32 @@ export default function BuyerDashboardScreen() {
             loadData();
         }, [])
     );
+
+    const handleUploadInvoice = async (transactionId: string) => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: '*/*', // Allow all for now, or restrict to pdf/images
+                copyToCacheDirectory: true
+            });
+
+            if (result.canceled) return;
+
+            const file = result.assets[0];
+            setLoading(true);
+            await uploadInvoice(transactionId, {
+                uri: file.uri,
+                name: file.name,
+                mimeType: file.mimeType
+            });
+            Alert.alert('Success', 'Invoice uploaded securely!');
+            loadData(); // Refresh to update status
+        } catch (error) {
+            Alert.alert('Error', 'Failed to upload invoice');
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const renderItem = ({ item }: { item: DppDocument }) => (
         <View style={styles.card}>
@@ -65,9 +92,6 @@ export default function BuyerDashboardScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.title}>Buyer Dashboard</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('DocumentUpload')}>
-                    <Ionicons name="add-circle" size={32} color="#007AFF" />
-                </TouchableOpacity>
             </View>
 
             <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
@@ -85,17 +109,49 @@ export default function BuyerDashboardScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Recent Sales</Text>
                     {transactions.map(t => (
-                        <TouchableOpacity
-                            key={t.id}
-                            style={styles.reqCard}
-                            onPress={() => navigation.navigate('OrderReceipt', { transactionId: t.id })}
-                        >
-                            <View>
-                                <Text style={styles.reqTitle}>Sold for LKR {t.offerPrice}</Text>
-                                <Text style={[styles.reqStatus, { color: '#34C759' }]}>Payment Completed</Text>
-                            </View>
-                            <Ionicons name="checkmark-circle" size={20} color="#34C759" />
-                        </TouchableOpacity>
+                        <View key={t.id} style={styles.reqCardContainer}>
+                            <TouchableOpacity
+                                style={styles.reqCard}
+                                onPress={() => navigation.navigate('OrderReceipt', { transactionId: t.id })}
+                            >
+                                <View>
+                                    <Text style={styles.reqTitle}>Sold for LKR {t.offerPrice}</Text>
+                                    <Text style={[
+                                        styles.reqStatus,
+                                        { color: t.status === 'Completed' ? '#34C759' : '#FF9500' }
+                                    ]}>
+                                        {t.status === 'Completed' ? 'Payment Completed' : (t.status === 'PendingInvoice' ? 'Pending Invoice' : 'Invoice Uploaded')}
+                                    </Text>
+                                </View>
+                                <Ionicons
+                                    name={t.status === 'Completed' ? "checkmark-circle" : "time-outline"}
+                                    size={24}
+                                    color={t.status === 'Completed' ? "#34C759" : "#FF9500"}
+                                />
+                            </TouchableOpacity>
+
+                            {/* Upload Action for PendingInvoice */}
+                            {t.status === 'PendingInvoice' && (
+                                <TouchableOpacity
+                                    style={styles.uploadBtn}
+                                    onPress={() => handleUploadInvoice(t.id)}
+                                >
+                                    <Ionicons name="cloud-upload" size={16} color="white" />
+                                    <Text style={styles.uploadBtnText}>Secure Upload Invoice</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {/* Link DPP Action */}
+                            {!t.dppDocumentId && (
+                                <TouchableOpacity
+                                    style={[styles.uploadBtn, { backgroundColor: '#5856D6', marginTop: 8 }]}
+                                    onPress={() => navigation.navigate('DocumentUpload', { transactionId: t.id })}
+                                >
+                                    <Ionicons name="document-attach" size={16} color="white" />
+                                    <Text style={styles.uploadBtnText}>Link DPP Document</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     ))}
                 </View>
             )}
@@ -254,5 +310,18 @@ const styles = StyleSheet.create({
         elevation: 2
     },
     reqTitle: { fontSize: 16, fontWeight: 'bold', color: '#007AFF' },
-    reqStatus: { fontSize: 13, color: '#666', marginTop: 2 }
+    reqStatus: { fontSize: 13, color: '#666', marginTop: 2 },
+    reqCardContainer: { marginBottom: 12 },
+    uploadBtn: {
+        backgroundColor: '#FF9500',
+        padding: 10,
+        borderRadius: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        marginTop: -4,
+        marginHorizontal: 4
+    },
+    uploadBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 }
 });

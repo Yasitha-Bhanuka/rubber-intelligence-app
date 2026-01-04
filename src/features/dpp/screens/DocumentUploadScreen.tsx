@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { uploadDppDocument } from '../services/dppService';
+import { linkDppToTransaction } from '../services/marketplaceService';
 import { DppResult } from '../types';
 
 export default function DocumentUploadScreen() {
     const navigation = useNavigation<any>();
+    const route = useRoute<any>();
+    const { transactionId } = route.params || {};
     const [image, setImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -51,7 +54,15 @@ export default function DocumentUploadScreen() {
 
             const result = await uploadDppDocument(image, fileName, fileType);
 
-            // Navigate to result
+            // If this was initiated for a specific transaction (Order Fulfillment)
+            if (transactionId) {
+                await linkDppToTransaction(transactionId, result.id!); // Assuming result.id exists
+                Alert.alert('Success', 'DPP Document linked to order successfully!');
+                navigation.navigate('BuyerDashboard'); // Go back to dashboard to see updated status
+                return;
+            }
+
+            // Default behavior: Navigate to result
             navigation.navigate('ClassificationResult', { result });
 
         } catch (error: any) {
@@ -82,8 +93,10 @@ export default function DocumentUploadScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>Secure DPP Upload</Text>
-                <Text style={styles.subtitle}>Scan documents for confidential classification</Text>
+                <Text style={styles.title}>{transactionId ? 'Link Order DPP' : 'Secure DPP Upload'}</Text>
+                <Text style={styles.subtitle}>
+                    {transactionId ? `Attaching to Order #${transactionId.substring(0, 8)}` : 'Scan documents for confidential classification'}
+                </Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>

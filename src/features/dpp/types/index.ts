@@ -41,9 +41,13 @@ export interface MarketplaceTransaction {
   exporterId: string;
   exporterName: string; // Helpful for summary
   buyerId: string;
-  status: 'Completed';
+  status: 'PendingInvoice' | 'InvoiceUploaded' | 'Completed';
   offerPrice: number;
   lastUpdatedAt: string; // Kept for sorting
+  dppInvoicePath?: string;
+  dppClassification?: string;
+  encryptionMetadata?: string;
+  dppDocumentId?: string; // Links to the DPP document for the lot
 }
 
 

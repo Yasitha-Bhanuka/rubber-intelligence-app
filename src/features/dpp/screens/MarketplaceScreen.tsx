@@ -33,11 +33,11 @@ export default function MarketplaceScreen() {
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Buy Now',
+                    text: 'Request Purchase',
                     onPress: async () => {
                         try {
                             const transaction = await buyItem(post.id);
-                            Alert.alert('Success', 'Purchase Successful!');
+                            Alert.alert('Request Sent', 'Seller notified. Please wait for the encrypted invoice to be uploaded.');
                             navigation.navigate('OrderReceipt', { transactionId: transaction.id });
                         } catch (e) {
                             Alert.alert('Error', 'Failed to complete purchase. Item might be unavailable.');
@@ -81,7 +81,7 @@ export default function MarketplaceScreen() {
             )}
 
             <TouchableOpacity style={styles.actionBtn} onPress={() => handleBuy(item)}>
-                <Text style={styles.actionBtnText}>Buy Now</Text>
+                <Text style={styles.actionBtnText}>Request Purchase</Text>
             </TouchableOpacity>
         </View>
     );
