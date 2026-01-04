@@ -11,12 +11,17 @@ export const uploadDppDocument = async (fileUri: string, fileName: string, fileT
     } as any);
 
     try {
-        const response = await apiClient.post<DppResult>('/Dpp/upload', formData, {
+        const response = await apiClient.post<{ dppId: string; result: DppResult }>('/Dpp/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
         });
-        return response.data;
+        // Backend returns { dppId: string, result: ClassificationResult }
+        // We unpack it to flatten the structure for the UI
+        return {
+            ...response.data.result,
+            id: response.data.dppId
+        };
     } catch (error) {
         console.error('DPP Upload Error:', error);
         throw error;

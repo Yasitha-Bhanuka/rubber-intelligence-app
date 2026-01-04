@@ -58,11 +58,18 @@ export const MainTabNavigator = () => {
                 </>
             )}
 
-            {/* Admin / Researcher Routes */}
-            {(role === 'admin' || role === 'researcher') && (
+            {/* Admin / Researcher / DPP Roles */}
+            {(role === 'admin' || role === 'researcher' || role === 'buyer' || role === 'exporter') && (
                 <>
-                    <Tab.Screen name="Monitoring" component={MonitoringScreen} />
-                    <Tab.Screen name="DPP" component={DppNavigator} options={{ headerShown: false }} />
+                    {(role === 'admin' || role === 'researcher') && (
+                        <Tab.Screen name="Monitoring" component={MonitoringScreen} />
+                    )}
+                    <Tab.Screen
+                        name="DPP"
+                        component={DppNavigator}
+                        options={{ headerShown: false }}
+                        initialParams={role === 'exporter' ? { screen: 'ExporterScanner' } : undefined}
+                    />
                 </>
             )}
 
