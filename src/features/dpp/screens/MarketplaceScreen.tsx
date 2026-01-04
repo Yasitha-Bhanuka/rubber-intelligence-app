@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { getSellingPosts, requestPurchase } from '../services/marketplaceService';
+import { getSellingPosts, buyItem } from '../services/marketplaceService';
 import { SellingPost } from '../types';
 
 export default function MarketplaceScreen() {
@@ -26,22 +26,22 @@ export default function MarketplaceScreen() {
         }, [])
     );
 
-    const handleRequest = (post: SellingPost) => {
+    const handleBuy = (post: SellingPost) => {
         Alert.alert(
-            'Request Quote',
-            `Send purchase request for ${post.grade} (${post.quantityKg}kg)?`,
+            'Confirm Purchase',
+            `Buy ${post.grade} (${post.quantityKg}kg) for LKR ${post.pricePerKg}/kg?`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Send Request',
+                    text: 'Buy Now',
                     onPress: async () => {
                         try {
-                            const transaction = await requestPurchase(post.id, post.pricePerKg, "I am interested in this lot.");
-                            Alert.alert('Success', 'Request Sent! Check Transactions tab.');
-                            // Navigate to Negotiation?
-                            navigation.navigate('Negotiation', { transactionId: transaction.id });
+                            const transaction = await buyItem(post.id);
+                            Alert.alert('Success', 'Purchase Successful!');
+                            navigation.navigate('OrderReceipt', { transactionId: transaction.id });
                         } catch (e) {
-                            Alert.alert('Error', 'Failed to send request');
+                            Alert.alert('Error', 'Failed to complete purchase. Item might be unavailable.');
+                            loadPosts();
                         }
                     }
                 }
@@ -80,8 +80,8 @@ export default function MarketplaceScreen() {
                 </View>
             )}
 
-            <TouchableOpacity style={styles.actionBtn} onPress={() => handleRequest(item)}>
-                <Text style={styles.actionBtnText}>Request Quote</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => handleBuy(item)}>
+                <Text style={styles.actionBtnText}>Buy Now</Text>
             </TouchableOpacity>
         </View>
     );

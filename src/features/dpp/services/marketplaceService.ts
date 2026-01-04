@@ -22,16 +22,12 @@ export const getSellingPosts = async (buyerId?: string): Promise<SellingPost[]> 
     }
 };
 
-export const requestPurchase = async (postId: string, offerPrice: number, message: string): Promise<MarketplaceTransaction> => {
+export const buyItem = async (postId: string): Promise<MarketplaceTransaction> => {
     try {
-        const payload = {
-            offerPrice,
-            messages: message ? [{ text: message }] : []
-        };
-        const response = await apiClient.post<MarketplaceTransaction>(`/Marketplace/posts/${postId}/request`, payload);
+        const response = await apiClient.post<MarketplaceTransaction>(`/Marketplace/posts/${postId}/buy`, {});
         return response.data;
     } catch (error) {
-        console.error('Request Purchase Error:', error);
+        console.error('Buy Item Error:', error);
         throw error;
     }
 };
@@ -43,19 +39,5 @@ export const getMyTransactions = async (): Promise<MarketplaceTransaction[]> => 
     } catch (error) {
         console.error('Fetch Transactions Error:', error);
         return [];
-    }
-};
-
-export const updateTransactionStatus = async (transactionId: string, status: string, message?: string): Promise<MarketplaceTransaction> => {
-    try {
-        const payload = {
-            status,
-            messages: message ? [{ text: message }] : undefined
-        };
-        const response = await apiClient.put<MarketplaceTransaction>(`/Marketplace/transactions/${transactionId}`, payload);
-        return response.data;
-    } catch (error) {
-        console.error('Update Transaction Error:', error);
-        throw error;
     }
 };

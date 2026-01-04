@@ -80,21 +80,21 @@ export default function BuyerDashboardScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Requests Section */}
+            {/* Sales Section */}
             {transactions.length > 0 && (
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Incoming Requests</Text>
+                    <Text style={styles.sectionTitle}>Recent Sales</Text>
                     {transactions.map(t => (
                         <TouchableOpacity
                             key={t.id}
                             style={styles.reqCard}
-                            onPress={() => navigation.navigate('Negotiation', { transactionId: t.id })}
+                            onPress={() => navigation.navigate('OrderReceipt', { transactionId: t.id })}
                         >
                             <View>
-                                <Text style={styles.reqTitle}>Offer: LKR {t.offerPrice}</Text>
-                                <Text style={styles.reqStatus}>{t.status}</Text>
+                                <Text style={styles.reqTitle}>Sold for LKR {t.offerPrice}</Text>
+                                <Text style={[styles.reqStatus, { color: '#34C759' }]}>Payment Completed</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                            <Ionicons name="checkmark-circle" size={20} color="#34C759" />
                         </TouchableOpacity>
                     ))}
                 </View>

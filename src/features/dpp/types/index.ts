@@ -31,6 +31,7 @@ export interface SellingPost {
   location: string;
   dppDocumentId?: string; // Links to DppDocument.id
   status: 'Active' | 'Sold' | 'Archived';
+  soldToExporterId?: string;
   createdAt: string;
 }
 
@@ -38,19 +39,14 @@ export interface MarketplaceTransaction {
   id: string;
   postId: string;
   exporterId: string;
+  exporterName: string; // Helpful for summary
   buyerId: string;
-  status: 'Pending' | 'Negotiating' | 'Accepted' | 'Rejected' | 'Completed';
+  status: 'Completed';
   offerPrice: number;
-  messages: TransactionMessage[];
-  lastUpdatedAt: string;
+  lastUpdatedAt: string; // Kept for sorting
 }
 
-export interface TransactionMessage {
-  senderId: string;
-  senderName: string;
-  text: string;
-  timestamp: string;
-}
+
 
 export interface UploadState {
   isLoading: boolean;
