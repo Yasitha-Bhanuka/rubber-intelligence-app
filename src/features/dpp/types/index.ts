@@ -18,6 +18,7 @@ export interface DppDocument {
   classification: string;
   isEncrypted: boolean;
   uploadedAt: string;
+  extractedTextSummary?: string;
 }
 
 export interface SellingPost {

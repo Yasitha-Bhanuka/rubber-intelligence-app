@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import apiClient from '../../../core/api/apiClient';
+import { getDppMetadata, getDppFileUrl } from '../services/dppService';
+import { DppDocument } from '../types';
 
 export default function DppDetailScreen() {
     const route = useRoute<any>();
@@ -10,25 +11,32 @@ export default function DppDetailScreen() {
     const { id } = route.params;
 
     const [loading, setLoading] = useState(true);
-    const [documentData, setDocumentData] = useState<any>(null); // This would represent the file stream or metadata
-
-    // Mock fetch for demonstration if API isn't fully seeded with data matching the QR
-    // In real implementation:
-    // const fetchDocument = async () => { ... apiClient.get(`/Dpp/${id}/access`) ... }
+    const [documentData, setDocumentData] = useState<DppDocument | null>(null);
 
     useEffect(() => {
-        // Simulating secure decryption fetch
-        setTimeout(() => {
-            setLoading(false);
-            setDocumentData({
-                fileName: 'Rubber_Lot_A12.pdf',
-                decryptedTimestamp: new Date().toLocaleTimeString(),
-                status: 'VERIFIED',
-                content: 'Confidential Batch Specification: \n\nLKR Grade: RSS1\nMoisture: 0.5%\nOrigin: Kalutara Estate\nPrice: CONFIDENTIAL',
-                owner: 'Global Buyer Inc'
-            });
-        }, 2000);
+        fetchMetadata();
     }, [id]);
+
+    const fetchMetadata = async () => {
+        try {
+            const doc = await getDppMetadata(id);
+            setDocumentData(doc);
+        } catch (error) {
+            Alert.alert('Access Denied', 'Could not verify document access or document does not exist.');
+            navigation.goBack();
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDownload = async () => {
+        try {
+            const url = getDppFileUrl(id);
+            await Linking.openURL(url);
+        } catch (error) {
+            Alert.alert('Error', 'Cannot download file');
+        }
+    };
 
     if (loading) {
         return (
@@ -41,6 +49,8 @@ export default function DppDetailScreen() {
         );
     }
 
+    if (!documentData) return null;
+
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
@@ -52,27 +62,29 @@ export default function DppDetailScreen() {
             <View style={styles.card}>
                 <View style={styles.row}>
                     <Text style={styles.label}>DPP ID:</Text>
-                    <Text style={styles.value}>{id}</Text>
+                    <Text style={styles.value}>{id.substring(0, 18)}...</Text>
                 </View>
                 <View style={styles.divider} />
                 <View style={styles.row}>
                     <Text style={styles.label}>File Name:</Text>
-                    <Text style={styles.value}>{documentData.fileName}</Text>
+                    <Text style={styles.value}>{documentData.originalFileName}</Text>
                 </View>
                 <View style={styles.divider} />
                 <View style={styles.row}>
-                    <Text style={styles.label}>Decrypted At:</Text>
-                    <Text style={styles.value}>{documentData.decryptedTimestamp}</Text>
+                    <Text style={styles.label}>Uploaded At:</Text>
+                    <Text style={styles.value}>{new Date(documentData.uploadedAt).toLocaleString()}</Text>
                 </View>
             </View>
 
             <View style={styles.contentCard}>
-                <Text style={styles.contentTitle}>Decrypted Content Preview</Text>
-                <Text style={styles.contentText}>{documentData.content}</Text>
+                <Text style={styles.contentTitle}>Verified Content Summary</Text>
+                <Text style={styles.contentText}>
+                    {documentData.extractedTextSummary || "No text summary available."}
+                </Text>
 
-                <TouchableOpacity style={styles.downloadBtn}>
+                <TouchableOpacity style={styles.downloadBtn} onPress={handleDownload}>
                     <Ionicons name="download-outline" size={24} color="white" />
-                    <Text style={styles.downloadText}>Download Full PDF</Text>
+                    <Text style={styles.downloadText}>Download Full Document</Text>
                 </TouchableOpacity>
             </View>
 

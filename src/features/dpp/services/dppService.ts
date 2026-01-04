@@ -37,3 +37,17 @@ export const getBuyerDocuments = async (): Promise<DppDocument[]> => {
         return []; // Return empty on error or propagate
     }
 };
+
+export const getDppMetadata = async (id: string): Promise<DppDocument> => {
+    try {
+        const response = await apiClient.get<DppDocument>(`/Dpp/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error('Fetch Metadata Error:', error);
+        throw error;
+    }
+};
+
+export const getDppFileUrl = (id: string) => {
+    return `${apiClient.defaults.baseURL}/Dpp/${id}/access`;
+};
