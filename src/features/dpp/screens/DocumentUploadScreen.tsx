@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { uploadDppDocument } from '../services/dppService';
+import { linkDppToTransaction } from '../services/marketplaceService';
 import { DppResult } from '../types';
 
 export default function DocumentUploadScreen() {
     const navigation = useNavigation<any>();
+    const route = useRoute<any>();
+    const { transactionId } = route.params || {};
     const [image, setImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -51,11 +54,37 @@ export default function DocumentUploadScreen() {
 
             const result = await uploadDppDocument(image, fileName, fileType);
 
-            // Navigate to result
+            // If this was initiated for a specific transaction (Order Fulfillment)
+            if (transactionId) {
+                await linkDppToTransaction(transactionId, result.id!); // Assuming result.id exists
+                Alert.alert('Success', 'DPP Document linked to order successfully!');
+                navigation.navigate('BuyerDashboard'); // Go back to dashboard to see updated status
+                return;
+            }
+
+            // Default behavior: Navigate to result
             navigation.navigate('ClassificationResult', { result });
 
-        } catch (error) {
-            Alert.alert('Error', 'Failed to process document. Please try again.');
+        } catch (error: any) {
+            console.error('DPP Processing Error', error);
+
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                if (error.response.status === 429) {
+                    Alert.alert('Quota Exceeded', 'The Gemini API quota has been exceeded for the day. Please try again later or contact support.');
+                } else if (error.response.status >= 500) {
+                    Alert.alert('Server Error', 'The server encountered an error during processing. Please try again.');
+                } else {
+                    Alert.alert('Upload Failed', `Error: ${error.response.data?.error || 'Unknown error occurred'}`);
+                }
+            } else if (error.request) {
+                // The request was made but no response was received
+                Alert.alert('Network Error', 'No response received from server. Please check your internet connection.');
+            } else {
+                // Something happened in setting up the request
+                Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -64,8 +93,10 @@ export default function DocumentUploadScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>Secure DPP Upload</Text>
-                <Text style={styles.subtitle}>Scan documents for confidential classification</Text>
+                <Text style={styles.title}>{transactionId ? 'Link Order DPP' : 'Secure DPP Upload'}</Text>
+                <Text style={styles.subtitle}>
+                    {transactionId ? `Attaching to Order #${transactionId.substring(0, 8)}` : 'Scan documents for confidential classification'}
+                </Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
