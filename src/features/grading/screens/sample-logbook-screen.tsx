@@ -584,7 +584,7 @@ const RSSLogbook = () => {
               <Text style={styles.infoText}>
                 Comprehensive database of common defects in Ribbed Smoked Sheets
                 (RSS) with detailed root causes and preventive measures based on
-                Rubber Research Institute guidelines.
+                RubberEX Institute guidelines.
               </Text>
               <View style={styles.statsContainer}>
                 <View style={styles.statItem}>

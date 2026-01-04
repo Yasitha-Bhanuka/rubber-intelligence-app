@@ -50,7 +50,7 @@ export const LoginScreen = () => {
             >
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.header}>
-                        <Text style={styles.title}>Rubber Research</Text>
+                        <Text style={styles.title}>RubberEX</Text>
                         <Text style={styles.subtitle}>Intelligence Platform</Text>
                     </View>
 
