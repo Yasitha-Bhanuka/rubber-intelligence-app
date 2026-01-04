@@ -1,23 +1,23 @@
 {
   "expo": {
-    "name": "rubber-intelligence-app",
-    "slug": "rubber-intelligence-app",
+    "name": "RubberEX",
+    "slug": "RubberEX",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/launch_screen.png",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "image": "./assets/launch_screen.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#000a1a"
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/launch_screen.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -29,7 +29,7 @@
       "package": "com.anonymous.rubberintelligenceapp"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/launch_screen.png"
     },
     "plugins": [
       "expo-secure-store",
