@@ -8,13 +8,20 @@ import { SellingPost } from '../types';
 export default function MarketplaceScreen() {
     const navigation = useNavigation<any>();
     const [posts, setPosts] = useState<SellingPost[]>([]);
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [viewMode, setViewMode] = useState<'marketplace' | 'orders'>('marketplace');
     const [loading, setLoading] = useState(false);
 
-    const loadPosts = async () => {
+    const loadData = async () => {
         setLoading(true);
         try {
-            const data = await getSellingPosts();
-            setPosts(data);
+            if (viewMode === 'marketplace') {
+                const data = await getSellingPosts();
+                setPosts(data);
+            } else {
+                const data = await import('../services/marketplaceService').then(m => m.getMyTransactions());
+                setTransactions(data);
+            }
         } finally {
             setLoading(false);
         }
@@ -22,8 +29,8 @@ export default function MarketplaceScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            loadPosts();
-        }, [])
+            loadData();
+        }, [viewMode])
     );
 
     const handleBuy = (post: SellingPost) => {
@@ -41,7 +48,7 @@ export default function MarketplaceScreen() {
                             navigation.navigate('OrderReceipt', { transactionId: transaction.id });
                         } catch (e) {
                             Alert.alert('Error', 'Failed to complete purchase. Item might be unavailable.');
-                            loadPosts();
+                            loadData();
                         }
                     }
                 }
@@ -86,24 +93,77 @@ export default function MarketplaceScreen() {
         </View>
     );
 
+    const renderTransaction = ({ item }: { item: any }) => (
+        <TouchableOpacity
+            style={styles.card}
+            onPress={() => navigation.navigate('OrderReceipt', { transactionId: item.id })}
+        >
+            <View style={styles.headerRow}>
+                <View>
+                    <Text style={styles.grade}>Order #{item.id.substring(0, 8)}</Text>
+                    <Text style={[
+                        styles.location,
+                        { color: item.status === 'Completed' ? '#34C759' : '#FF9500', fontWeight: 'bold' }
+                    ]}>
+                        {item.status === 'Completed' ? 'Payment Completed' : (item.status === 'InvoiceUploaded' ? 'Invoice Ready' : 'Pending Invoice')}
+                    </Text>
+                </View>
+                <View style={styles.priceTag}>
+                    <Text style={styles.price}>LKR {item.offerPrice}</Text>
+                    <Text style={styles.unit}>Total</Text>
+                </View>
+            </View>
+
+            <View style={styles.detailsRow}>
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Seller</Text>
+                    <Text style={styles.detailValue}>ID: {item.buyerId.substring(0, 6)}</Text>
+                </View>
+                {item.dppDocumentId && (
+                    <View style={[styles.verifiedTag, { marginBottom: 0 }]}>
+                        <Ionicons name="shield-checkmark" size={14} color="#34C759" />
+                        <Text style={styles.verifiedText}>DPP Linked</Text>
+                    </View>
+                )}
+            </View>
+        </TouchableOpacity>
+    );
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.title}>Rubber Marketplace</Text>
-                <Text style={styles.subtitle}>Available Export Lots</Text>
+                <Text style={styles.subtitle}>Global Rubber Trade Platform</Text>
             </View>
 
-            {loading && posts.length === 0 ? (
+            <View style={styles.tabs}>
+                <TouchableOpacity
+                    style={[styles.tab, viewMode === 'marketplace' && styles.activeTab]}
+                    onPress={() => setViewMode('marketplace')}
+                >
+                    <Text style={[styles.tabText, viewMode === 'marketplace' && styles.activeTabText]}>Marketplace</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tab, viewMode === 'orders' && styles.activeTab]}
+                    onPress={() => setViewMode('orders')}
+                >
+                    <Text style={[styles.tabText, viewMode === 'orders' && styles.activeTabText]}>My Orders</Text>
+                </TouchableOpacity>
+            </View>
+
+            {loading && (posts.length === 0 && transactions.length === 0) ? (
                 <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 40 }} />
             ) : (
                 <FlatList
-                    data={posts}
-                    renderItem={renderItem}
+                    data={viewMode === 'marketplace' ? posts : transactions}
+                    renderItem={viewMode === 'marketplace' ? renderItem : renderTransaction}
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.list}
                     refreshing={loading}
-                    onRefresh={loadPosts}
-                    ListEmptyComponent={<Text style={styles.empty}>No active posts available.</Text>}
+                    onRefresh={loadData}
+                    ListEmptyComponent={<Text style={styles.empty}>
+                        {viewMode === 'marketplace' ? 'No active posts available.' : 'No orders found.'}
+                    </Text>}
                 />
             )}
         </View>
@@ -155,5 +215,10 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center'
     },
-    actionBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
+    actionBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    tabs: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 16, gap: 12 },
+    tab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#e5e5ea', height: 40, justifyContent: 'center', alignItems: 'center' },
+    activeTab: { backgroundColor: '#007AFF' },
+    tabText: { color: '#666', fontWeight: '600' },
+    activeTabText: { color: 'white' }
 });
