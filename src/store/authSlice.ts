@@ -36,14 +36,18 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
     },
 
     checkAuth: async () => {
-        // Logic to check token validity and fetch user profile
+        set({ isLoading: true });
         try {
             const user = await AuthService.getCurrentUser();
-            // if (user) {
-            //      set({ isAuthenticated: true, user });
-            // }
+            if (user) {
+                set({ isAuthenticated: true, user, isLoading: false });
+            } else {
+                set({ isAuthenticated: false, user: null, isLoading: false });
+            }
         } catch (e) {
-            set({ isAuthenticated: false, user: null });
+            // Backend unavailable or user not authenticated
+            console.log('Auth check failed (backend may be unavailable):', e);
+            set({ isAuthenticated: false, user: null, isLoading: false });
         }
     },
 });
