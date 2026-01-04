@@ -7,7 +7,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { getBuyerDocuments } from '../services/dppService';
 import { getMyTransactions, uploadInvoice } from '../services/marketplaceService';
 import { DppDocument, MarketplaceTransaction } from '../types';
-//ddd
+//ddd 
 export default function BuyerDashboardScreen() {
     const navigation = useNavigation<any>();
     const [selectedQr, setSelectedQr] = useState<string | null>(null);
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderRadius: 16,
         padding: 16,
-        marginBottom: 12,
+        marginBottom: 12,//margin bottom
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
