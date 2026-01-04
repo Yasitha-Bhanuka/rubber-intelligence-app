@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getMyTransactions, getInvoice } from '../services/marketplaceService';
 import { MarketplaceTransaction } from '../types';
+import * as SecureStore from 'expo-secure-store';
 
 export default function OrderReceiptScreen() {
     const route = useRoute<any>();
@@ -56,8 +57,9 @@ export default function OrderReceiptScreen() {
             const fileUri = (fs.documentDirectory || fs.cacheDirectory) + `invoice_${transaction.id}.pdf`;
             // Note: We need the proper extension. We can guess or get from headers. Defaulting .pdf
 
+            const token = await SecureStore.getItemAsync('auth_token');
             const downloadRes = await FileSystem.downloadAsync(url, fileUri, {
-                // headers: { Authorization: ... } 
+                headers: { Authorization: `Bearer ${token}` }
             });
 
             if (downloadRes.status === 200) {
@@ -79,7 +81,7 @@ export default function OrderReceiptScreen() {
     if (!transaction) return <View style={styles.center}><Text>Transaction Not Found</Text></View>;
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
             <View style={styles.header}>
                 <Ionicons name="checkmark-circle" size={80} color="#34C759" />
                 <Text style={styles.title}>Purchase Confirmed!</Text>
@@ -138,12 +140,13 @@ export default function OrderReceiptScreen() {
             <TouchableOpacity style={styles.homeBtn} onPress={() => navigation.navigate('Marketplace')}>
                 <Text style={styles.homeBtnText}>Continue Shopping</Text>
             </TouchableOpacity>
-        </View>
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F2F2F7', padding: 20, paddingTop: 60 },
+    container: { flex: 1, backgroundColor: '#F2F2F7' },
+    contentContainer: { padding: 20, paddingTop: 60, paddingBottom: 40 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: { alignItems: 'center', marginBottom: 32 },
     title: { fontSize: 24, fontWeight: 'bold', marginTop: 16 },
