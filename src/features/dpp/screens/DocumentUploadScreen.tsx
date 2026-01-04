@@ -54,8 +54,26 @@ export default function DocumentUploadScreen() {
             // Navigate to result
             navigation.navigate('ClassificationResult', { result });
 
-        } catch (error) {
-            Alert.alert('Error', 'Failed to process document. Please try again.');
+        } catch (error: any) {
+            console.error('DPP Processing Error', error);
+
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                if (error.response.status === 429) {
+                    Alert.alert('Quota Exceeded', 'The Gemini API quota has been exceeded for the day. Please try again later or contact support.');
+                } else if (error.response.status >= 500) {
+                    Alert.alert('Server Error', 'The server encountered an error during processing. Please try again.');
+                } else {
+                    Alert.alert('Upload Failed', `Error: ${error.response.data?.error || 'Unknown error occurred'}`);
+                }
+            } else if (error.request) {
+                // The request was made but no response was received
+                Alert.alert('Network Error', 'No response received from server. Please check your internet connection.');
+            } else {
+                // Something happened in setting up the request
+                Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
