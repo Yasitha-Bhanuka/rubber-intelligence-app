@@ -71,7 +71,7 @@ const qcQuickActions = [
     title: "Latex Quality",
     icon: "flask-round-bottom",
     color: colors.secondary,
-    screen: "LatexQuality",
+    screen: "LatexQualityHome",
   },
 ];
 
