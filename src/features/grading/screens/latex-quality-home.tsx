@@ -1,1248 +1,1096 @@
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
+  StatusBar,
+  SafeAreaView,
+  Alert,
+  TextInput,
+  Dimensions
 } from "react-native";
-import React from "react";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  Ionicons,
-  MaterialCommunityIcons,
-  MaterialIcons,
-} from "@expo/vector-icons";
-import { BarChart } from "react-native-chart-kit";
-import Animated, { FadeInDown } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../../../shared/styles/colors";
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+  ZoomIn
+} from "react-native-reanimated";
+import { latexQualityService, LatexQualityRequest } from "../../../core/services/latexQualityService";
 
+const ESP32_IP = "http://10.148.43.34"; // Replace with your ESP32 IP
 const { width } = Dimensions.get("window");
-const CARD_WIDTH = (width - 72) / 2;
 
-// --- Data for Latex Quality Home Screen ---
-const latexMetrics = [
-  {
-    label: "Current Temp",
-    value: "28.5°C",
-    icon: "thermometer",
-    color: colors.success,
-    trend: "stable",
-  },
-  {
-    label: "pH Level",
-    value: "6.8",
-    icon: "test-tube",
-    color: colors.primary,
-    trend: "up",
-  },
-  {
-    label: "Turbidity",
-    value: "-4300 NTU",
-    icon: "water-opacity",
-    color: colors.secondary,
-    trend: "down",
-  },
-  {
-    label: "Quality Score",
-    value: "92%",
-    icon: "star-outline",
-    color: colors.success,
-    trend: "stable",
-  },
-];
+// Define types for sensor data
+interface SensorData {
+  temperature: number | string;
+  turbidity: number | string;
+  pH: number | string;
+  airTemperature?: number | string;
+  humidity?: number | string;
+}
 
-const quickActions = [
-  {
-    title: "Quality Test",
-    icon: "flask-outline",
-    color: colors.primary,
-    screen: "LatexTest",
-  },
-  {
-    title: "Latex Process Guide",
-    icon: "history",
-    color: colors.success,
-    screen: "ViewHistory",
-  },
-  {
-    title: "Latex Quality Guide",
-    icon: "gauge",
-    color: colors.secondary,
-    screen: "SensorStatus",
-  },
-  {
-    title: "Latex Quality Reports",
-    icon: "file-document-outline",
-    color: colors.primary,
-    screen: "LatexQualityReports",
-  },
-  {
-    title: "Storage Selection",
-    icon: "warehouse",
-    color: colors.primary,
-    screen: "StorageSelection",
-  },
-  {
-    title: "Latex Storage Guide",
-    icon: "book-open-variant",
-    color: colors.success,
-    screen: "LatexStorageGuide",
-  },
-];
+interface LiveSensorData {
+  temperature: number;
+  turbidity: number;
+  ph: number;
+  airTemperature: number;
+  humidity: number;
+}
 
-// Enhanced Recent Tests with more data
-const recentTests = [
-  {
-    id: "LTX-2026-001",
-    result: "Pass",
-    quality: "Excellent",
-    score: 95,
-    statusColor: "#10B981",
-    icon: "check-circle",
-    time: "2 hours ago",
-    parameters: ["pH: 6.8", "Temp: 28°C", "Turb: -4300 NTU"],
-  },
-  {
-    id: "LTX-2026-002",
-    result: "Warning",
-    quality: "Good",
-    score: 78,
-    statusColor: "#F59E0B",
-    icon: "alert-circle",
-    time: "5 hours ago",
-    parameters: ["pH: 7.2", "Temp: 29°C", "Turb: -3900 NTU"],
-  },
-  {
-    id: "LTX-2026-003",
-    result: "Fail",
-    quality: "Poor",
-    score: 42,
-    statusColor: "#EF4444",
-    icon: "close-circle",
-    time: "1 day ago",
-    parameters: ["pH: 8.1", "Temp: 31°C", "Turb: 1400 NTU"],
-  },
-  {
-    id: "LTX-2026-004",
-    result: "Pass",
-    quality: "Excellent",
-    score: 94,
-    statusColor: "#10B981",
-    icon: "check-circle",
-    time: "2 days ago",
-    parameters: ["pH: 6.7", "Temp: 27°C", "Turb: -4250 NTU"],
-  },
-  {
-    id: "LTX-2026-005",
-    result: "Pass",
-    quality: "Good",
-    score: 81,
-    statusColor: "#10B981",
-    icon: "check-circle",
-    time: "3 days ago",
-    parameters: ["pH: 7.0", "Temp: 28°C", "Turb: -3950 NTU"],
-  },
-];
+// Helper function to get numeric value for status calculations
+const getNumericValue = (value: number | string): number => {
+  if (typeof value === "string") {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  }
+  return value;
+};
 
-// Enhanced Alerts with more data
-const alerts = [
-  {
-    id: "ALT-001",
-    message: "Temperature approaching upper limit (29.5°C)",
-    urgency: "High",
-    color: "#EF4444",
-    icon: "thermometer-alert",
-    time: "15 min ago",
-    priority: 1,
-  },
-  {
-    id: "ALT-002",
-    message: "pH sensor calibration due tomorrow",
-    urgency: "Medium",
-    color: "#F59E0B",
-    icon: "alert-circle",
-    time: "2 hours ago",
-    priority: 2,
-  },
-  {
-    id: "ALT-003",
-    message: "Turbidity levels above normal range",
-    urgency: "Medium",
-    color: "#F59E0B",
-    icon: "water-alert",
-    time: "4 hours ago",
-    priority: 2,
-  },
-  {
-    id: "ALT-004",
-    message: "Test kit stock running low (15 remaining)",
-    urgency: "Low",
-    color: "#3498DB",
-    icon: "package-variant",
-    time: "1 day ago",
-    priority: 3,
-  },
-  {
-    id: "ALT-005",
-    message: "System backup scheduled for tonight",
-    urgency: "Info",
-    color: "#6366F1",
-    icon: "backup-restore",
-    time: "2 days ago",
-    priority: 4,
-  },
-];
-
-// Enhanced Quality Trends data with time labels
-const qualityTrends = [
-  { day: "Mon", score: 85, time: "10:00 AM" },
-  { day: "Tue", score: 88, time: "11:30 AM" },
-  { day: "Wed", score: 90, time: "09:45 AM" },
-  { day: "Thu", score: 92, time: "02:15 PM" },
-  { day: "Fri", score: 91, time: "10:30 AM" },
-  { day: "Sat", score: 89, time: "03:00 PM" },
-  { day: "Sun", score: 92, time: "11:00 AM" },
-];
-
-// Find min and max scores for chart scaling
-const trendScores = qualityTrends.map(item => item.score);
-const maxScore = Math.max(...trendScores);
-const minScore = Math.min(...trendScores);
-const chartHeight = 120;
-const chartWidth = width - 48; // Increased width
-
-const recommendedActions = [
-  {
-    title: "Adjust pH",
-    description: "Add pH stabilizer to maintain 6.5-7.0 range",
-    icon: "calculator",
-    priority: "high",
-  },
-  {
-    title: "Cool System",
-    description: "Reduce temperature by 2°C for optimal quality",
-    icon: "snowflake",
-    priority: "medium",
-  },
-  {
-    title: "Clean Sensors",
-    description: "Schedule maintenance for turbidity sensors",
-    icon: "brush",
-    priority: "medium",
-  },
-];
-
-export default function LatexQualityHomeScreen() {
+const LiveSensorScreen = () => {
   const navigation = useNavigation<any>();
+  const [liveSensorData, setLiveSensorData] = useState<LiveSensorData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string>("");
 
-  const renderQualityScore = (score: number) => {
-    if (score >= 90) return { label: "Excellent", color: "#10B981" };
-    if (score >= 70) return { label: "Good", color: "#3B82F6" };
-    if (score >= 50) return { label: "Fair", color: "#F59E0B" };
-    return { label: "Poor", color: "#EF4444" };
+  const [testDate] = useState<string>(() => {
+    return new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: "long",
+    });
+  });
+
+  const [testTime] = useState<string>(() => {
+    return new Date().toLocaleTimeString("en-US", {
+      hour12: true,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  });
+
+  const [testId, setTestId] = useState<string>("");
+  const testerName = "Rubber Latex Collector";
+
+  const [sensorData, setSensorData] = useState<SensorData>({
+    temperature: "",
+    turbidity: "",
+    pH: "",
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Sample values for placeholders
+  const sampleValues = {
+    temperature: "28.5",
+    turbidity: "-3600",
+    pH: "6.8"
   };
 
-  // Data for the Bar Chart
-  const chartData = {
-    labels: qualityTrends.map(t => t.day),
-    datasets: [
-      {
-        data: qualityTrends.map(t => t.score),
-        colors: qualityTrends.map(t => (opacity = 1) => {
-          if (t.score >= 90) return `rgba(16, 185, 129, ${opacity})`; // Excellent - Green
-          if (t.score >= 70) return `rgba(59, 130, 246, ${opacity})`; // Good - Blue
-          if (t.score >= 50) return `rgba(245, 158, 11, ${opacity})`; // Fair - Orange
-          return `rgba(239, 68, 68, ${opacity})`; // Poor - Red
-        }),
-      },
-    ],
+  // Fetch live data from ESP32 - only for sensor measurements
+  const fetchSensorData = async () => {
+    try {
+      setLoading(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      const response = await fetch(`${ESP32_IP}/data`, {
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      const newData = {
+        temperature: Number(data.temp ?? 0),
+        turbidity: Number(data.ntu ?? 0),
+        ph: Number(data.ph ?? 0),
+        airTemperature: Number(data.airtemp ?? 0),
+        humidity: Number(data.hum ?? 0),
+      };
+
+      setLiveSensorData(newData);
+      setConnectionError(false);
+      setLastUpdated(new Date().toLocaleTimeString());
+
+      // Auto-fill sensor data from live readings
+      setSensorData({
+        temperature: newData.temperature.toString(),
+        turbidity: newData.turbidity.toString(),
+        pH: newData.ph.toString(),
+      });
+
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        console.warn("Fetch timed out. ESP32 might be slow or offline.");
+      } else {
+        console.error("Error fetching sensor data:", err);
+      }
+      setConnectionError(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const chartConfig = {
-    backgroundColor: "#ffffff",
-    backgroundGradientFrom: "#ffffff",
-    backgroundGradientTo: "#ffffff",
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
-    style: {
-      borderRadius: 16,
-    },
-    propsForLabels: {
-      fontSize: 10,
-      fontWeight: "600",
-    },
-    barPercentage: 0.6,
+  // Generate test ID on component mount
+  useEffect(() => {
+    generateTestId();
+    fetchSensorData();
+
+    // Set up interval to refresh ONLY sensor data
+    const interval = setInterval(() => {
+      fetchSensorData();
+    }, 5000); // update every 5s
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const generateTestId = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const randomNum = Math.floor(Math.random() * 900) + 100;
+    const newTestId = `Test-${year}-${randomNum}`;
+    setTestId(newTestId);
   };
 
-  const handleButtonPress = () => {
-    // Empty function for buttons that should do nothing
-    return;
+  const getTemperatureStatus = (temp: number | string) => {
+    const tempNum = getNumericValue(temp);
+    if (tempNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
+    if (tempNum >= 27 && tempNum <= 32) return { status: "Optimal", color: "#10B981", icon: "check-circle" };
+    if (tempNum >= 25 && tempNum < 27) return { status: "Low", color: "#F59E0B", icon: "alert-circle" };
+    if (tempNum > 32 && tempNum <= 35) return { status: "High", color: "#F59E0B", icon: "alert-circle" };
+    return { status: "Critical", color: "#EF4444", icon: "close-circle" };
   };
+
+  const getTurbidityStatus = (turb: number | string) => {
+    const turbNum = getNumericValue(turb);
+    if (turbNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
+    if (turbNum <= -3500) return { status: "Clear", color: "#10B981", icon: "check-circle" };
+    if (turbNum >= -3500 && turbNum <= 0) return { status: "Moderate", color: "#F59E0B", icon: "alert-circle" };
+    return { status: "Critical", color: "#EF4444", icon: "close-circle" };
+  };
+
+  const getpHStatus = (ph: number | string) => {
+    const phNum = getNumericValue(ph);
+    if (phNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
+    if (phNum >= 6.5 && phNum <= 7.2) return { status: "Optimal", color: "#10B981", icon: "check-circle" };
+    if (phNum >= 6.0 && phNum < 6.5) return { status: "Low", color: "#F59E0B", icon: "alert-circle" };
+    if (phNum > 7.2 && phNum <= 7.5) return { status: "High", color: "#F59E0B", icon: "alert-circle" };
+    return { status: "Critical", color: "#EF4444", icon: "close-circle" };
+  };
+
+  const handleSubmitTest = async () => {
+    // Check if any field is empty
+    if (!sensorData.temperature || !sensorData.turbidity || !sensorData.pH) {
+      Alert.alert(
+        "Incomplete Data",
+        "Please fill in all sensor measurements before submitting.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Validate numeric values
+    const tempNum = getNumericValue(sensorData.temperature);
+    const turbNum = getNumericValue(sensorData.turbidity);
+    const phNum = getNumericValue(sensorData.pH);
+
+    if (tempNum === 0 || turbNum === 0 || phNum === 0) {
+      Alert.alert(
+        "Invalid Data",
+        "Please enter valid numeric values for all measurements.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const request: LatexQualityRequest = {
+        temperature: parseFloat(sensorData.temperature as string),
+        turbidity: parseFloat(sensorData.turbidity as string),
+        pH: parseFloat(sensorData.pH as string),
+        testId: testId,
+        testerName: testerName,
+        testDate: new Date()
+      };
+
+      console.log('Sending request:', request);
+      const result = await latexQualityService.predictQuality(request);
+      console.log('Received result:', result);
+
+      navigation.navigate('LatexQualityResult', {
+        result,
+        testId,
+        testDate,
+        testTime
+      });
+
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      Alert.alert(
+        "Prediction Failed",
+        error.message || "Failed to connect to quality prediction service. Please try again.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoBack = () => {
+    navigation.goBack();
+  };
+
+  const handleResetValues = () => {
+    // Clear all input values
+    setSensorData({
+      temperature: "",
+      turbidity: "",
+      pH: "",
+    });
+    generateTestId(); // Regenerate test ID when resetting
+  };
+
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* HEADER */}
-      <Animated.View entering={FadeInDown.duration(400)}>
-        <LinearGradient
-          colors={[colors.primary, "#1B5E20"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.header}
-        >
-          <View style={styles.headerTitleWrap}>
-            <MaterialCommunityIcons
-              name="test-tube"
-              size={28}
-              color="rgba(255,255,255,0.9)"
-            />
-            <View style={{ marginLeft: 12 }}>
-              <Text style={styles.headerTitle}>Latex Quality Dashboard</Text>
-              <Text style={styles.headerSubtitle}>
-                Real-time monitoring & testing
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.notificationButton} onPress={handleButtonPress}>
-            <Ionicons name="notifications-outline" size={24} color="#FFF" />
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>
-                {alerts.filter(a => a.priority <= 2).length}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </LinearGradient>
-      </Animated.View>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* KEY METRICS GRID */}
-      <Animated.View
-        entering={FadeInDown.delay(100).duration(500)}
-        style={styles.section}
+      {/* Header Section */}
+      <LinearGradient
+        colors={[colors.primary, "#1B5E20"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
       >
-        <Text style={styles.sectionTitle}>Key Metrics</Text>
-        <View style={styles.metricsGrid}>
-          {latexMetrics.map((metric, index) => (
-            <LinearGradient
-              key={index}
-              colors={["#FFFFFF", "#F8FAFC"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.metricCard}
-            >
-              <View
-                style={[
-                  styles.metricIconBox,
-                  { backgroundColor: `${metric.color}15` },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={metric.icon as any}
-                  size={28}
-                  color={metric.color}
-                />
-                {metric.trend !== "stable" && (
-                  <MaterialCommunityIcons
-                    name={`trending-${metric.trend}` as any}
-                    size={16}
-                    color={metric.color}
-                    style={styles.trendIcon}
-                  />
-                )}
-              </View>
-              <Text style={[styles.metricValue, { color: metric.color }]}>
-                {metric.value}
-              </Text>
-              <Text style={styles.metricLabel}>{metric.label}</Text>
-            </LinearGradient>
-          ))}
-        </View>
-      </Animated.View>
-
-      {/* QUALITY TRENDS CHART */}
-      <Animated.View
-        entering={FadeInDown.delay(200).duration(500)}
-        style={[styles.section, styles.trendSection]}
-      >
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quality Trend (Last 7 Days)</Text>
-          <TouchableOpacity onPress={handleButtonPress}>
-            <Text style={styles.seeAllText}>Weekly Report</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.trendContainer}>
-          {/* Chart Header */}
-          <View style={styles.chartHeader}>
-            <View style={styles.chartStats}>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Current</Text>
-                <Text style={styles.statValue}>92%</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Avg</Text>
-                <Text style={styles.statValue}>89%</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Change</Text>
-                <View style={styles.changeIndicator}>
-                  <MaterialCommunityIcons
-                    name="trending-up"
-                    size={14}
-                    color="#10B981"
-                  />
-                  <Text style={[styles.statValue, { color: "#10B981", marginLeft: 4 }]}>
-                    +3.2%
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Chart Area */}
-          <View style={styles.chartArea}>
-            <BarChart
-              data={chartData}
-              width={chartWidth}
-              height={chartHeight + 60}
-              yAxisLabel=""
-              yAxisSuffix="%"
-              chartConfig={chartConfig}
-              verticalLabelRotation={0}
-              fromZero={true}
-              showBarTops={false}
-              withInnerLines={true}
-              segments={4}
-              withCustomBarColorFromData={true}
-              flatColor={true}
-              style={{
-                marginVertical: 4,
-                borderRadius: 16,
-                marginLeft: -12,
-              }}
-            />
-          </View>
-
-          {/* Legend */}
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#10B981' }]} />
-              <Text style={styles.legendText}>Excellent (90-100%)</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#3B82F6' }]} />
-              <Text style={styles.legendText}>Good (70-89%)</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#F59E0B' }]} />
-              <Text style={styles.legendText}>Fair (50-69%)</Text>
-            </View>
-          </View>
-        </View>
-      </Animated.View>
-
-      {/* QUICK ACTIONS - Only these buttons will navigate */}
-      <Animated.View
-        entering={FadeInDown.delay(300).duration(500)}
-        style={styles.section}
-      >
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsGrid}>
-          {quickActions.map((action, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.actionCard}
-              onPress={() => navigation.navigate(action.screen)}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={[`${action.color}20`, `${action.color}10`]}
-                style={styles.actionIconContainer}
-              >
-                <MaterialCommunityIcons
-                  name={action.icon as any}
-                  size={30}
-                  color={action.color}
-                />
-              </LinearGradient>
-              <Text style={styles.actionTitle}>{action.title}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Animated.View>
-
-      {/* RECENT TESTS */}
-      <Animated.View
-        entering={FadeInDown.delay(400).duration(500)}
-        style={styles.section}
-      >
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <MaterialCommunityIcons
-              name="clipboard-list-outline"
-              size={22}
-              color={colors.primary}
-            />
-            <Text style={[styles.sectionTitle, { color: colors.primary, marginLeft: 8 }]}>
-              Recent Tests
-            </Text>
-          </View>
+        <View style={styles.headerRow}>
           <TouchableOpacity
-            style={styles.seeAllButton}
-            onPress={handleButtonPress}
+            style={styles.backButton}
+            onPress={handleGoBack}
+            disabled={isSubmitting}
           >
-            <Text style={styles.seeAllText}>View All</Text>
-            <MaterialIcons
-              name="arrow-forward-ios"
-              size={14}
-              color={colors.primary}
-              style={{ marginLeft: 4 }}
-            />
+            <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <View style={styles.headerIconContainer}>
+              <MaterialCommunityIcons name="test-tube" size={28} color="white" />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Rubber Latex Quality Test</Text>
+              <Text style={styles.headerSubtitle}>Real - Time Sensor Measurements</Text>
+            </View>
+          </View>
+          <View style={styles.headerRightPlaceholder} />
         </View>
+      </LinearGradient>
 
-        <View style={styles.testsContainer}>
-          {recentTests.map((test, i) => {
-            const quality = renderQualityScore(test.score);
-            return (
-              <LinearGradient
-                key={i}
-                colors={[`${test.statusColor}08`, "#FFFFFF"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[
-                  styles.testCard,
-                  { borderLeftColor: test.statusColor, borderLeftWidth: 4 },
-                ]}
-              >
-                <View style={styles.testHeader}>
-                  <View style={styles.testTitleRow}>
-                    <MaterialCommunityIcons
-                      name={test.icon as any}
-                      size={20}
-                      color={test.statusColor}
-                    />
-                    <Text style={styles.testId}>{test.id}</Text>
-                    <View
-                      style={[
-                        styles.resultBadge,
-                        { backgroundColor: `${test.statusColor}15` },
-                      ]}
-                    >
-                      <Text style={[styles.resultText, { color: test.statusColor }]}>
-                        {test.result}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.testTime}>{test.time}</Text>
-                </View>
-
-                <View style={styles.testBody}>
-                  <View style={styles.testScoreRow}>
-                    <Text style={styles.testScore}>{test.score}%</Text>
-                    <Text style={[styles.testQuality, { color: quality.color }]}>
-                      {quality.label} Quality
-                    </Text>
-                  </View>
-
-                  <View style={styles.parametersRow}>
-                    {test.parameters.map((param, idx) => (
-                      <View key={idx} style={styles.parameterChip}>
-                        <Text style={styles.parameterText}>{param}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.testFooter}>
-                  <TouchableOpacity
-                    style={styles.detailsButton}
-                    onPress={handleButtonPress}
-                  >
-                    <Text style={[styles.detailsButtonText, { color: colors.primary }]}>
-                      View Details
-                    </Text>
-                    <MaterialIcons
-                      name="arrow-forward"
-                      size={16}
-                      color={colors.primary}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.retestButton} onPress={handleButtonPress}>
-                    <Text style={styles.retestButtonText}>Retest</Text>
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
-            );
-          })}
-        </View>
-      </Animated.View>
-
-      {/* ACTIVE ALERTS */}
-      <Animated.View
-        entering={FadeInDown.delay(500).duration(500)}
-        style={styles.section}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <MaterialCommunityIcons
-              name="alert-octagon-outline"
-              size={22}
-              color="#EF4444"
+        {/* Live Data Connection Status */}
+        {connectionError && (
+          <Animated.View entering={FadeInUp.duration(500)} style={styles.errorContainer}>
+            <MaterialCommunityIcons name="wifi-off" size={24} color="#EF4444" />
+            <Text style={styles.errorText}>
+              Cannot connect to ESP32. Using manual input mode.
+            </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={fetchSensorData}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        {liveSensorData && !connectionError && (
+          <Animated.View entering={FadeInUp.duration(500)} style={styles.liveDataContainer}>
+            <View style={styles.liveDataHeader}>
+              <MaterialCommunityIcons name="access-point" size={20} color="#10B981" />
+              <Text style={styles.liveDataTitle}>Live Sensor Readings</Text>
+              {lastUpdated ? (
+                <Text style={styles.lastUpdated}>Updated: {lastUpdated}</Text>
+              ) : null}
+            </View>
+            <View style={styles.liveDataGrid}>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>Temperature</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.temperature.toFixed(1)}°C</Text>
+              </View>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>Turbidity</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.turbidity.toFixed(0)} NTU</Text>
+              </View>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>pH Level</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.ph.toFixed(1)}</Text>
+              </View>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>Air Temp</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.airTemperature.toFixed(1)}°C</Text>
+              </View>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>Humidity</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.humidity.toFixed(0)}%</Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Test Information Section - STATIC (no refresh) */}
+        <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="clipboard-text" size={24} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Test Information</Text>
+          </View>
+          <View style={styles.infoGrid}>
+            <InfoCard
+              icon="calendar"
+              title="Test Date"
+              value={testDate}
+              color="#3B82F6"
             />
-            <Text style={[styles.sectionTitle, { color: "#EF4444" }]}>
-              Active Alerts
-            </Text>
-          </View>
-          <View style={styles.alertCountBadge}>
-            <Text style={styles.alertCountText}>
-              {alerts.length} Active
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.alertsContainer}>
-          {alerts.map((alert, i) => (
-            <LinearGradient
-              key={i}
-              colors={[`${alert.color}08`, "#FFFFFF"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[
-                styles.alertCard,
-                { borderLeftColor: alert.color, borderLeftWidth: 4 },
-              ]}
-            >
-              <View style={styles.alertHeader}>
-                <View style={styles.alertTitleRow}>
-                  <MaterialCommunityIcons
-                    name={alert.icon as any}
-                    size={20}
-                    color={alert.color}
-                  />
-                  <Text style={styles.alertId}>{alert.id}</Text>
-                  <View
-                    style={[
-                      styles.urgencyBadge,
-                      { backgroundColor: `${alert.color}15` },
-                    ]}
-                  >
-                    <Text style={[styles.urgencyText, { color: alert.color }]}>
-                      {alert.urgency}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.alertTime}>{alert.time}</Text>
-              </View>
-
-              <Text style={styles.alertMessage}>{alert.message}</Text>
-
-              <View style={styles.alertFooter}>
-                <TouchableOpacity style={styles.actionButton} onPress={handleButtonPress}>
-                  <Text style={[styles.actionButtonText, { color: alert.color }]}>
-                    Take Action
-                  </Text>
-                  <MaterialIcons
-                    name="arrow-forward"
-                    size={16}
-                    color={alert.color}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.dismissButton} onPress={handleButtonPress}>
-                  <Text style={styles.dismissButtonText}>Dismiss</Text>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          ))}
-        </View>
-      </Animated.View>
-
-      {/* RECOMMENDED ACTIONS */}
-      <Animated.View
-        entering={FadeInDown.delay(600).duration(500)}
-        style={styles.section}
-      >
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <MaterialCommunityIcons
-              name="lightbulb-on-outline"
-              size={22}
+            <InfoCard
+              icon="clock-outline"
+              title="Test Time"
+              value={testTime}
               color="#8B5CF6"
             />
-            <Text style={[styles.sectionTitle, { color: "#8B5CF6" }]}>
-              Recommended Actions
-            </Text>
           </View>
-        </View>
-        <View style={styles.recommendationsContainer}>
-          {recommendedActions.map((action, i) => (
-            <View key={i} style={styles.recommendationCard}>
-              <View style={styles.recommendationIconContainer}>
-                <MaterialCommunityIcons
-                  name={action.icon as any}
-                  size={24}
-                  color="#8B5CF6"
-                />
+        </Animated.View>
+
+        {/* Tester Information Section - STATIC (no refresh) */}
+        <Animated.View entering={FadeInUp.delay(400).duration(500)} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="account-circle" size={24} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Tester Information</Text>
+          </View>
+          <View style={styles.infoGrid}>
+            <InfoCard
+              icon="identifier"
+              title="Test ID"
+              value={testId || "Generating..."}
+              color="#10B981"
+            />
+            <InfoCard
+              icon="account-circle"
+              title="Tester Name"
+              value={testerName}
+              color="#3B82F6"
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.regenerateButton}
+            onPress={generateTestId}
+            disabled={isSubmitting}
+          >
+            <MaterialCommunityIcons name="refresh" size={18} color="#64748B" />
+            <Text style={styles.regenerateButtonText}>Regenerate Test ID</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Sensor Inputs Section - REFRESHES EVERY 5 SECONDS */}
+        <Animated.View entering={FadeInUp.delay(600).duration(500)} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="chip" size={24} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Sensor Measurements</Text>
+            {!connectionError && liveSensorData && (
+              <View style={styles.liveIndicator}>
+                <MaterialCommunityIcons name="sync" size={16} color="#10B981" />
+                <Text style={styles.liveIndicatorText}>Live</Text>
               </View>
-              <View style={styles.recommendationContent}>
-                <View style={styles.recommendationHeader}>
-                  <Text style={styles.recommendationTitle}>{action.title}</Text>
-                  <View
-                    style={[
-                      styles.priorityBadge,
-                      {
-                        backgroundColor:
-                          action.priority === "high"
-                            ? "#EF4444"
-                            : action.priority === "medium"
-                              ? "#F59E0B"
-                              : "#10B981",
-                      },
-                    ]}
-                  >
-                    <Text style={styles.priorityText}>
-                      {action.priority.charAt(0).toUpperCase() +
-                        action.priority.slice(1)}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.recommendationDescription}>
-                  {action.description}
+            )}
+          </View>
+
+          <View style={[styles.sensorContainer, styles.leftBorderContainer]}>
+            <View style={styles.borderAccent} />
+
+            {/* Temperature Input */}
+            <InputField
+              label="Temperature"
+              value={sensorData.temperature}
+              onChangeText={(text: string) => {
+                if (text === "") {
+                  setSensorData(prev => ({ ...prev, temperature: "" }));
+                  return;
+                }
+                const decimalRegex = /^\d*\.?\d*$/;
+                if (decimalRegex.test(text)) {
+                  setSensorData(prev => ({ ...prev, temperature: text }));
+                }
+              }}
+              icon="thermometer"
+              unit="°C"
+              status={getTemperatureStatus(sensorData.temperature)}
+              optimalRange="Optimal Range: (27-32)°C"
+              placeholder={`e.g., ${sampleValues.temperature}`}
+              editable={!isSubmitting}
+              isSubmitting={isSubmitting}
+            />
+
+            {/* Turbidity Input */}
+            <InputField
+              label="Turbidity"
+              value={sensorData.turbidity}
+              onChangeText={(text: string) => {
+                if (text === "") {
+                  setSensorData(prev => ({ ...prev, turbidity: "" }));
+                  return;
+                }
+                const decimalRegex = /^-?\d*\.?\d*$/;
+                if (decimalRegex.test(text)) {
+                  setSensorData(prev => ({ ...prev, turbidity: text }));
+                }
+              }}
+              icon="water-opacity"
+              unit="NTU"
+              status={getTurbidityStatus(sensorData.turbidity)}
+              optimalRange="Optimal Range: ≤(-3500)NTU"
+              placeholder={`e.g., ${sampleValues.turbidity}`}
+              editable={!isSubmitting}
+              isSubmitting={isSubmitting}
+            />
+
+            {/* pH Level Input */}
+            <InputField
+              label="pH Level"
+              value={sensorData.pH}
+              onChangeText={(text: string) => {
+                if (text === "") {
+                  setSensorData(prev => ({ ...prev, pH: "" }));
+                  return;
+                }
+                const decimalRegex = /^\d*\.?\d*$/;
+                if (decimalRegex.test(text)) {
+                  setSensorData(prev => ({ ...prev, pH: text }));
+                }
+              }}
+              icon="ph"
+              unit="pH"
+              status={getpHStatus(sensorData.pH)}
+              optimalRange="Optimal Range: (6.5-7.2)pH"
+              placeholder={`e.g., ${sampleValues.pH}`}
+              editable={!isSubmitting}
+              isSubmitting={isSubmitting}
+            />
+          </View>
+
+          {/* Quality Assessment Summary */}
+          <View style={[styles.assessmentCard, styles.leftBorderContainer]}>
+            <View style={styles.borderAccent} />
+            <View style={styles.assessmentHeader}>
+              <MaterialCommunityIcons name="chart-line" size={24} color="#1E293B" />
+              <Text style={styles.assessmentTitle}>Quality Assessment</Text>
+            </View>
+            <View style={styles.assessmentGrid}>
+              <View style={styles.assessmentItem}>
+                <MaterialCommunityIcons
+                  name={getTemperatureStatus(sensorData.temperature).icon as any}
+                  size={20}
+                  color={getTemperatureStatus(sensorData.temperature).color}
+                />
+                <Text style={styles.assessmentLabel}>Temperature</Text>
+                <Text style={styles.assessmentRange}>(27-32)°C</Text>
+                <Text
+                  style={[
+                    styles.assessmentValue,
+                    { color: getTemperatureStatus(sensorData.temperature).color }
+                  ]}
+                >
+                  {getTemperatureStatus(sensorData.temperature).status}
                 </Text>
-                <TouchableOpacity style={styles.applyButton} onPress={handleButtonPress}>
-                  <Text style={styles.applyButtonText}>Apply</Text>
-                </TouchableOpacity>
+              </View>
+              <View style={styles.assessmentItem}>
+                <MaterialCommunityIcons
+                  name={getTurbidityStatus(sensorData.turbidity).icon as any}
+                  size={20}
+                  color={getTurbidityStatus(sensorData.turbidity).color}
+                />
+                <Text style={styles.assessmentLabel}>Turbidity</Text>
+                <Text style={styles.assessmentRange}>≤(-3500)NTU</Text>
+                <Text
+                  style={[
+                    styles.assessmentValue,
+                    { color: getTurbidityStatus(sensorData.turbidity).color }
+                  ]}
+                >
+                  {getTurbidityStatus(sensorData.turbidity).status}
+                </Text>
+              </View>
+              <View style={styles.assessmentItem}>
+                <MaterialCommunityIcons
+                  name={getpHStatus(sensorData.pH).icon as any}
+                  size={20}
+                  color={getpHStatus(sensorData.pH).color}
+                />
+                <Text style={styles.assessmentLabel}>pH Level</Text>
+                <Text style={styles.assessmentRange}>(6.5-7.2)pH</Text>
+                <Text
+                  style={[
+                    styles.assessmentValue,
+                    { color: getpHStatus(sensorData.pH).color }
+                  ]}
+                >
+                  {getpHStatus(sensorData.pH).status}
+                </Text>
               </View>
             </View>
-          ))}
-        </View>
-      </Animated.View>
+          </View>
+        </Animated.View>
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+        {/* Action Buttons */}
+        <Animated.View entering={FadeInUp.delay(800).duration(500)} style={styles.actionSection}>
+          <TouchableOpacity
+            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+            onPress={handleSubmitTest}
+            disabled={isSubmitting}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={isSubmitting ? ["#9CA3AF", "#6B7280"] : ["#10B981", "#059669"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.submitButtonGradient}
+            >
+              {isSubmitting ? (
+                <>
+                  <MaterialCommunityIcons name="loading" size={24} color="white" />
+                  <Text style={styles.submitButtonText}>Processing...</Text>
+                </>
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="check-circle" size={24} color="white" />
+                  <Text style={styles.submitButtonText}>Launch Quality Test</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={handleResetValues}
+            disabled={isSubmitting}
+          >
+            <MaterialCommunityIcons name="refresh" size={20} color="#64748B" />
+            <Text style={styles.secondaryButtonText}>Reset All Values</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </SafeAreaView>
   );
-}
+};
+
+const InputField = ({
+  label,
+  value,
+  onChangeText,
+  icon,
+  unit,
+  status,
+  optimalRange,
+  placeholder,
+  editable = true,
+  isSubmitting = false,
+}: any) => (
+  <Animated.View entering={FadeInDown.duration(500)} style={styles.inputFieldContainer}>
+    <View style={styles.inputHeader}>
+      <View style={styles.inputIconContainer}>
+        <MaterialCommunityIcons name={icon} size={24} color={colors.primary} />
+      </View>
+      <View style={styles.inputLabelContainer}>
+        <Text style={styles.inputLabel}>{label}</Text>
+        <Text style={styles.optimalRange}>{optimalRange}</Text>
+      </View>
+      {status && (
+        <View style={[styles.statusBadge, { backgroundColor: `${status.color}15` }]}>
+          <MaterialCommunityIcons name={status.icon as any} size={16} color={status.color} />
+          <Text style={[styles.statusText, { color: status.color }]}>
+            {status.status}
+          </Text>
+        </View>
+      )}
+    </View>
+    <View style={styles.inputWrapper}>
+      <TextInput
+        style={[styles.input, !value && styles.placeholderInput]}
+        value={value ? value.toString() : ""}
+        onChangeText={onChangeText}
+        keyboardType="decimal-pad"
+        placeholder={placeholder}
+        placeholderTextColor="#94A3B8"
+        editable={editable && !isSubmitting}
+        selectTextOnFocus={editable}
+      />
+      <Text style={styles.unitText}>{unit}</Text>
+    </View>
+  </Animated.View>
+);
+
+const InfoCard = ({ icon, title, value, color }: any) => (
+  <Animated.View entering={ZoomIn.duration(500)} style={styles.infoCard}>
+    <View style={[styles.infoCardIconContainer, { backgroundColor: `${color}15` }]}>
+      <MaterialCommunityIcons name={icon} size={20} color={color} />
+    </View>
+    <View style={styles.infoCardContent}>
+      <Text style={styles.infoCardTitle}>{title}</Text>
+      <Text style={styles.infoCardValue}>{value}</Text>
+    </View>
+  </Animated.View>
+);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#F8FAFC",
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 24,
-    paddingTop: 50,
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 50,
     paddingBottom: 20,
+    paddingHorizontal: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    marginBottom: 10,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  headerTitleWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: -10,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 0.3,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    color: "rgba(255,255,255,0.8)",
-    marginTop: 1,
-    fontWeight: "500",
-  },
-  notificationButton: {
-    position: "relative",
-    padding: 8,
-  },
-  notificationBadge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    backgroundColor: "#EF4444",
-    borderRadius: 10,
-    width: 18,
-    height: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  notificationBadgeText: {
-    color: "#FFF",
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  section: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
-  },
-  trendSection: {
-    paddingHorizontal: 16, // Wider container
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  sectionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.primary,
-  },
-  seeAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  metricsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginTop: 15,
-  },
-  metricCard: {
-    width: CARD_WIDTH,
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
   },
-  metricIconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 56,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
+    marginLeft: -10,
   },
-  trendIcon: {
-    position: "absolute",
-    bottom: -4,
-    right: -4,
-    backgroundColor: "#FFF",
-    borderRadius: 8,
-    padding: 2,
-  },
-  metricValue: {
-    fontSize: 28,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-  metricLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#4B5563",
-    opacity: 0.9,
-    marginTop: 4,
-  },
-  // Enhanced Trend Chart Styles
-  trendContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  chartHeader: {
-    marginBottom: 20,
-  },
-  chartStats: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statItem: {
+  headerCenter: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 36,
+  },
+  headerIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  headerTextContainer: {
     alignItems: "center",
   },
-  statLabel: {
-    fontSize: 12,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "white",
+    letterSpacing: -0.5,
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.9)",
+    fontWeight: "500",
+  },
+  headerRightPlaceholder: {
+    width: 44,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  errorContainer: {
+    backgroundColor: "#FEF2F2",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  errorText: {
+    flex: 1,
+    marginLeft: 12,
+    color: "#991B1B",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  retryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#EF4444",
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "white",
     fontWeight: "600",
-    color: "#6B7280",
+    fontSize: 12,
+  },
+  liveDataContainer: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  liveDataHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    flexWrap: "wrap",
+  },
+  liveDataTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginLeft: 8,
+    marginRight: 12,
+  },
+  lastUpdated: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  liveDataGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  liveDataItem: {
+    flex: 1,
+    minWidth: (width - 72) / 3,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+  },
+  liveDataLabel: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
     marginBottom: 4,
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: "#E5E7EB",
-  },
-  changeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  yAxisLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#6B7280",
-    textAlign: "right",
-  },
-  chartWrapper: {
-    flex: 1,
-    position: "relative",
-  },
-  chartArea: {
-    alignItems: "center",
-    justifyContent: "center",
-    height: chartHeight + 80,
-  },
-  grid_line_removed: {},
-  xAxis_removed: {},
-  legend: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 20,
-    gap: 16,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  legendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 6,
-  },
-  legendText: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  // Quick Actions
-  actionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginTop: 15,
-  },
-  actionCard: {
-    width: CARD_WIDTH,
-    backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 18,
-    marginBottom: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  actionIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 15,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  actionTitle: {
-    fontSize: 14,
+  liveDataValue: {
+    fontSize: 16,
     fontWeight: "700",
-    color: "#1F2937",
-    marginTop: 12,
-    textAlign: "center",
+    color: "#1E293B",
   },
-  // Recent Tests
-  testsContainer: {
-    gap: 12,
+  section: {
+    marginBottom: 28,
   },
-  testCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  testHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  testTitleRow: {
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
-  },
-  testId: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#6B7280",
-    marginLeft: 8,
-    marginRight: 12,
-  },
-  resultBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  resultText: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-  testTime: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    fontWeight: "500",
-  },
-  testBody: {
     marginBottom: 16,
   },
-  testScoreRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: 12,
-  },
-  testScore: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#111827",
-    marginRight: 12,
-  },
-  testQuality: {
-    fontSize: 15,
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: "700",
+    color: "#1E293B",
+    marginLeft: 12,
   },
-  parametersRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  parameterChip: {
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  parameterText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#4B5563",
-  },
-  testFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  detailsButton: {
+  liveIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-  },
-  detailsButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginRight: 4,
-  },
-  retestButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-  },
-  retestButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
-  // Alert Styles
-  alertsContainer: {
-    gap: 12,
-  },
-  alertCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  alertHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  alertTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  alertId: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#6B7280",
-    marginLeft: 8,
-    marginRight: 12,
-  },
-  urgencyBadge: {
-    paddingHorizontal: 10,
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    marginLeft: 12,
   },
-  urgencyText: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-  alertTime: {
+  liveIndicatorText: {
     fontSize: 12,
-    color: "#9CA3AF",
-    fontWeight: "500",
-  },
-  alertMessage: {
-    fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
-    marginBottom: 16,
-    lineHeight: 22,
+    color: "#065F46",
+    marginLeft: 4,
   },
-  alertFooter: {
+  infoGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginRight: 4,
-  },
-  dismissButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  dismissButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
-  alertCountBadge: {
-    backgroundColor: "#FEF2F2",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  alertCountText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#EF4444",
-  },
-  recommendationsContainer: {
     gap: 12,
   },
-  recommendationCard: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
+  infoCard: {
+    flex: 1,
+    backgroundColor: "white",
     borderRadius: 16,
     padding: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 4,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#F1F5F9",
   },
-  recommendationIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#F5F3FF",
+  infoCardIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginBottom: 12,
   },
-  recommendationContent: {
+  infoCardContent: {
     flex: 1,
   },
-  recommendationHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
+  infoCardTitle: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
+    marginBottom: 4,
   },
-  recommendationTitle: {
+  infoCardValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  regenerateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    backgroundColor: "white",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginTop: 16,
+    alignSelf: "flex-start",
+  },
+  regenerateButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#475569",
+    marginLeft: 8,
+  },
+  leftBorderContainer: {
+    position: "relative",
+    overflow: "hidden",
+  },
+  borderAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: colors.primary,
+    borderTopRightRadius: 2,
+    borderBottomRightRadius: 2,
+  },
+  sensorContainer: {
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    paddingLeft: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  inputFieldContainer: {
+    marginBottom: 20,
+  },
+  inputHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  inputIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#F0F9FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  inputLabelContainer: {
+    flex: 1,
+  },
+  inputLabel: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#111827",
+    color: "#1E293B",
+    marginBottom: 2,
   },
-  priorityBadge: {
+  optimalRange: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
+    gap: 6,
   },
-  priorityText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#FFFFFF",
-  },
-  recommendationDescription: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  applyButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#8B5CF6",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  applyButtonText: {
-    fontSize: 14,
+  statusText: {
+    fontSize: 12,
     fontWeight: "700",
-    color: "#FFFFFF",
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  input: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1E293B",
+    paddingVertical: 16,
+  },
+  placeholderInput: {
+    color: "#94A3B8",
+    fontWeight: "500",
+  },
+  unitText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#64748B",
+    marginLeft: 8,
+    minWidth: 40,
+  },
+  assessmentCard: {
+    marginTop: 24,
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    paddingLeft: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  assessmentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  assessmentTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginLeft: 12,
+  },
+  assessmentGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 6,
+    width: 285
+  },
+  assessmentItem: {
+    flex: 1,
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  assessmentLabel: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  assessmentRange: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  assessmentValue: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  actionSection: {
+    marginTop: 8,
+  },
+  submitButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+    marginBottom: 16,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  submitButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    borderRadius: 16,
+  },
+  submitButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "700",
+    marginLeft: 12,
+  },
+  secondaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    backgroundColor: "white",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#475569",
+    marginLeft: 8,
   },
 });
+
+export default LiveSensorScreen;
