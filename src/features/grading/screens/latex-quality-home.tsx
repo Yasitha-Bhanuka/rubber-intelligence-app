@@ -39,7 +39,7 @@ const latexMetrics = [
   },
   {
     label: "Turbidity",
-    value: "15 NTU",
+    value: "-4300 NTU",
     icon: "water-opacity",
     color: colors.secondary,
     trend: "down",
@@ -55,25 +55,25 @@ const latexMetrics = [
 
 const quickActions = [
   {
-    title: "Start Test",
+    title: "Quality Test",
     icon: "flask-outline",
     color: colors.primary,
     screen: "LatexTest",
   },
   {
-    title: "View History",
+    title: "Latex Process Guide",
     icon: "history",
     color: colors.success,
-    screen: "SampleLogbook",
+    screen: "ViewHistory",
   },
   {
-    title: "Sensor Status",
+    title: "Latex Quality Guide",
     icon: "gauge",
     color: colors.secondary,
     screen: "SensorStatus",
   },
   {
-    title: "Reports",
+    title: "Latex Quality Reports",
     icon: "file-document-outline",
     color: colors.primary,
     screen: "ReportsDashboard",
