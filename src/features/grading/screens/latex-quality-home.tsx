@@ -13,12 +13,13 @@ import {
   MaterialCommunityIcons,
   MaterialIcons,
 } from "@expo/vector-icons";
+import { BarChart } from "react-native-chart-kit";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../../../shared/styles/colors";
 
 const { width } = Dimensions.get("window");
-const CARD_WIDTH = (width - 72) / 2; // Adjusted for two cards per row
+const CARD_WIDTH = (width - 72) / 2;
 
 // --- Data for Latex Quality Home Screen ---
 const latexMetrics = [
@@ -27,24 +28,28 @@ const latexMetrics = [
     value: "28.5°C",
     icon: "thermometer",
     color: colors.success,
+    trend: "stable",
   },
   {
     label: "pH Level",
     value: "6.8",
-    icon: "ph",
+    icon: "test-tube",
     color: colors.primary,
+    trend: "up",
   },
   {
     label: "Turbidity",
     value: "15 NTU",
     icon: "water-opacity",
     color: colors.secondary,
+    trend: "down",
   },
   {
     label: "Quality Score",
     value: "92%",
     icon: "star-outline",
     color: colors.success,
+    trend: "stable",
   },
 ];
 
@@ -59,7 +64,7 @@ const quickActions = [
     title: "View History",
     icon: "history",
     color: colors.success,
-    screen: "LatexHistory",
+    screen: "SampleLogbook",
   },
   {
     title: "Sensor Status",
@@ -71,46 +76,200 @@ const quickActions = [
     title: "Reports",
     icon: "file-document-outline",
     color: colors.primary,
-    screen: "LatexReports",
+    screen: "ReportsDashboard",
   },
 ];
 
+// Enhanced Recent Tests with more data
 const recentTests = [
   {
-    id: "TEST-2026-001",
+    id: "LTX-2026-001",
     result: "Pass",
-    quality: "High",
+    quality: "Excellent",
+    score: 95,
     statusColor: "#10B981",
+    icon: "check-circle",
+    time: "2 hours ago",
+    parameters: ["pH: 6.8", "Temp: 28°C", "Turb: -4300 NTU"],
   },
   {
-    id: "TEST-2026-002",
+    id: "LTX-2026-002",
     result: "Warning",
-    quality: "Medium",
+    quality: "Good",
+    score: 78,
     statusColor: "#F59E0B",
+    icon: "alert-circle",
+    time: "5 hours ago",
+    parameters: ["pH: 7.2", "Temp: 29°C", "Turb: -3900 NTU"],
   },
   {
-    id: "TEST-2026-003",
+    id: "LTX-2026-003",
     result: "Fail",
-    quality: "Low",
+    quality: "Poor",
+    score: 42,
     statusColor: "#EF4444",
+    icon: "close-circle",
+    time: "1 day ago",
+    parameters: ["pH: 8.1", "Temp: 31°C", "Turb: 1400 NTU"],
+  },
+  {
+    id: "LTX-2026-004",
+    result: "Pass",
+    quality: "Excellent",
+    score: 94,
+    statusColor: "#10B981",
+    icon: "check-circle",
+    time: "2 days ago",
+    parameters: ["pH: 6.7", "Temp: 27°C", "Turb: -4250 NTU"],
+  },
+  {
+    id: "LTX-2026-005",
+    result: "Pass",
+    quality: "Good",
+    score: 81,
+    statusColor: "#10B981",
+    icon: "check-circle",
+    time: "3 days ago",
+    parameters: ["pH: 7.0", "Temp: 28°C", "Turb: -3950 NTU"],
   },
 ];
 
+// Enhanced Alerts with more data
 const alerts = [
   {
-    message: "Temperature approaching upper limit",
-    urgency: "Medium",
-    color: "#F59E0B",
+    id: "ALT-001",
+    message: "Temperature approaching upper limit (29.5°C)",
+    urgency: "High",
+    color: "#EF4444",
+    icon: "thermometer-alert",
+    time: "15 min ago",
+    priority: 1,
   },
   {
-    message: "pH sensor calibration due",
+    id: "ALT-002",
+    message: "pH sensor calibration due tomorrow",
+    urgency: "Medium",
+    color: "#F59E0B",
+    icon: "alert-circle",
+    time: "2 hours ago",
+    priority: 2,
+  },
+  {
+    id: "ALT-003",
+    message: "Turbidity levels above normal range",
+    urgency: "Medium",
+    color: "#F59E0B",
+    icon: "water-alert",
+    time: "4 hours ago",
+    priority: 2,
+  },
+  {
+    id: "ALT-004",
+    message: "Test kit stock running low (15 remaining)",
     urgency: "Low",
     color: "#3498DB",
+    icon: "package-variant",
+    time: "1 day ago",
+    priority: 3,
+  },
+  {
+    id: "ALT-005",
+    message: "System backup scheduled for tonight",
+    urgency: "Info",
+    color: "#6366F1",
+    icon: "backup-restore",
+    time: "2 days ago",
+    priority: 4,
+  },
+];
+
+// Enhanced Quality Trends data with time labels
+const qualityTrends = [
+  { day: "Mon", score: 85, time: "10:00 AM" },
+  { day: "Tue", score: 88, time: "11:30 AM" },
+  { day: "Wed", score: 90, time: "09:45 AM" },
+  { day: "Thu", score: 92, time: "02:15 PM" },
+  { day: "Fri", score: 91, time: "10:30 AM" },
+  { day: "Sat", score: 89, time: "03:00 PM" },
+  { day: "Sun", score: 92, time: "11:00 AM" },
+];
+
+// Find min and max scores for chart scaling
+const trendScores = qualityTrends.map(item => item.score);
+const maxScore = Math.max(...trendScores);
+const minScore = Math.min(...trendScores);
+const chartHeight = 120;
+const chartWidth = width - 48; // Increased width
+
+const recommendedActions = [
+  {
+    title: "Adjust pH",
+    description: "Add pH stabilizer to maintain 6.5-7.0 range",
+    icon: "calculator",
+    priority: "high",
+  },
+  {
+    title: "Cool System",
+    description: "Reduce temperature by 2°C for optimal quality",
+    icon: "snowflake",
+    priority: "medium",
+  },
+  {
+    title: "Clean Sensors",
+    description: "Schedule maintenance for turbidity sensors",
+    icon: "brush",
+    priority: "medium",
   },
 ];
 
 export default function LatexQualityHomeScreen() {
   const navigation = useNavigation<any>();
+
+  const renderQualityScore = (score: number) => {
+    if (score >= 90) return { label: "Excellent", color: "#10B981" };
+    if (score >= 70) return { label: "Good", color: "#3B82F6" };
+    if (score >= 50) return { label: "Fair", color: "#F59E0B" };
+    return { label: "Poor", color: "#EF4444" };
+  };
+
+  // Data for the Bar Chart
+  const chartData = {
+    labels: qualityTrends.map(t => t.day),
+    datasets: [
+      {
+        data: qualityTrends.map(t => t.score),
+        colors: qualityTrends.map(t => (opacity = 1) => {
+          if (t.score >= 90) return `rgba(16, 185, 129, ${opacity})`; // Excellent - Green
+          if (t.score >= 70) return `rgba(59, 130, 246, ${opacity})`; // Good - Blue
+          if (t.score >= 50) return `rgba(245, 158, 11, ${opacity})`; // Fair - Orange
+          return `rgba(239, 68, 68, ${opacity})`; // Poor - Red
+        }),
+      },
+    ],
+  };
+
+  const chartConfig = {
+    backgroundColor: "#ffffff",
+    backgroundGradientFrom: "#ffffff",
+    backgroundGradientTo: "#ffffff",
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
+    style: {
+      borderRadius: 16,
+    },
+    propsForLabels: {
+      fontSize: 10,
+      fontWeight: "600",
+    },
+    barPercentage: 0.6,
+  };
+
+  const handleButtonPress = () => {
+    // Empty function for buttons that should do nothing
+    return;
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* HEADER */}
@@ -122,12 +281,26 @@ export default function LatexQualityHomeScreen() {
           style={styles.header}
         >
           <View style={styles.headerTitleWrap}>
-            <MaterialCommunityIcons name="test-tube" size={28} color="rgba(255,255,255,0.9)" />
+            <MaterialCommunityIcons
+              name="test-tube"
+              size={28}
+              color="rgba(255,255,255,0.9)"
+            />
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.headerTitle}>Latex Quality Dashboard</Text>
-              <Text style={styles.headerSubtitle}>Real-time monitoring & testing</Text>
+              <Text style={styles.headerSubtitle}>
+                Real-time monitoring & testing
+              </Text>
             </View>
           </View>
+          <TouchableOpacity style={styles.notificationButton} onPress={handleButtonPress}>
+            <Ionicons name="notifications-outline" size={24} color="#FFF" />
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>
+                {alerts.filter(a => a.priority <= 2).length}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </LinearGradient>
       </Animated.View>
 
@@ -141,29 +314,124 @@ export default function LatexQualityHomeScreen() {
           {latexMetrics.map((metric, index) => (
             <LinearGradient
               key={index}
-              colors={['#FFFFFF', '#FFFFFF']}
+              colors={["#FFFFFF", "#F8FAFC"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.metricCard}
             >
-              <View style={[styles.metricIconBox, { backgroundColor: `${metric.color}20` }]}>
+              <View
+                style={[
+                  styles.metricIconBox,
+                  { backgroundColor: `${metric.color}15` },
+                ]}
+              >
                 <MaterialCommunityIcons
                   name={metric.icon as any}
                   size={28}
                   color={metric.color}
                 />
+                {metric.trend !== "stable" && (
+                  <MaterialCommunityIcons
+                    name={`trending-${metric.trend}` as any}
+                    size={16}
+                    color={metric.color}
+                    style={styles.trendIcon}
+                  />
+                )}
               </View>
-              <Text style={[styles.metricValue, { color: metric.color }]}>{metric.value}</Text>
+              <Text style={[styles.metricValue, { color: metric.color }]}>
+                {metric.value}
+              </Text>
               <Text style={styles.metricLabel}>{metric.label}</Text>
             </LinearGradient>
           ))}
         </View>
       </Animated.View>
 
-      {/* HORIZONTAL RULE */}
-      <View style={styles.horizontalRule} />
+      {/* QUALITY TRENDS CHART */}
+      <Animated.View
+        entering={FadeInDown.delay(200).duration(500)}
+        style={[styles.section, styles.trendSection]}
+      >
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Quality Trend (Last 7 Days)</Text>
+          <TouchableOpacity onPress={handleButtonPress}>
+            <Text style={styles.seeAllText}>Weekly Report</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.trendContainer}>
+          {/* Chart Header */}
+          <View style={styles.chartHeader}>
+            <View style={styles.chartStats}>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Current</Text>
+                <Text style={styles.statValue}>92%</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Avg</Text>
+                <Text style={styles.statValue}>89%</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Change</Text>
+                <View style={styles.changeIndicator}>
+                  <MaterialCommunityIcons
+                    name="trending-up"
+                    size={14}
+                    color="#10B981"
+                  />
+                  <Text style={[styles.statValue, { color: "#10B981", marginLeft: 4 }]}>
+                    +3.2%
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
 
-      {/* QUICK ACTIONS */}
+          {/* Chart Area */}
+          <View style={styles.chartArea}>
+            <BarChart
+              data={chartData}
+              width={chartWidth}
+              height={chartHeight + 60}
+              yAxisLabel=""
+              yAxisSuffix="%"
+              chartConfig={chartConfig}
+              verticalLabelRotation={0}
+              fromZero={true}
+              showBarTops={false}
+              withInnerLines={true}
+              segments={4}
+              withCustomBarColorFromData={true}
+              flatColor={true}
+              style={{
+                marginVertical: 4,
+                borderRadius: 16,
+                marginLeft: -12,
+              }}
+            />
+          </View>
+
+          {/* Legend */}
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#10B981' }]} />
+              <Text style={styles.legendText}>Excellent (90-100%)</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#3B82F6' }]} />
+              <Text style={styles.legendText}>Good (70-89%)</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#F59E0B' }]} />
+              <Text style={styles.legendText}>Fair (50-69%)</Text>
+            </View>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* QUICK ACTIONS - Only these buttons will navigate */}
       <Animated.View
         entering={FadeInDown.delay(300).duration(500)}
         style={styles.section}
@@ -177,104 +445,263 @@ export default function LatexQualityHomeScreen() {
               onPress={() => navigation.navigate(action.screen)}
               activeOpacity={0.8}
             >
-              <MaterialCommunityIcons
-                name={action.icon as any}
-                size={30}
-                color={action.color}
-              />
+              <LinearGradient
+                colors={[`${action.color}20`, `${action.color}10`]}
+                style={styles.actionIconContainer}
+              >
+                <MaterialCommunityIcons
+                  name={action.icon as any}
+                  size={30}
+                  color={action.color}
+                />
+              </LinearGradient>
               <Text style={styles.actionTitle}>{action.title}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </Animated.View>
 
-      {/* HORIZONTAL RULE */}
-      <View style={styles.horizontalRule} />
-
       {/* RECENT TESTS */}
+      <Animated.View
+        entering={FadeInDown.delay(400).duration(500)}
+        style={styles.section}
+      >
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <MaterialCommunityIcons
+              name="clipboard-list-outline"
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={[styles.sectionTitle, { color: colors.primary, marginLeft: 8 }]}>
+              Recent Tests
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.seeAllButton}
+            onPress={handleButtonPress}
+          >
+            <Text style={styles.seeAllText}>View All</Text>
+            <MaterialIcons
+              name="arrow-forward-ios"
+              size={14}
+              color={colors.primary}
+              style={{ marginLeft: 4 }}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.testsContainer}>
+          {recentTests.map((test, i) => {
+            const quality = renderQualityScore(test.score);
+            return (
+              <LinearGradient
+                key={i}
+                colors={[`${test.statusColor}08`, "#FFFFFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.testCard,
+                  { borderLeftColor: test.statusColor, borderLeftWidth: 4 },
+                ]}
+              >
+                <View style={styles.testHeader}>
+                  <View style={styles.testTitleRow}>
+                    <MaterialCommunityIcons
+                      name={test.icon as any}
+                      size={20}
+                      color={test.statusColor}
+                    />
+                    <Text style={styles.testId}>{test.id}</Text>
+                    <View
+                      style={[
+                        styles.resultBadge,
+                        { backgroundColor: `${test.statusColor}15` },
+                      ]}
+                    >
+                      <Text style={[styles.resultText, { color: test.statusColor }]}>
+                        {test.result}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.testTime}>{test.time}</Text>
+                </View>
+
+                <View style={styles.testBody}>
+                  <View style={styles.testScoreRow}>
+                    <Text style={styles.testScore}>{test.score}%</Text>
+                    <Text style={[styles.testQuality, { color: quality.color }]}>
+                      {quality.label} Quality
+                    </Text>
+                  </View>
+
+                  <View style={styles.parametersRow}>
+                    {test.parameters.map((param, idx) => (
+                      <View key={idx} style={styles.parameterChip}>
+                        <Text style={styles.parameterText}>{param}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.testFooter}>
+                  <TouchableOpacity
+                    style={styles.detailsButton}
+                    onPress={handleButtonPress}
+                  >
+                    <Text style={[styles.detailsButtonText, { color: colors.primary }]}>
+                      View Details
+                    </Text>
+                    <MaterialIcons
+                      name="arrow-forward"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.retestButton} onPress={handleButtonPress}>
+                    <Text style={styles.retestButtonText}>Retest</Text>
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+            );
+          })}
+        </View>
+      </Animated.View>
+
+      {/* ACTIVE ALERTS */}
       <Animated.View
         entering={FadeInDown.delay(500).duration(500)}
         style={styles.section}
       >
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Tests</Text>
-          <TouchableOpacity onPress={() => navigation.navigate("LatexHistory")}>
-            <Text style={styles.seeAllText}>View All</Text>
-          </TouchableOpacity>
+          <View style={styles.sectionTitleRow}>
+            <MaterialCommunityIcons
+              name="alert-octagon-outline"
+              size={22}
+              color="#EF4444"
+            />
+            <Text style={[styles.sectionTitle, { color: "#EF4444" }]}>
+              Active Alerts
+            </Text>
+          </View>
+          <View style={styles.alertCountBadge}>
+            <Text style={styles.alertCountText}>
+              {alerts.length} Active
+            </Text>
+          </View>
         </View>
-        <View style={styles.cardListContainer}>
-          {recentTests.map((test, i) => (
-            <View
+
+        <View style={styles.alertsContainer}>
+          {alerts.map((alert, i) => (
+            <LinearGradient
               key={i}
+              colors={[`${alert.color}08`, "#FFFFFF"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={[
-                styles.listRow,
-                i === recentTests.length - 1 && { borderBottomWidth: 0 },
-                { borderLeftColor: test.statusColor, borderLeftWidth: 4 },
+                styles.alertCard,
+                { borderLeftColor: alert.color, borderLeftWidth: 4 },
               ]}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-                <MaterialIcons
-                  name="done"
-                  size={20}
-                  color={test.statusColor}
-                  style={{ marginRight: 12 }}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.listRowPrimary}>Test ID: {test.id}</Text>
-                  <Text style={styles.listRowSecondary}>Quality: {test.quality}</Text>
+              <View style={styles.alertHeader}>
+                <View style={styles.alertTitleRow}>
+                  <MaterialCommunityIcons
+                    name={alert.icon as any}
+                    size={20}
+                    color={alert.color}
+                  />
+                  <Text style={styles.alertId}>{alert.id}</Text>
+                  <View
+                    style={[
+                      styles.urgencyBadge,
+                      { backgroundColor: `${alert.color}15` },
+                    ]}
+                  >
+                    <Text style={[styles.urgencyText, { color: alert.color }]}>
+                      {alert.urgency}
+                    </Text>
+                  </View>
                 </View>
+                <Text style={styles.alertTime}>{alert.time}</Text>
               </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  { backgroundColor: `${test.statusColor}15` },
-                ]}
-              >
-                <Text style={[styles.statusText, { color: test.statusColor }]}>
-                  {test.result}
-                </Text>
+
+              <Text style={styles.alertMessage}>{alert.message}</Text>
+
+              <View style={styles.alertFooter}>
+                <TouchableOpacity style={styles.actionButton} onPress={handleButtonPress}>
+                  <Text style={[styles.actionButtonText, { color: alert.color }]}>
+                    Take Action
+                  </Text>
+                  <MaterialIcons
+                    name="arrow-forward"
+                    size={16}
+                    color={alert.color}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.dismissButton} onPress={handleButtonPress}>
+                  <Text style={styles.dismissButtonText}>Dismiss</Text>
+                </TouchableOpacity>
               </View>
-            </View>
+            </LinearGradient>
           ))}
         </View>
       </Animated.View>
 
-      {/* ALERTS */}
+      {/* RECOMMENDED ACTIONS */}
       <Animated.View
-        entering={FadeInDown.delay(700).duration(500)}
+        entering={FadeInDown.delay(600).duration(500)}
         style={styles.section}
       >
-        <Text style={[styles.sectionTitle, { color: "#EF4444" }]}>Active Alerts</Text>
-        <View style={styles.cardListContainer}>
-          {alerts.map((alert, i) => (
-            <View
-              key={i}
-              style={[
-                styles.listRow,
-                i === alerts.length - 1 && { borderBottomWidth: 0 },
-                { borderLeftColor: alert.color, borderLeftWidth: 4 },
-              ]}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <MaterialCommunityIcons
+              name="lightbulb-on-outline"
+              size={22}
+              color="#8B5CF6"
+            />
+            <Text style={[styles.sectionTitle, { color: "#8B5CF6" }]}>
+              Recommended Actions
+            </Text>
+          </View>
+        </View>
+        <View style={styles.recommendationsContainer}>
+          {recommendedActions.map((action, i) => (
+            <View key={i} style={styles.recommendationCard}>
+              <View style={styles.recommendationIconContainer}>
                 <MaterialCommunityIcons
-                  name="alert-circle-outline"
-                  size={20}
-                  color={alert.color}
-                  style={{ marginRight: 12 }}
+                  name={action.icon as any}
+                  size={24}
+                  color="#8B5CF6"
                 />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.listRowPrimary}>{alert.message}</Text>
-                </View>
               </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  { backgroundColor: `${alert.color}15` },
-                ]}
-              >
-                <Text style={[styles.statusText, { color: alert.color }]}>
-                  {alert.urgency}
+              <View style={styles.recommendationContent}>
+                <View style={styles.recommendationHeader}>
+                  <Text style={styles.recommendationTitle}>{action.title}</Text>
+                  <View
+                    style={[
+                      styles.priorityBadge,
+                      {
+                        backgroundColor:
+                          action.priority === "high"
+                            ? "#EF4444"
+                            : action.priority === "medium"
+                              ? "#F59E0B"
+                              : "#10B981",
+                      },
+                    ]}
+                  >
+                    <Text style={styles.priorityText}>
+                      {action.priority.charAt(0).toUpperCase() +
+                        action.priority.slice(1)}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.recommendationDescription}>
+                  {action.description}
                 </Text>
+                <TouchableOpacity style={styles.applyButton} onPress={handleButtonPress}>
+                  <Text style={styles.applyButtonText}>Apply</Text>
+                </TouchableOpacity>
               </View>
             </View>
           ))}
@@ -294,6 +721,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 24,
     paddingTop: 50,
     paddingBottom: 20,
@@ -305,12 +733,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 8,
-    justifyContent: "center",
   },
   headerTitleWrap: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    marginLeft: -10,
   },
   headerTitle: {
     fontSize: 26,
@@ -324,21 +751,42 @@ const styles = StyleSheet.create({
     marginTop: 1,
     fontWeight: "500",
   },
+  notificationButton: {
+    position: "relative",
+    padding: 8,
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notificationBadgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "800",
+  },
   section: {
     paddingHorizontal: 24,
     marginBottom: 32,
   },
-  horizontalRule: {
-    borderBottomColor: "#E5E7EB",
-    borderBottomWidth: 1,
-    marginHorizontal: 24,
-    marginBottom: 32,
+  trendSection: {
+    paddingHorizontal: 16, // Wider container
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   sectionTitle: {
     fontSize: 20,
@@ -349,6 +797,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: colors.primary,
+  },
+  seeAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   metricsGrid: {
     flexDirection: "row",
@@ -377,6 +829,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
+  trendIcon: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+    backgroundColor: "#FFF",
+    borderRadius: 8,
+    padding: 2,
+  },
   metricValue: {
     fontSize: 28,
     fontWeight: "800",
@@ -389,6 +849,88 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginTop: 4,
   },
+  // Enhanced Trend Chart Styles
+  trendContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  chartHeader: {
+    marginBottom: 20,
+  },
+  chartStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: "#E5E7EB",
+  },
+  changeIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  yAxisLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#6B7280",
+    textAlign: "right",
+  },
+  chartWrapper: {
+    flex: 1,
+    position: "relative",
+  },
+  chartArea: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: chartHeight + 80,
+  },
+  grid_line_removed: {},
+  xAxis_removed: {},
+  legend: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 20,
+    gap: 16,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  legendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  // Quick Actions
   actionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -408,6 +950,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
+  actionIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   actionTitle: {
     fontSize: 14,
     fontWeight: "700",
@@ -415,44 +965,272 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: "center",
   },
-  cardListContainer: {
+  // Recent Tests
+  testsContainer: {
+    gap: 12,
+  },
+  testCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    overflow: "hidden",
+    borderRadius: 16,
+    padding: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 6,
-    marginTop: 15,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
-  listRow: {
+  testHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  testTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  testId: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#6B7280",
+    marginLeft: 8,
+    marginRight: 12,
+  },
+  resultBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  resultText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  testTime: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    fontWeight: "500",
+  },
+  testBody: {
+    marginBottom: 16,
+  },
+  testScoreRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    marginBottom: 12,
+  },
+  testScore: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#111827",
+    marginRight: 12,
+  },
+  testQuality: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  parametersRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  parameterChip: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  parameterText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#4B5563",
+  },
+  testFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 18,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
   },
-  listRowPrimary: {
+  detailsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  detailsButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginRight: 4,
+  },
+  retestButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+  },
+  retestButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  // Alert Styles
+  alertsContainer: {
+    gap: 12,
+  },
+  alertCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  alertHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  alertTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  alertId: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#6B7280",
+    marginLeft: 8,
+    marginRight: 12,
+  },
+  urgencyBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  urgencyText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  alertTime: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    fontWeight: "500",
+  },
+  alertMessage: {
     fontSize: 15,
     fontWeight: "600",
     color: "#111827",
+    marginBottom: 16,
+    lineHeight: 22,
   },
-  listRowSecondary: {
-    fontSize: 13,
-    fontWeight: "400",
+  alertFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginRight: 4,
+  },
+  dismissButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  dismissButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
     color: "#6B7280",
-    marginTop: 2,
   },
-  statusBadge: {
+  alertCountBadge: {
+    backgroundColor: "#FEF2F2",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  alertCountText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#EF4444",
+  },
+  recommendationsContainer: {
+    gap: 12,
+  },
+  recommendationCard: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  recommendationIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#F5F3FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  recommendationContent: {
+    flex: 1,
+  },
+  recommendationHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  recommendationTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  priorityBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
   },
-  statusText: {
-    fontSize: 12,
+  priorityText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  recommendationDescription: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  applyButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#8B5CF6",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  applyButtonText: {
+    fontSize: 14,
     fontWeight: "700",
+    color: "#FFFFFF",
   },
 });
