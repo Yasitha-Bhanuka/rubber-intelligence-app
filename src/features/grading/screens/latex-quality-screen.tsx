@@ -20,6 +20,7 @@ import Animated, {
   FadeInUp,
   ZoomIn
 } from "react-native-reanimated";
+import { latexQualityService, LatexQualityRequest } from "../../../core/services/latexQualityService";
 
 const { width } = Dimensions.get("window");
 
@@ -175,7 +176,7 @@ const NewTestScreen = () => {
     setTestId(newTestId);
   };
 
-  const handleSubmitTest = () => {
+  const handleSubmitTest = async () => {
     // Check if any field is empty
     if (!sensorData.temperature || !sensorData.turbidity || !sensorData.pH) {
       Alert.alert(
@@ -202,15 +203,37 @@ const NewTestScreen = () => {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const request: LatexQualityRequest = {
+        temperature: parseFloat(sensorData.temperature as string),
+        turbidity: parseFloat(sensorData.turbidity as string),
+        pH: parseFloat(sensorData.pH as string),
+        testId: testId,
+        testerName: testerName,
+        testDate: new Date()
+      };
+
+      console.log('Sending request:', request);
+      const result = await latexQualityService.predictQuality(request);
+      console.log('Received result:', result);
+
+      navigation.navigate('LatexQualityResult', {
+        result,
+        testId,
+        testDate,
+        testTime
+      });
+
+    } catch (error: any) {
+      console.error('Submission error:', error);
       Alert.alert(
-        "✅ Test Submitted Successfully!",
-        `Test ID: ${testId}\n\nQuality Test Results:\n• Temperature: ${sensorData.temperature}°C\n• Turbidity: ${sensorData.turbidity} NTU\n• pH Level: ${sensorData.pH}\n\nTester: ${testerName}`,
-        [{ text: "View Results", onPress: () => navigation.goBack() }]
+        "Prediction Failed",
+        error.message || "Failed to connect to quality prediction service. Please try again.",
+        [{ text: "OK" }]
       );
+    } finally {
       setIsSubmitting(false);
-    }, 1500);
+    }
   };
 
   const handleGoBack = () => {
@@ -354,7 +377,7 @@ const NewTestScreen = () => {
               icon="thermometer"
               unit="°C"
               status={getTemperatureStatus(sensorData.temperature)}
-              optimalRange="Optimal Range: 27-32°C"
+              optimalRange="Optimal Range: (27-32)°C"
               placeholder={`e.g., ${sampleValues.temperature}`}
               editable={!isSubmitting}
               isSubmitting={isSubmitting}
@@ -405,7 +428,7 @@ const NewTestScreen = () => {
               icon="ph"
               unit="pH"
               status={getpHStatus(sensorData.pH)}
-              optimalRange="Optimal Range: 6.5-7.2 pH"
+              optimalRange="Optimal Range: (6.5-7.2)pH"
               placeholder={`e.g., ${sampleValues.pH}`}
               editable={!isSubmitting}
               isSubmitting={isSubmitting}
