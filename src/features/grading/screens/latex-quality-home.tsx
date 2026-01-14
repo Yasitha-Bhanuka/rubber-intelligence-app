@@ -76,7 +76,7 @@ const quickActions = [
     title: "Latex Quality Reports",
     icon: "file-document-outline",
     color: colors.primary,
-    screen: "ReportsDashboard",
+    screen: "LatexQualityReports",
   },
 ];
 

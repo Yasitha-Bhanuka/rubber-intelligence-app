@@ -7,6 +7,7 @@ import LatexQualityHomeScreen from '../features/grading/screens/latex-quality-ho
 import RSSLogbook from '../features/grading/screens/sample-logbook-screen';
 import { TestReportScreen } from '../features/grading/screens/TestReportScreen';
 import ReportsDashboard from '../features/grading/screens/test-reports-screen';
+import LatexQualityReports from '../features/grading/screens/latex-quality-reports';
 import SensorStatusScreen from '../features/grading/screens/sensor-status-screen';
 import ViewHistoryScreen from '../features/grading/screens/latex-process-screen';
 import { colors } from '../shared/styles/colors';
@@ -37,6 +38,8 @@ export const GradingNavigator = () => {
             <Stack.Screen name="ViewHistory" component={ViewHistoryScreen} />
             <Stack.Screen name="TestReports" component={TestReportScreen} />
             <Stack.Screen name="ReportsDashboard" component={ReportsDashboard as any} />
+            <Stack.Screen name="LatexQualityReports" component={LatexQualityReports as any} />
+            <Stack.Screen name="LatexQualityResult" component={require('../features/grading/screens/latex-quality-result-screen').default} />
         </Stack.Navigator>
     );
 };

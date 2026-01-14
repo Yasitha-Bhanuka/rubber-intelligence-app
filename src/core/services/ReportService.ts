@@ -148,44 +148,113 @@ export const ReportService = {
         `;
     },
 
-    generateLatexHTML(data: any) {
-        const { assessment, sensorData } = data;
+    generateLatexHTML(data: { result: any, testId: string, testDate: string, testTime: string, testerName?: string }) {
+        const { result, testId, testDate, testTime, testerName } = data;
+        const { qualityGrade, qualityScore, confidence, status, sensorReadings, recommendations } = result;
+
+        const getStatusColor = (status: string) => {
+            if (status === 'Pass') return '#10B981';
+            if (status === 'Warning') return '#F59E0B';
+            return '#EF4444';
+        };
+
+        const statusColor = getStatusColor(status);
+
         return `
             <html>
             <head>
                 <style>
-                    body { font-family: Helvetica, Arial, sans-serif; padding: 20px; }
-                    h1 { color: #2E7D32; }
-                    .header { border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 20px; }
-                    .status-good { color: #2E7D32; font-weight: bold; }
-                    .status-bad { color: #D32F2F; font-weight: bold; }
-                    .card { background: #F9FAFB; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+                    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #1F2937; line-height: 1.5; }
+                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E5E7EB; padding-bottom: 20px; margin-bottom: 30px; }
+                    .logo-text { font-size: 24px; font-weight: bold; color: #166534; }
+                    .report-title { font-size: 14px; color: #6B7280; text-transform: uppercase; letter-spacing: 1px; }
+                    
+                    .summary-card { background: #F9FAFB; border-radius: 12px; padding: 24px; margin-bottom: 30px; border: 1px solid #E5E7EB; }
+                    .grade-section { text-align: center; margin-bottom: 20px; }
+                    .grade-label { font-size: 14px; color: #6B7280; margin-bottom: 4px; }
+                    .grade-value { font-size: 42px; font-weight: 800; color: ${statusColor}; margin-bottom: 4px; }
+                    .score-value { font-size: 18px; color: #374151; font-weight: 600; }
+                    
+                    .meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 20px; border-top: 1px solid #E5E7EB; padding-top: 20px; }
+                    .meta-item { display: flex; flex-direction: column; }
+                    .meta-label { font-size: 12px; color: #6B7280; font-weight: 600; text-transform: uppercase; }
+                    .meta-value { font-size: 16px; color: #111827; font-weight: 500; }
+
+                    .section-title { font-size: 18px; font-weight: 700; color: #1F2937; margin-bottom: 16px; margin-top: 30px; display: flex; align-items: center; }
+                    .sensor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 30px; }
+                    .sensor-card { background: white; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px; text-align: center; }
+                    .sensor-val { font-size: 20px; font-weight: 700; color: #1F2937; margin-top: 8px; }
+                    .sensor-name { font-size: 12px; color: #6B7280; }
+
+                    .rec-list { list-style: none; padding: 0; }
+                    .rec-item { background: #FFF7ED; border-left: 4px solid #F59E0B; padding: 12px 16px; margin-bottom: 12px; border-radius: 0 4px 4px 0; font-size: 14px; color: #92400E; }
+
+                    .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #9CA3AF; border-top: 1px solid #E5E7EB; padding-top: 20px; }
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <h1>Latex Quality Report</h1>
-                    <p>Generated: ${new Date().toLocaleString()}</p>
+                    <div>
+                        <div class="logo-text">RubberEX</div>
+                        <div class="report-title">Latex Quality Certificate</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="meta-value">${testId}</div>
+                        <div class="meta-label">Test ID</div>
+                    </div>
                 </div>
 
-                <div class="card">
-                    <h2>Overall Assessment</h2>
-                    <p class="${assessment.isGoodQuality ? 'status-good' : 'status-bad'}" style="font-size: 24px;">
-                        ${assessment.isGoodQuality ? 'GOOD QUALITY' : 'POOR QUALITY'}
-                    </p>
+                <div class="summary-card">
+                    <div class="grade-section">
+                        <div class="grade-label">Overall Quality Grade</div>
+                        <div class="grade-value">${qualityGrade}</div>
+                        <div class="score-value">Score: ${qualityScore}/100 • Status: ${status}</div>
+                    </div>
+                    <div class="meta-grid">
+                        <div class="meta-item">
+                            <span class="meta-label">Date Tested</span>
+                            <span class="meta-value">${testDate}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Time</span>
+                            <span class="meta-value">${testTime}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Tester</span>
+                            <span class="meta-value">${testerName || 'Authorized Personnel'}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Confidence</span>
+                            <span class="meta-value">${(confidence * 100).toFixed(1)}%</span>
+                        </div>
+                    </div>
                 </div>
 
-                <h3>Sensor Readings</h3>
-                <div class="card">
-                    <p><strong>Temperature:</strong> ${sensorData.temperature.toFixed(1)} °C</p>
-                    <p><strong>Turbidity:</strong> ${sensorData.turbidity.toFixed(1)} NTU</p>
-                    <p><strong>pH Level:</strong> ${sensorData.pH.toFixed(1)}</p>
+                <div class="section-title">Sensor Analysis</div>
+                <div class="sensor-grid">
+                    <div class="sensor-card">
+                        <div class="sensor-name">Temperature</div>
+                        <div class="sensor-val">${sensorReadings.temperature}°C</div>
+                    </div>
+                    <div class="sensor-card">
+                        <div class="sensor-name">Turbidity</div>
+                        <div class="sensor-val">${sensorReadings.turbidity} NTU</div>
+                    </div>
+                    <div class="sensor-card">
+                        <div class="sensor-name">pH Level</div>
+                        <div class="sensor-val">${sensorReadings.pH}</div>
+                    </div>
                 </div>
 
-                <h3>Details</h3>
-                <ul>
-                    ${assessment.reasons.map((r: string) => `<li>${r}</li>`).join('')}
+                <div class="section-title">AI Recommendations</div>
+                <ul class="rec-list">
+                    ${recommendations.map((rec: string) => `<li class="rec-item">${rec}</li>`).join('')}
                 </ul>
+
+                <div class="footer">
+                    <p>Generated by RubberEX Intelligence System • Valid without signature</p>
+                    <p>${new Date().toLocaleString()}</p>
+                </div>
             </body>
             </html>
         `;
