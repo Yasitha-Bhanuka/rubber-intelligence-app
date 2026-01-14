@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 8,
-    width: 300,
+    width: 350,
     marginLeft: -12,
   },
   assessmentItem: {
