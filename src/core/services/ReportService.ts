@@ -100,49 +100,111 @@ export const ReportService = {
 
     generateGradingHTML(data: any) {
         const { batchId, result, params } = data;
+
+        // Logic to determine grade and colors (Mirroring GradingScreen logic)
+        const prediction = (result?.predictedClass || "").toLowerCase();
+        let grade = "Ungraded";
+        let isGood = false;
+
+        if (prediction.includes("good")) { grade = "RSS 1"; isGood = true; }
+        else if (prediction.includes("pin")) { grade = "RSS 2"; isGood = false; }
+        else if (prediction.includes("reaper")) { grade = "RSS 3"; isGood = false; }
+
+        const gradeColor = isGood ? "#2E7D32" : "#E65100";
+        const gradeBg = isGood ? "#E8F5E9" : "#FFF3E0";
+        const defectColor = isGood ? "#2E7D32" : "#D32F2F";
+        const defectBg = isGood ? "#E8F5E9" : "#FFEBEE";
+
         return `
             <html>
             <head>
                 <style>
-                    body { font-family: Helvetica, Arial, sans-serif; padding: 20px; }
-                    h1 { color: #2E7D32; }
+                    body { font-family: Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
+                    h1 { color: #2E7D32; margin-top: 0; }
                     .header { display: flex; justify-content: space-between; border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 20px; }
-                    .grade-box { background: #f0fdf4; border: 1px solid #2E7D32; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
-                    .grade-title { font-size: 32px; font-weight: bold; color: #2E7D32; }
-                    .meta-table { width: 100%; border-collapse: collapse; }
-                    .meta-table td { padding: 8px; border-bottom: 1px solid #EEE; }
-                    .label { font-weight: bold; color: #555; }
+                    
+                    /* New Grid for Split View */
+                    .result-grid { display: flex; gap: 15px; margin-bottom: 20px; }
+                    .result-card { flex: 1; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #EEE; }
+                    
+                    .label { font-size: 12px; text-transform: uppercase; color: #777; margin-bottom: 5px; font-weight: bold; }
+                    .value-large { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+                    .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+                    
+                    .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                    .meta-table td { padding: 10px; border-bottom: 1px solid #F0F0F0; }
+                    .meta-label { font-weight: bold; color: #555; width: 40%; }
+                    
+                    .suggestions { background-color: #FFF9C4; padding: 15px; border-radius: 10px; margin-top: 20px; }
+                    .suggestion-title { color: #FBC02D; font-weight: bold; margin-bottom: 10px; font-size: 16px; }
+                    .suggestion-list { list-style-type: none; padding: 0; margin: 0; }
+                    .suggestion-item { margin-bottom: 8px; padding-left: 15px; position: relative; }
+                    .suggestion-item:before { content: "•"; color: #FBC02D; position: absolute; left: 0; font-weight: bold; }
+                    
+                    .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #999; }
                 </style>
             </head>
             <body>
                 <div class="header">
                     <div>
                         <h1>Rubber Grading Report</h1>
-                        <p>Batch ID: ${batchId}</p>
+                        <div>Batch ID: <strong>${batchId}</strong></div>
                     </div>
-                    <div>
-                        <p>${new Date().toLocaleDateString()}</p>
+                    <div style="text-align: right;">
+                        <div>${new Date().toLocaleDateString()}</div>
+                        <div style="color: #888; font-size: 12px;">RubberEX Intelligence</div>
                     </div>
                 </div>
 
-                <div class="grade-box">
-                    <p>Predicted Grade</p>
-                    <div class="grade-title">${result?.predictedClass || 'N/A'}</div>
-                    <p>Confidence: ${(result?.confidence * 100).toFixed(1)}%</p>
+                <div class="result-grid">
+                    <!-- Defect Type Card -->
+                    <div class="result-card" style="background-color: ${defectBg}; border-color: ${defectColor}30;">
+                        <div class="label">Defect Type</div>
+                        <div class="value-large" style="color: ${defectColor}; font-size: 20px;">
+                            ${result?.predictedClass || 'N/A'}
+                        </div>
+                         <div class="badge" style="background-color: ${defectColor}20; color: ${defectColor};">
+                            SEVERITY: ${result?.severity || 'UNKNOWN'}
+                        </div>
+                    </div>
+
+                    <!-- Quality Grade Card -->
+                    <div class="result-card" style="background-color: ${gradeBg}; border-color: ${gradeColor}30;">
+                        <div class="label">Quality Grade</div>
+                        <div class="value-large" style="color: ${gradeColor}; font-size: 32px;">
+                            ${grade}
+                        </div>
+                        <div class="badge" style="background-color: ${gradeColor}20; color: ${gradeColor};">
+                            ${isGood ? 'PREMIUM QUALITY' : 'STANDARD QUALITY'}
+                        </div>
+                    </div>
                 </div>
 
-                <h3>Test Details</h3>
+                <div style="text-align: center; margin-bottom: 30px; color: #666; font-size: 14px;">
+                    AI Confidence Score: <strong>${(result?.confidence * 100).toFixed(1)}%</strong>
+                </div>
+
+                <h3>Test Information</h3>
                 <table class="meta-table">
-                    <tr><td class="label">Tester Name</td><td>${params?.testerName || '-'}</td></tr>
-                    <tr><td class="label">Sheet Count</td><td>${params?.sheetCount || '-'}</td></tr>
-                    <tr><td class="label">Weight</td><td>${params?.sheetWeight || '-'} kg</td></tr>
-                    <tr><td class="label">Test Date</td><td>${params?.testDate || '-'}</td></tr>
-                    <tr><td class="label">Test Time</td><td>${params?.testTime || '-'}</td></tr>
-                    <tr><td class="label">Severity</td><td>${result?.severity || '-'}</td></tr>
+                    <tr><td class="meta-label">Tester Name</td><td>${params?.testerName || '-'}</td></tr>
+                    <tr><td class="meta-label">Sheet Count</td><td>${params?.sheetCount || '-'}</td></tr>
+                    <tr><td class="meta-label">Total Weight</td><td>${params?.sheetWeight ? params.sheetWeight + ' kg' : '-'}</td></tr>
+                    <tr><td class="meta-label">Test Date</td><td>${params?.testDate || '-'}</td></tr>
+                    <tr><td class="meta-label">Test Time</td><td>${params?.testTime || '-'}</td></tr>
                 </table>
 
-                <h3>AI Suggestions</h3>
-                <p>${result?.suggestions || 'No suggestions available.'}</p>
+                ${result?.suggestions ? `
+                <div class="suggestions">
+                    <div class="suggestion-title">AI Suggestions & Recommendations</div>
+                    <ul class="suggestion-list">
+                        ${result.suggestions.split(/\r?\n/).map((s: string) => `<li class="suggestion-item">${s.replace(/^•\s*/, '')}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                <div class="footer">
+                    Generated automatically by RubberEX Grading System. This is a computer-generated document and may be valid without a signature.
+                </div>
             </body>
             </html>
         `;
