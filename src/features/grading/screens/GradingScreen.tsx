@@ -7,7 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors } from '../../../shared/styles/colors';
 import { GradingService, GradingResponse } from '../services/gradingService';
+import { ImageValidator } from '../services/ImageValidator';
 import { ReportService } from '../../../core/services/ReportService';
+import { ValidationAlert } from '../components/ValidationAlert';
 
 export const GradingScreen = () => {
     const navigation = useNavigation<any>();
@@ -23,6 +25,10 @@ export const GradingScreen = () => {
     const [rubberCategory] = useState('RSS Rubber'); // Not editable
     const [sheetCount, setSheetCount] = useState('');
     const [sheetWeight, setSheetWeight] = useState('');
+
+    // Custom Alert State
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
 
     const pickImage = async () => {
         const currentPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -47,7 +53,8 @@ export const GradingScreen = () => {
     const takePhoto = async () => {
         const currentPermission = await ImagePicker.requestCameraPermissionsAsync();
         if (currentPermission.status !== 'granted') {
-            Alert.alert("Permission Required", "Need camera access to take photos.");
+            setAlertMessage("Need camera access to take photos.");
+            setAlertVisible(true);
             return;
         }
 
@@ -68,6 +75,18 @@ export const GradingScreen = () => {
 
         setLoading(true);
         try {
+            // 1. Frontend Validation
+            const validation = await ImageValidator.validateImage(image);
+            if (!validation.isValid) {
+                // Show Custom Alert
+                setAlertMessage(validation.reason || "Please re-take image.");
+                setAlertVisible(true);
+
+                setLoading(false);
+                return;
+            }
+
+            // 2. Backend Analysis
             const data = await GradingService.analyzeImage(image);
             setResult(data);
         } catch (error) {
@@ -338,6 +357,12 @@ export const GradingScreen = () => {
 
             {/* Result Section */}
             {renderResult()}
+            {/* Custom Validation Alert */}
+            <ValidationAlert
+                visible={alertVisible}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </ScrollView>
     );
 };
