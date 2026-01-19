@@ -130,7 +130,7 @@ const LatexQualityResultScreen = () => {
 
                         {/* Quality Score */}
                         <View style={styles.scoreContainer}>
-                            <Text style={styles.scoreLabel}>Quality Score</Text>
+                            <Text style={styles.scoreLabel}>Model Confidence Score</Text>
                             <Text style={[styles.scoreValue, { color: getQualityColor() }]}>
                                 {result.qualityScore}
                                 <Text style={styles.scoreUnit}>/100</Text>

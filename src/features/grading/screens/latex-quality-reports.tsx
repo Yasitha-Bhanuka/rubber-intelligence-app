@@ -204,7 +204,7 @@ const LatexQualityReportsScreen = () => {
                                         <View style={styles.cardBody}>
                                             <View style={styles.scoreBlock}>
                                                 <Text style={styles.scoreValue}>{report.score}%</Text>
-                                                <Text style={[styles.gradeText, { color: statusColor }]}>{report.grade} Quality</Text>
+                                                <Text style={[styles.gradeText, { color: statusColor }]}>{report.grade} </Text>
                                             </View>
                                             <View style={styles.timeBlock}>
                                                 <MaterialCommunityIcons name="clock-outline" size={14} color="#64748B" style={{ marginRight: 4 }} />
