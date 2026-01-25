@@ -40,6 +40,9 @@ export const GradingNavigator = () => {
             <Stack.Screen name="ReportsDashboard" component={ReportsDashboard as any} />
             <Stack.Screen name="LatexQualityReports" component={LatexQualityReports as any} />
             <Stack.Screen name="LatexQualityResult" component={require('../features/grading/screens/latex-quality-result-screen').default} />
+            <Stack.Screen name="LatexStorageGuide" component={require('../features/grading/screens/latex-storage-guide').default} />
+            <Stack.Screen name="StorageSelection" component={require('../features/grading/screens/storage-selection-screen').default} />
+            <Stack.Screen name="ExpertChat" component={require('../features/grading/screens/expert-chat-screen').default} />
         </Stack.Navigator>
     );
 };
