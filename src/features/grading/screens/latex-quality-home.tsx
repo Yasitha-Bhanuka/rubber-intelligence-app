@@ -78,6 +78,18 @@ const quickActions = [
     color: colors.primary,
     screen: "LatexQualityReports",
   },
+  {
+    title: "Storage Selection",
+    icon: "warehouse",
+    color: colors.primary,
+    screen: "StorageSelection",
+  },
+  {
+    title: "Latex Storage Guide",
+    icon: "book-open-variant",
+    color: colors.success,
+    screen: "LatexStorageGuide",
+  },
 ];
 
 // Enhanced Recent Tests with more data
