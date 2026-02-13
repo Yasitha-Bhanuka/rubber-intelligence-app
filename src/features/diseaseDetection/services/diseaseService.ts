@@ -5,6 +5,8 @@ interface PredictionResponse {
     confidence: number;
     remedy: string;
     severity: string;
+    isRejected: boolean;
+    rejectionReason: string | null;
 }
 
 export interface DiseaseRecord {
