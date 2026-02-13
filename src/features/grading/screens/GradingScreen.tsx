@@ -7,7 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors } from '../../../shared/styles/colors';
 import { GradingService, GradingResponse } from '../services/gradingService';
+import { ImageValidator } from '../services/ImageValidator';
 import { ReportService } from '../../../core/services/ReportService';
+import { ValidationAlert } from '../components/ValidationAlert';
 
 export const GradingScreen = () => {
     const navigation = useNavigation<any>();
@@ -23,6 +25,10 @@ export const GradingScreen = () => {
     const [rubberCategory] = useState('RSS Rubber'); // Not editable
     const [sheetCount, setSheetCount] = useState('');
     const [sheetWeight, setSheetWeight] = useState('');
+
+    // Custom Alert State
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
 
     const pickImage = async () => {
         const currentPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -47,7 +53,8 @@ export const GradingScreen = () => {
     const takePhoto = async () => {
         const currentPermission = await ImagePicker.requestCameraPermissionsAsync();
         if (currentPermission.status !== 'granted') {
-            Alert.alert("Permission Required", "Need camera access to take photos.");
+            setAlertMessage("Need camera access to take photos.");
+            setAlertVisible(true);
             return;
         }
 
@@ -68,6 +75,18 @@ export const GradingScreen = () => {
 
         setLoading(true);
         try {
+            // 1. Frontend Validation
+            const validation = await ImageValidator.validateImage(image);
+            if (!validation.isValid) {
+                // Show Custom Alert
+                setAlertMessage(validation.reason || "Please re-take image.");
+                setAlertVisible(true);
+
+                setLoading(false);
+                return;
+            }
+
+            // 2. Backend Analysis
             const data = await GradingService.analyzeImage(image);
             setResult(data);
         } catch (error) {
@@ -129,6 +148,22 @@ export const GradingScreen = () => {
 
                 <Text style={styles.resultTitle}>{result.predictedClass}</Text>
                 <Text style={styles.confidence}>Confidence: {(result.confidence * 100).toFixed(1)}%</Text>
+
+                {/* Grade Display */}
+                <View style={[styles.gradeContainer, { backgroundColor: isGood ? '#E8F5E9' : '#FFF3E0' }]}>
+                    <Text style={[styles.gradeLabel, { color: isGood ? '#2E7D32' : '#EF6C00' }]}>
+                        Grading Result:
+                    </Text>
+                    <Text style={[styles.gradeValue, { color: isGood ? '#1B5E20' : '#E65100' }]}>
+                        {(() => {
+                            const prediction = result.predictedClass.toLowerCase();
+                            if (prediction.includes("good")) return "RSS 1";
+                            if (prediction.includes("pin")) return "RSS 2";
+                            if (prediction.includes("reaper")) return "RSS 3";
+                            return "Ungraded";
+                        })()}
+                    </Text>
+                </View>
 
                 <View style={styles.separator} />
 
@@ -322,6 +357,12 @@ export const GradingScreen = () => {
 
             {/* Result Section */}
             {renderResult()}
+            {/* Custom Validation Alert */}
+            <ValidationAlert
+                visible={alertVisible}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </ScrollView>
     );
 };
@@ -641,8 +682,29 @@ const styles = StyleSheet.create({
     confidence: {
         fontSize: 15,
         color: '#7F8C8D',
-        marginBottom: 18,
+        marginBottom: 10,
         fontWeight: '500',
+    },
+    gradeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+    },
+    gradeLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginRight: 8,
+    },
+    gradeValue: {
+        fontSize: 18,
+        fontWeight: '800',
+        letterSpacing: 0.5,
     },
     separator: {
         height: 1.5,
