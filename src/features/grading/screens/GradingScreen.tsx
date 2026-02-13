@@ -38,7 +38,7 @@ export const GradingScreen = () => {
         }
 
         let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [1, 1], // MobileNet expects square, helps framing
             quality: 0.7,

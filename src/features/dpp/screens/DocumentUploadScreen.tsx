@@ -17,7 +17,7 @@ export default function DocumentUploadScreen() {
     const pickImage = async () => {
         // No permissions request is necessary for launching the image library
         let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             quality: 1,
         });
@@ -50,7 +50,8 @@ export default function DocumentUploadScreen() {
         setLoading(true);
         try {
             const fileName = image.split('/').pop() || 'document.jpg';
-            const fileType = 'image/jpeg'; // Simply inferring for now
+            const match = /\.(\w+)$/.exec(fileName);
+            const fileType = match ? `image/${match[1]}` : `image/jpeg`;
 
             const result = await uploadDppDocument(image, fileName, fileType);
 
