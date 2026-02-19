@@ -7,7 +7,7 @@ const MOCK_USERS: Record<string, User> = {
         id: 'u_001',
         email: 'farmer@test.com',
         name: 'John Planter',
-        role: 'grower',
+        role: 'farmer',
     },
     'admin@test.com': {
         id: 'u_002',
