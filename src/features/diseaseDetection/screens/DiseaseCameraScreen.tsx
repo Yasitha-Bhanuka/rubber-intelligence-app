@@ -40,7 +40,7 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [4, 3],
             quality: 0.5,
@@ -59,7 +59,15 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
         setLoading(true);
         try {
             const result = await DiseaseService.detect(image, diseaseType);
-            navigation.navigate('DiseaseResult', { result, imageUri: image });
+            if (result.isRejected) {
+                Alert.alert(
+                    "Image Rejected",
+                    result.rejectionReason || "The image could not be processed. Please try a different photo.",
+                    [{ text: "OK" }]
+                );
+            } else {
+                navigation.navigate('DiseaseResult', { result, imageUri: image });
+            }
         } catch (error) {
             Alert.alert("Error", "Failed to analyze image. Please try again.");
         } finally {
