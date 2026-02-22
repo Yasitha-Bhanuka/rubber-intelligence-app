@@ -1,0 +1,411 @@
+import React, { useState, useEffect } from 'react';
+import {
+    View, Text, StyleSheet, Alert, KeyboardAvoidingView,
+    Platform, ScrollView, TouchableOpacity
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, Circle } from 'react-native-maps';
+import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
+import { useStore } from '../../../store';
+import { AppTextInput } from '../../../shared/components/AppTextInput';
+import { AppButton } from '../../../shared/components/AppButton';
+import { colors } from '../../../shared/styles/colors';
+import { RegisterCredentials } from '../../../core/auth/authTypes';
+
+export const SignupScreen = ({ navigation }: any) => {
+    const { register, isLoading, error } = useStore();
+
+    // Step 1: Account Details
+    const [fullName, setFullName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [role, setRole] = useState('Farmer');
+
+    // Step 2: Plantation Details
+    const [plantationName, setPlantationName] = useState('');
+    const [latitude, setLatitude] = useState(7.8731); // Default: Sri Lanka center
+    const [longitude, setLongitude] = useState(80.7718);
+    const [locationFetched, setLocationFetched] = useState(false);
+
+    // UI state
+    const [step, setStep] = useState(1);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    // Auto-detect GPS location
+    useEffect(() => {
+        (async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    const loc = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.Balanced,
+                    });
+                    setLatitude(loc.coords.latitude);
+                    setLongitude(loc.coords.longitude);
+                    setLocationFetched(true);
+                }
+            } catch (err) {
+                console.log('Location permission denied or unavailable');
+            }
+        })();
+    }, []);
+
+    const roles = ['Farmer', 'Researcher'];
+
+    const validateStep1 = () => {
+        const e: Record<string, string> = {};
+        if (!fullName.trim()) e.fullName = 'Full name is required';
+        if (!email.trim()) e.email = 'Email is required';
+        else if (!/\S+@\S+\.\S+/.test(email)) e.email = 'Invalid email format';
+        if (!password) e.password = 'Password is required';
+        else if (password.length < 6) e.password = 'Password must be at least 6 characters';
+        if (password !== confirmPassword) e.confirmPassword = 'Passwords do not match';
+        setErrors(e);
+        return Object.keys(e).length === 0;
+    };
+
+    const validateStep2 = () => {
+        const e: Record<string, string> = {};
+        if (role === 'Farmer' && !plantationName.trim()) {
+            e.plantationName = 'Plantation name is required for farmers';
+        }
+        setErrors(e);
+        return Object.keys(e).length === 0;
+    };
+
+    const handleNext = () => {
+        if (validateStep1()) {
+            setStep(2);
+            setErrors({});
+        }
+    };
+
+    const handleRegister = async () => {
+        if (!validateStep2()) return;
+
+        const credentials: RegisterCredentials = {
+            fullName,
+            email,
+            password,
+            role,
+            plantationName,
+            latitude,
+            longitude,
+        };
+
+        try {
+            await register(credentials);
+        } catch (err: any) {
+            Alert.alert('Registration Failed', err.response?.data || err.message || 'An error occurred');
+        }
+    };
+
+    const handleMapPress = (e: any) => {
+        const { latitude: lat, longitude: lng } = e.nativeEvent.coordinate;
+        setLatitude(lat);
+        setLongitude(lng);
+    };
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <ScrollView contentContainerStyle={styles.scrollContent}>
+                    <View style={styles.header}>
+                        <Text style={styles.title}>RubberEX</Text>
+                        <Text style={styles.subtitle}>Create Account</Text>
+                        <View style={styles.stepIndicator}>
+                            <View style={[styles.stepDot, step >= 1 && styles.stepDotActive]}>
+                                <Text style={[styles.stepText, step >= 1 && styles.stepTextActive]}>1</Text>
+                            </View>
+                            <View style={styles.stepLine} />
+                            <View style={[styles.stepDot, step >= 2 && styles.stepDotActive]}>
+                                <Text style={[styles.stepText, step >= 2 && styles.stepTextActive]}>2</Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    {step === 1 ? (
+                        <View style={styles.form}>
+                            <AppTextInput
+                                label="Full Name"
+                                placeholder="e.g. John Planter"
+                                value={fullName}
+                                onChangeText={setFullName}
+                                error={errors.fullName}
+                            />
+                            <AppTextInput
+                                label="Email Address"
+                                placeholder="e.g. farmer@example.com"
+                                value={email}
+                                onChangeText={setEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                error={errors.email}
+                            />
+                            <AppTextInput
+                                label="Password"
+                                placeholder="••••••••"
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry
+                                error={errors.password}
+                            />
+                            <AppTextInput
+                                label="Confirm Password"
+                                placeholder="••••••••"
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                secureTextEntry
+                                error={errors.confirmPassword}
+                            />
+
+                            {/* Role Selector */}
+                            <Text style={styles.label}>Role</Text>
+                            <View style={styles.roleRow}>
+                                {roles.map((r) => (
+                                    <TouchableOpacity
+                                        key={r}
+                                        style={[styles.roleChip, role === r && styles.roleChipActive]}
+                                        onPress={() => setRole(r)}
+                                    >
+                                        <Text style={[styles.roleText, role === r && styles.roleTextActive]}>
+                                            {r}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <AppButton title="Next →" onPress={handleNext} style={styles.button} />
+
+                            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.link}>
+                                <Text style={styles.linkText}>Already have an account? <Text style={{ fontWeight: 'bold', color: colors.primary }}>Sign In</Text></Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={styles.form}>
+                            <TouchableOpacity onPress={() => setStep(1)} style={styles.backBtn}>
+                                <Ionicons name="arrow-back" size={20} color={colors.primary} />
+                                <Text style={styles.backText}>Back to account details</Text>
+                            </TouchableOpacity>
+
+                            {role === 'Farmer' && (
+                                <AppTextInput
+                                    label="Plantation Name"
+                                    placeholder="e.g. Green Valley Plantation"
+                                    value={plantationName}
+                                    onChangeText={setPlantationName}
+                                    error={errors.plantationName}
+                                />
+                            )}
+
+                            <Text style={styles.label}>Plantation Location</Text>
+                            <Text style={styles.helperSmall}>
+                                {locationFetched
+                                    ? 'GPS detected. Tap the map to adjust your plantation marker.'
+                                    : 'Tap the map to set your plantation location.'}
+                            </Text>
+
+                            <View style={styles.mapContainer}>
+                                <MapView
+                                    style={styles.map}
+                                    initialRegion={{
+                                        latitude,
+                                        longitude,
+                                        latitudeDelta: 0.05,
+                                        longitudeDelta: 0.05,
+                                    }}
+                                    region={{
+                                        latitude,
+                                        longitude,
+                                        latitudeDelta: 0.05,
+                                        longitudeDelta: 0.05,
+                                    }}
+                                    onPress={handleMapPress}
+                                >
+                                    <Marker
+                                        coordinate={{ latitude, longitude }}
+                                        draggable
+                                        onDragEnd={(e) => {
+                                            setLatitude(e.nativeEvent.coordinate.latitude);
+                                            setLongitude(e.nativeEvent.coordinate.longitude);
+                                        }}
+                                        title="Your Plantation"
+                                        pinColor={colors.primary}
+                                    />
+                                    <Circle
+                                        center={{ latitude, longitude }}
+                                        radius={5000}
+                                        strokeColor="rgba(46, 125, 50, 0.4)"
+                                        fillColor="rgba(46, 125, 50, 0.1)"
+                                    />
+                                </MapView>
+                            </View>
+
+                            <View style={styles.coordRow}>
+                                <Text style={styles.coordText}>📍 {latitude.toFixed(4)}, {longitude.toFixed(4)}</Text>
+                            </View>
+
+                            {error ? <Text style={styles.serverError}>{error}</Text> : null}
+
+                            <AppButton
+                                title="Create Account"
+                                onPress={handleRegister}
+                                isLoading={isLoading}
+                                style={styles.button}
+                            />
+                        </View>
+                    )}
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
+    scrollContent: {
+        flexGrow: 1,
+        padding: 24,
+    },
+    header: {
+        alignItems: 'center',
+        marginBottom: 32,
+        marginTop: 16,
+    },
+    title: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: colors.primary,
+        marginBottom: 4,
+    },
+    subtitle: {
+        fontSize: 18,
+        color: '#666',
+        marginBottom: 16,
+    },
+    stepIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    stepDot: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: colors.lightGray,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#ddd',
+    },
+    stepDotActive: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    stepText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#999',
+    },
+    stepTextActive: {
+        color: '#FFF',
+    },
+    stepLine: {
+        width: 60,
+        height: 2,
+        backgroundColor: '#ddd',
+        marginHorizontal: 8,
+    },
+    form: {
+        width: '100%',
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 8,
+        marginTop: 12,
+    },
+    roleRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 16,
+    },
+    roleChip: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: colors.lightGray,
+        borderWidth: 1,
+        borderColor: '#ddd',
+    },
+    roleChipActive: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    roleText: {
+        color: '#666',
+        fontWeight: '600',
+    },
+    roleTextActive: {
+        color: '#FFF',
+    },
+    button: {
+        marginTop: 16,
+    },
+    serverError: {
+        color: colors.error,
+        textAlign: 'center',
+        marginBottom: 16,
+    },
+    link: {
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    linkText: {
+        color: '#666',
+        fontSize: 14,
+    },
+    backBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    backText: {
+        color: colors.primary,
+        marginLeft: 4,
+        fontWeight: '500',
+    },
+    helperSmall: {
+        fontSize: 12,
+        color: '#999',
+        marginBottom: 8,
+    },
+    mapContainer: {
+        height: 250,
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#ddd',
+    },
+    map: {
+        flex: 1,
+    },
+    coordRow: {
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    coordText: {
+        fontSize: 13,
+        color: '#666',
+        fontWeight: '500',
+    },
+});
