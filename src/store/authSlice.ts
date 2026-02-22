@@ -60,4 +60,3 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
         }
     },
 });
-
