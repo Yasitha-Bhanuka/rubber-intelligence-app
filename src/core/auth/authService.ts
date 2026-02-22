@@ -1,5 +1,5 @@
 import apiClient from '../api/apiClient';
-import { LoginCredentials, AuthResponse } from './authTypes';
+import { LoginCredentials, RegisterCredentials, AuthResponse } from './authTypes';
 import { saveToken, removeToken } from './tokenStorage';
 
 export const AuthService = {
@@ -11,9 +11,16 @@ export const AuthService = {
         return response.data;
     },
 
+    register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
+        const response = await apiClient.post<AuthResponse>('/auth/register', credentials);
+        if (response.data && response.data.token) {
+            await saveToken(response.data.token);
+        }
+        return response.data;
+    },
+
     logout: async (): Promise<void> => {
         await removeToken();
-        // Optional: Call backend to invalidate token
     },
 
     getCurrentUser: async () => {
@@ -21,3 +28,4 @@ export const AuthService = {
         return response.data;
     },
 };
+
