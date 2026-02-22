@@ -10,6 +10,8 @@ const Tab = createBottomTabNavigator();
 import { DiseaseNavigator } from '../features/diseaseDetection/DiseaseNavigator';
 import { PriceForecastingNavigator } from '../features/priceForecasting/PriceForecastingNavigator';
 import { GradingNavigator } from './GradingNavigator';
+import { ProfileScreen } from '../features/profile/ProfileScreen';
+import { UserManagementScreen } from '../features/admin/UserManagementScreen';
 
 import DppNavigator from './DppNavigator';
 
@@ -18,7 +20,7 @@ const MonitoringScreen = () => <View style={styles.center}><Text>Monitoring Dash
 const ChatbotScreen = () => <View style={styles.center}><Text>AI Chatbot</Text></View>;
 
 export const MainTabNavigator = () => {
-    const { user, logout } = useStore();
+    const { user } = useStore();
     const role = user?.role;
 
     return (
@@ -33,20 +35,13 @@ export const MainTabNavigator = () => {
                     else if (route.name === 'Monitoring') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
                     else if (route.name === 'DPP') iconName = focused ? 'qr-code' : 'qr-code-outline';
                     else if (route.name === 'Chatbot') iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+                    else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
+                    else if (route.name === 'Users') iconName = focused ? 'people' : 'people-outline';
 
                     return <Ionicons name={iconName} size={size} color={color} />;
                 },
                 tabBarActiveTintColor: colors.primary,
                 tabBarInactiveTintColor: 'gray',
-                headerRight: () => (
-                    <Ionicons
-                        name="log-out-outline"
-                        size={24}
-                        color={colors.error}
-                        style={{ marginRight: 15 }}
-                        onPress={() => logout()}
-                    />
-                )
             })}
         >
             {/* Farmer Routes */}
@@ -73,8 +68,18 @@ export const MainTabNavigator = () => {
                 </>
             )}
 
+            {/* Admin-only: User Management */}
+            {role === 'admin' && (
+                <Tab.Screen
+                    name="Users"
+                    component={UserManagementScreen}
+                    options={{ headerShown: false }}
+                />
+            )}
+
             {/* Common Routes */}
             <Tab.Screen name="Chatbot" component={ChatbotScreen} />
+            <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
         </Tab.Navigator>
     );
 };
@@ -86,3 +91,4 @@ const styles = StyleSheet.create({
         alignItems: 'center'
     }
 });
+

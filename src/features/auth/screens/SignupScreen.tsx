@@ -97,6 +97,11 @@ export const SignupScreen = ({ navigation }: any) => {
 
         try {
             await register(credentials);
+            Alert.alert(
+                'Registration Successful! 🎉',
+                'Your account has been created and is pending admin approval. You will be able to login once approved.',
+                [{ text: 'Go to Login', onPress: () => navigation.navigate('Login') }]
+            );
         } catch (err: any) {
             Alert.alert('Registration Failed', err.response?.data || err.message || 'An error occurred');
         }
