@@ -34,8 +34,9 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
     register: async (credentials: RegisterCredentials) => {
         set({ isLoading: true, error: null });
         try {
-            const response: AuthResponse = await AuthService.register(credentials);
-            set({ user: response.user, isAuthenticated: true, isLoading: false });
+            await AuthService.register(credentials);
+            set({ isLoading: false });
+            // Don't set isAuthenticated — account needs admin approval
         } catch (error: any) {
             const msg = error.response?.data || error.message || 'Registration failed';
             set({ isLoading: false, error: typeof msg === 'string' ? msg : 'Registration failed' });
