@@ -21,7 +21,8 @@ import DppNavigator from './DppNavigator';
 
 // Placeholder screens for features
 const MonitoringScreen = () => <View style={styles.center}><Text>Monitoring Dashboard</Text></View>;
-const ChatbotScreen = () => <View style={styles.center}><Text>AI Chatbot</Text></View>;
+
+import ChatbotScreen from '../features/chatbot/screens/ChatbotScreen';
 
 export const MainTabNavigator = () => {
     const { user } = useStore();
@@ -103,7 +104,7 @@ export const MainTabNavigator = () => {
                 )}
 
                 {/* Common Routes */}
-                <Tab.Screen name="Chatbot" component={ChatbotScreen} />
+                <Tab.Screen name="Chatbot" component={ChatbotScreen} options={{ headerShown: false }} />
                 <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
             </Tab.Navigator>
 
