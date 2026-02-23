@@ -23,8 +23,8 @@ export interface RegisterCredentials {
     email: string;
     password: string;
     role: string;
-    plantationName: string;
-    latitude: number;
-    longitude: number;
+    plantationName?: string;
+    latitude?: number;
+    longitude?: number;
 }
 
