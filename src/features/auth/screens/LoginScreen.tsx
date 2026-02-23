@@ -93,6 +93,8 @@ export const LoginScreen = ({ navigation }: any) => {
                             <Text style={styles.helperText}>Test Accounts:</Text>
                             <Text style={styles.helperText}>Farmer: farmer@test.com / pass123</Text>
                             <Text style={styles.helperText}>Admin: admin@test.com / pass123</Text>
+                            <Text style={styles.helperText}>Buyer: buyer@test.com / pass123</Text>
+                            <Text style={styles.helperText}>Exporter: exporter@test.com / pass123</Text>
                         </View>
                     </View>
                 </ScrollView>

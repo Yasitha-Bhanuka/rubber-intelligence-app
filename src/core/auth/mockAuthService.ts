@@ -20,7 +20,19 @@ const MOCK_USERS: Record<string, User> = {
         email: 'researcher@test.com',
         name: 'Dr. Researcher',
         role: 'researcher'
-    }
+    },
+    'buyer@test.com': {
+        id: 'u_004',
+        email: 'buyer@test.com',
+        name: 'Global Buyer Inc',
+        role: 'buyer',
+    },
+    'exporter@test.com': {
+        id: 'u_005',
+        email: 'exporter@test.com',
+        name: 'Ceylon Exporters Ltd',
+        role: 'exporter',
+    },
 };
 
 export const MockAuthService = {

@@ -52,7 +52,7 @@ export const SignupScreen = ({ navigation }: any) => {
         })();
     }, []);
 
-    const roles = ['Farmer', 'Researcher'];
+    const roles = ['Farmer', 'Buyer', 'Exporter', 'Researcher'];
 
     const validateStep1 = () => {
         const e: Record<string, string> = {};
@@ -75,26 +75,21 @@ export const SignupScreen = ({ navigation }: any) => {
         return Object.keys(e).length === 0;
     };
 
+    const isFarmer = role === 'Farmer';
+
     const handleNext = () => {
         if (validateStep1()) {
-            setStep(2);
-            setErrors({});
+            if (isFarmer) {
+                setStep(2);
+                setErrors({});
+            } else {
+                // Non-farmer roles skip step 2 (no plantation/location needed)
+                handleRegisterDirect();
+            }
         }
     };
 
-    const handleRegister = async () => {
-        if (!validateStep2()) return;
-
-        const credentials: RegisterCredentials = {
-            fullName,
-            email,
-            password,
-            role,
-            plantationName,
-            latitude,
-            longitude,
-        };
-
+    const doRegister = async (credentials: RegisterCredentials) => {
         try {
             await register(credentials);
             Alert.alert(
@@ -105,6 +100,17 @@ export const SignupScreen = ({ navigation }: any) => {
         } catch (err: any) {
             Alert.alert('Registration Failed', err.response?.data || err.message || 'An error occurred');
         }
+    };
+
+    // For non-farmer roles (skip step 2)
+    const handleRegisterDirect = async () => {
+        await doRegister({ fullName, email, password, role, plantationName: '' });
+    };
+
+    // For farmer (from step 2)
+    const handleRegister = async () => {
+        if (!validateStep2()) return;
+        await doRegister({ fullName, email, password, role, plantationName, latitude, longitude });
     };
 
     const handleMapPress = (e: any) => {
@@ -184,8 +190,15 @@ export const SignupScreen = ({ navigation }: any) => {
                                     </TouchableOpacity>
                                 ))}
                             </View>
+                            {!isFarmer && (
+                                <Text style={styles.helperSmall}>
+                                    {role === 'Buyer' ? '🛒 Buyers can purchase rubber through the DPP marketplace.'
+                                        : role === 'Exporter' ? '🚢 Exporters can verify and ship rubber batches.'
+                                            : '🔬 Researchers can access monitoring dashboards.'}
+                                </Text>
+                            )}
 
-                            <AppButton title="Next →" onPress={handleNext} style={styles.button} />
+                            <AppButton title={isFarmer ? 'Next →' : 'Create Account'} onPress={handleNext} isLoading={!isFarmer && isLoading} style={styles.button} />
 
                             <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.link}>
                                 <Text style={styles.linkText}>Already have an account? <Text style={{ fontWeight: 'bold', color: colors.primary }}>Sign In</Text></Text>
@@ -340,8 +353,9 @@ const styles = StyleSheet.create({
     },
     roleRow: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 10,
-        marginBottom: 16,
+        marginBottom: 12,
     },
     roleChip: {
         paddingHorizontal: 20,
