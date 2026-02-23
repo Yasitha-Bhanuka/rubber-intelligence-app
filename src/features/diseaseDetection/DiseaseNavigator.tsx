@@ -4,18 +4,14 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { DiseaseCameraScreen } from './screens/DiseaseCameraScreen';
 import { DiseaseResultScreen } from './screens/DiseaseResultScreen';
 import { DiseaseHistoryScreen } from './screens/DiseaseHistoryScreen';
-import { AlertsScreen } from './screens/AlertsScreen';
 import { DiseaseMapScreen } from './screens/DiseaseMapScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../shared/styles/colors';
-import { useStore } from '../../store';
 
 const Stack = createNativeStackNavigator();
 
 // Simple Selection Screen
 const DiseaseHomeScreen = ({ navigation }: any) => {
-    const { unreadCount } = useStore();
-
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Select Detection Type</Text>
@@ -43,13 +39,6 @@ const DiseaseHomeScreen = ({ navigation }: any) => {
             <Text style={{ fontSize: 16, color: '#666', marginBottom: 10 }}>Monitoring</Text>
 
             <MenuButton
-                title="Disease Alerts"
-                icon="notifications"
-                color="#D32F2F"
-                onPress={() => navigation.navigate('Alerts')}
-                badge={unreadCount > 0 ? unreadCount : undefined}
-            />
-            <MenuButton
                 title="Disease Map"
                 icon="map"
                 color="#2196F3"
@@ -68,17 +57,12 @@ const DiseaseHomeScreen = ({ navigation }: any) => {
     );
 };
 
-const MenuButton = ({ title, icon, color, onPress, badge }: any) => (
+const MenuButton = ({ title, icon, color, onPress }: any) => (
     <TouchableOpacity style={styles.card} onPress={onPress}>
         <View style={[styles.iconBox, { backgroundColor: color }]}>
             <Ionicons name={icon} size={32} color="#FFF" />
         </View>
         <Text style={styles.cardText}>{title}</Text>
-        {badge !== undefined && (
-            <View style={styles.badgeContainer}>
-                <Text style={styles.badgeText}>{badge}</Text>
-            </View>
-        )}
         <Ionicons name="chevron-forward" size={24} color="gray" />
     </TouchableOpacity>
 );
@@ -90,7 +74,6 @@ export const DiseaseNavigator = () => {
             <Stack.Screen name="DiseaseCamera" component={DiseaseCameraScreen} />
             <Stack.Screen name="DiseaseResult" component={DiseaseResultScreen} />
             <Stack.Screen name="DiseaseHistory" component={DiseaseHistoryScreen} options={{ headerShown: true, title: 'History' }} />
-            <Stack.Screen name="Alerts" component={AlertsScreen} />
             <Stack.Screen name="DiseaseMap" component={DiseaseMapScreen} />
         </Stack.Navigator>
     );
@@ -102,16 +85,6 @@ const styles = StyleSheet.create({
     card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 15, borderRadius: 15, marginBottom: 15, elevation: 2 },
     iconBox: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     cardText: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333' },
-    badgeContainer: {
-        backgroundColor: '#D32F2F',
-        borderRadius: 10,
-        minWidth: 20,
-        height: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 6,
-        marginRight: 8,
-    },
-    badgeText: { color: '#FFF', fontSize: 11, fontWeight: 'bold' },
 });
+
 

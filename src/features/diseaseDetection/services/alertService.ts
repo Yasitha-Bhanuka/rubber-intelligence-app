@@ -6,6 +6,8 @@ export interface AlertItem {
     detectionId: string;
     diseaseName: string;
     distanceKm: number;
+    latitude: number;
+    longitude: number;
     createdAt: string;
     isRead: boolean;
 }
