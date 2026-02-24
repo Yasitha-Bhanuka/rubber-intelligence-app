@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator, Alert } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +15,7 @@ export default function BuyerDashboardScreen() {
     const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
     const [loading, setLoading] = useState(false);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             const [docs, trans] = await Promise.all([
@@ -27,12 +27,19 @@ export default function BuyerDashboardScreen() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    // Cache guard: prevent redundant refetches on rapid tab switches
+    const lastFetchRef = useRef(0);
+    const CACHE_TTL = 30000;
 
     useFocusEffect(
         useCallback(() => {
-            loadData();
-        }, [])
+            if (Date.now() - lastFetchRef.current > CACHE_TTL) {
+                lastFetchRef.current = Date.now();
+                loadData();
+            }
+        }, [loadData])
     );
 
     const handleUploadInvoice = async (transactionId: string) => {

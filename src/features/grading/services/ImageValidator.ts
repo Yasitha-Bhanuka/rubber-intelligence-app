@@ -1,6 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as jpeg from 'jpeg-js';
 import { Buffer } from 'buffer';
+import { InteractionManager } from 'react-native';
 
 export interface ValidationResult {
     isValid: boolean;
@@ -11,8 +12,24 @@ export const ImageValidator = {
     /**
      * Validates if the image is likely a rubber sheet and is not blurred.
      * Uses heuristic pixel analysis on a downscaled sample.
+     * Deferred via InteractionManager to avoid blocking UI during animations.
      */
     validateImage: async (imageUri: string): Promise<ValidationResult> => {
+        // Defer heavy work until after animations/interactions complete
+        return new Promise((resolve) => {
+            InteractionManager.runAfterInteractions(async () => {
+                try {
+                    resolve(await ImageValidator._processValidation(imageUri));
+                } catch (error: any) {
+                    console.error("Validation Error Details:", error);
+                    resolve({ isValid: false, reason: `Validation System Error: ${error.message || "Unknown error"}` });
+                }
+            });
+        });
+    },
+
+    /** @internal Actual pixel-level validation logic */
+    _processValidation: async (imageUri: string): Promise<ValidationResult> => {
         try {
             // 1. Downscale for performance (64x64 is sufficient for color/variance)
             const manipResult = await ImageManipulator.manipulateAsync(
@@ -80,8 +97,7 @@ export const ImageValidator = {
             const avgVariance = varianceSum / totalPixels;
 
             // Check 1: Content (Rubber Sheet Colors)
-            // Increased to 40% to ensure the sheet is the primary subject.
-            if (rubberContentRatio < 0.40) {
+            if (rubberContentRatio < 0.30) {
                 return {
                     isValid: false,
                     reason: "Subject not recognized as an RSS Rubber Sheet.\n\nTip: Place the sheet clearly in the frame with good lighting."
@@ -97,19 +113,17 @@ export const ImageValidator = {
             }
 
             // Check 3: Blur (Low Variance)
-            if (avgVariance < 2.5) {
-                return { isValid: false, reason: "Image is blurry or lacks texture.\nPlease ensure the sheet is in focus." };
+            if (avgVariance < 2.0) {
+                return { isValid: false, reason: "Image is blurry.\nPlease tap to focus." };
             }
 
             return { isValid: true };
 
         } catch (error: any) {
             console.error("Validation Error Details:", error);
-            // FAIL SAFE: If validation crashes, assume functionality is broken but let user know.
-            // Returning FALSE here to alert the user that validation failed (debugging mode).
             return { isValid: false, reason: `Validation System Error: ${error.message || "Unknown error"}` };
         }
-    }
+    },
 };
 
 /**
