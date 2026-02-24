@@ -1,6 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as jpeg from 'jpeg-js';
 import { Buffer } from 'buffer';
+import { InteractionManager } from 'react-native';
 
 export interface ValidationResult {
     isValid: boolean;
@@ -11,8 +12,24 @@ export const ImageValidator = {
     /**
      * Validates if the image is likely a rubber sheet and is not blurred.
      * Uses heuristic pixel analysis on a downscaled sample.
+     * Deferred via InteractionManager to avoid blocking UI during animations.
      */
     validateImage: async (imageUri: string): Promise<ValidationResult> => {
+        // Defer heavy work until after animations/interactions complete
+        return new Promise((resolve) => {
+            InteractionManager.runAfterInteractions(async () => {
+                try {
+                    resolve(await ImageValidator._processValidation(imageUri));
+                } catch (error: any) {
+                    console.error("Validation Error Details:", error);
+                    resolve({ isValid: false, reason: `Validation System Error: ${error.message || "Unknown error"}` });
+                }
+            });
+        });
+    },
+
+    /** @internal Actual pixel-level validation logic */
+    _processValidation: async (imageUri: string): Promise<ValidationResult> => {
         try {
             // 1. Downscale for performance (64x64 is sufficient for color/variance)
             const manipResult = await ImageManipulator.manipulateAsync(
@@ -71,14 +88,7 @@ export const ImageValidator = {
             const avgBrightness = totalBrightness / totalPixels;
             const avgVariance = varianceSum / totalPixels;
 
-            // console.log(`[ImageValidator] Ratio: ${rubberContentRatio.toFixed(2)}, Brightness: ${avgBrightness.toFixed(0)}, Variance: ${avgVariance.toFixed(1)}`);
-            // console.log(`[Validation Stats] ContentRatio: ${rubberContentRatio.toFixed(2)} (Min 0.2), Brightness: ${avgBrightness.toFixed(0)} (20-230), Variance: ${avgVariance.toFixed(1)} (Min 2.5)`);
-
             // Check 1: Content (Rubber Sheet Colors)
-            // Stricter Thresholds:
-            // - Hue: 10 (Red-Orange) to 60 (Yellow) -> Typical RSS Rubber
-            // - Saturation: > 20 (Exclude Gray/White/Black walls)
-            // - Ratio: > 30% coverage
             if (rubberContentRatio < 0.30) {
                 return {
                     isValid: false,
@@ -95,7 +105,6 @@ export const ImageValidator = {
             }
 
             // Check 3: Blur (Low Variance)
-            // Relaxed slightly to 2.0 to avoid rejecting smooth sheets, but kept for out-of-focus
             if (avgVariance < 2.0) {
                 return { isValid: false, reason: "Image is blurry.\nPlease tap to focus." };
             }
@@ -104,11 +113,9 @@ export const ImageValidator = {
 
         } catch (error: any) {
             console.error("Validation Error Details:", error);
-            // FAIL SAFE: If validation crashes, assume functionality is broken but let user know.
-            // Returning FALSE here to alert the user that validation failed (debugging mode).
             return { isValid: false, reason: `Validation System Error: ${error.message || "Unknown error"}` };
         }
-    }
+    },
 };
 
 /**

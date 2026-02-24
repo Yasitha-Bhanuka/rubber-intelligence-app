@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,7 +30,7 @@ export const GradingScreen = () => {
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
 
-    const pickImage = async () => {
+    const pickImage = useCallback(async () => {
         const currentPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (currentPermission.status !== 'granted') {
             Alert.alert("Permission Required", "Need gallery access to upload images.");
@@ -48,9 +48,9 @@ export const GradingScreen = () => {
             setImage(result.assets[0].uri);
             setResult(null); // Reset previous result
         }
-    };
+    }, []);
 
-    const takePhoto = async () => {
+    const takePhoto = useCallback(async () => {
         const currentPermission = await ImagePicker.requestCameraPermissionsAsync();
         if (currentPermission.status !== 'granted') {
             setAlertMessage("Need camera access to take photos.");
@@ -68,9 +68,9 @@ export const GradingScreen = () => {
             setImage(result.assets[0].uri);
             setResult(null);
         }
-    };
+    }, []);
 
-    const handleAnalyze = async () => {
+    const handleAnalyze = useCallback(async () => {
         if (!image) return;
 
         setLoading(true);
@@ -95,9 +95,9 @@ export const GradingScreen = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [image]);
 
-    const handleGenerateReport = async () => {
+    const handleGenerateReport = useCallback(async () => {
         if (!result) return;
 
         try {
@@ -132,9 +132,9 @@ export const GradingScreen = () => {
         } catch (error) {
             Alert.alert("Error", "Failed to generate report.");
         }
-    };
+    }, [result, batchId, testerName, sheetCount, sheetWeight, testDate, testTime, navigation]);
 
-    const renderResult = () => {
+    const renderResult = useCallback(() => {
         if (!result) return null;
 
         const isGood = result.predictedClass.toLowerCase().includes("good");
@@ -183,7 +183,7 @@ export const GradingScreen = () => {
                 </TouchableOpacity>
             </View>
         );
-    };
+    }, [result, handleGenerateReport]);
 
     return (
         <ScrollView
@@ -204,13 +204,13 @@ export const GradingScreen = () => {
 
                     <View style={styles.headerTitleWrap}>
                         <MaterialCommunityIcons name="image-search" size={24} color="rgba(255,255,255,0.9)" />
-                        <View style={{ marginLeft: 10 }}>
+                        <View style={styles.headerTextWrap}>
                             <Text style={styles.headerWhite}>Rubber Sheet Grading</Text>
                             {!result && <Text style={styles.subHeaderWhite}>Detect defects & check quality</Text>}
                         </View>
                     </View>
 
-                    <View style={{ width: 34 }} />
+                    <View style={styles.headerSpacer} />
                 </LinearGradient>
             </Animated.View>
 
@@ -363,7 +363,7 @@ export const GradingScreen = () => {
                 message={alertMessage}
                 onClose={() => setAlertVisible(false)}
             />
-        </ScrollView>
+        </ScrollView >
     );
 };
 
@@ -769,5 +769,11 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontWeight: '700',
         fontSize: 18,
-    }
+    },
+    headerTextWrap: {
+        marginLeft: 10,
+    },
+    headerSpacer: {
+        width: 34,
+    },
 });

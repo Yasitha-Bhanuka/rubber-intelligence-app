@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,7 +17,7 @@ export const DashboardScreen = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [trend, setTrend] = useState({ value: 0, isPositive: true });
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             const data = await PriceForecastingService.getPriceHistory();
             setPriceHistory(data);
@@ -28,19 +28,27 @@ export const DashboardScreen = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
-    // Load data when screen comes into focus
+    // Cache guard: only refetch if data is stale (30 seconds)
+    const lastFetchRef = useRef(0);
+    const CACHE_TTL = 30000;
+
+    // Load data when screen comes into focus (with cache guard)
     useFocusEffect(
         useCallback(() => {
-            loadData();
-        }, [])
+            if (Date.now() - lastFetchRef.current > CACHE_TTL) {
+                lastFetchRef.current = Date.now();
+                loadData();
+            }
+        }, [loadData])
     );
 
-    const onRefresh = () => {
+    const onRefresh = useCallback(() => {
         setRefreshing(true);
+        lastFetchRef.current = Date.now(); // Reset cache on manual refresh
         loadData();
-    };
+    }, [loadData]);
 
     const calculateTrend = (data: any[]) => {
         if (data.length < 2) return;
@@ -53,8 +61,8 @@ export const DashboardScreen = () => {
         });
     };
 
-    // Prepare chart data (Last 6 entries, reversed for chronological left-to-right)
-    const chartData = {
+    // Memoize chart data — only recompute when priceHistory changes
+    const chartData = useMemo(() => ({
         labels: priceHistory.length > 0
             ? priceHistory.slice(0, 6).reverse().map(item => {
                 const d = new Date(item.date);
@@ -68,9 +76,11 @@ export const DashboardScreen = () => {
                     : [0],
             }
         ]
-    };
+    }), [priceHistory]);
 
-    const latestPrice = priceHistory.length > 0 ? priceHistory[0].price : 0;
+    const latestPrice = useMemo(() =>
+        priceHistory.length > 0 ? priceHistory[0].price : 0,
+        [priceHistory]);
 
     return (
         <ScrollView
