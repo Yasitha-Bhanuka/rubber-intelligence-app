@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { DiseaseCameraScreen } from './screens/DiseaseCameraScreen';
 import { DiseaseResultScreen } from './screens/DiseaseResultScreen';
 import { DiseaseHistoryScreen } from './screens/DiseaseHistoryScreen';
+import { DiseaseMapScreen } from './screens/DiseaseMapScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../shared/styles/colors';
 
@@ -35,6 +36,16 @@ const DiseaseHomeScreen = ({ navigation }: any) => {
             />
 
             <View style={{ height: 20 }} />
+            <Text style={{ fontSize: 16, color: '#666', marginBottom: 10 }}>Monitoring</Text>
+
+            <MenuButton
+                title="Disease Map"
+                icon="map"
+                color="#2196F3"
+                onPress={() => navigation.navigate('DiseaseMap')}
+            />
+
+            <View style={{ height: 10 }} />
             <Text style={{ fontSize: 16, color: '#666', marginBottom: 10 }}>Records</Text>
             <MenuButton
                 title="Recent History"
@@ -63,6 +74,7 @@ export const DiseaseNavigator = () => {
             <Stack.Screen name="DiseaseCamera" component={DiseaseCameraScreen} />
             <Stack.Screen name="DiseaseResult" component={DiseaseResultScreen} />
             <Stack.Screen name="DiseaseHistory" component={DiseaseHistoryScreen} options={{ headerShown: true, title: 'History' }} />
+            <Stack.Screen name="DiseaseMap" component={DiseaseMapScreen} />
         </Stack.Navigator>
     );
 };
@@ -72,5 +84,7 @@ const styles = StyleSheet.create({
     title: { fontSize: 24, fontWeight: 'bold', marginBottom: 30, textAlign: 'center', color: '#333' },
     card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 15, borderRadius: 15, marginBottom: 15, elevation: 2 },
     iconBox: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-    cardText: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333' }
+    cardText: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333' },
 });
+
+
