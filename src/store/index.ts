@@ -1,20 +1,14 @@
 import { create } from 'zustand';
 import { createAuthSlice, AuthSlice } from './authSlice';
-
-// Placeholder for other slices
-interface GradingSlice {
-    // grading state
-}
-
-interface DiseaseSlice {
-    // disease state
-}
+import { createAlertSlice, AlertSlice } from './alertSlice';
 
 // Combine all slices
-interface AppState extends AuthSlice {
+interface AppState extends AuthSlice, AlertSlice {
     // Add other slices here
 }
 
 export const useStore = create<AppState>()((...a) => ({
     ...createAuthSlice(...a),
+    ...createAlertSlice(...a),
 }));
+

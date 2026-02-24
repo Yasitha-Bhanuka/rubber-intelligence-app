@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../../store';
 import { AppTextInput } from '../../../shared/components/AppTextInput';
 import { AppButton } from '../../../shared/components/AppButton';
 import { colors } from '../../../shared/styles/colors';
 
-export const LoginScreen = () => {
+export const LoginScreen = ({ navigation }: any) => {
     const { login, isLoading, error } = useStore();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -83,10 +83,18 @@ export const LoginScreen = () => {
                             style={styles.button}
                         />
 
+                        <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.signupLink}>
+                            <Text style={styles.signupText}>
+                                Don't have an account? <Text style={{ fontWeight: 'bold', color: colors.primary }}>Sign Up</Text>
+                            </Text>
+                        </TouchableOpacity>
+
                         <View style={styles.helper}>
                             <Text style={styles.helperText}>Test Accounts:</Text>
                             <Text style={styles.helperText}>Farmer: farmer@test.com / pass123</Text>
                             <Text style={styles.helperText}>Admin: admin@test.com / pass123</Text>
+                            <Text style={styles.helperText}>Buyer: buyer@test.com / pass123</Text>
+                            <Text style={styles.helperText}>Exporter: exporter@test.com / pass123</Text>
                         </View>
                     </View>
                 </ScrollView>
@@ -139,5 +147,13 @@ const styles = StyleSheet.create({
     helperText: {
         color: '#666',
         fontSize: 12
+    },
+    signupLink: {
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    signupText: {
+        color: '#666',
+        fontSize: 14,
     }
 });
