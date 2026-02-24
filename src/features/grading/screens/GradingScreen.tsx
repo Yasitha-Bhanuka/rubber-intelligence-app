@@ -7,7 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors } from '../../../shared/styles/colors';
 import { GradingService, GradingResponse } from '../services/gradingService';
-import { ImageValidator } from '../services/ImageValidator';
 import { ReportService } from '../../../core/services/ReportService';
 import { ValidationAlert } from '../components/ValidationAlert';
 
@@ -115,17 +114,7 @@ export const GradingScreen = () => {
 
         setLoading(true);
         try {
-            // 1. Frontend Validation
-            const validation = await ImageValidator.validateImage(image);
-            if (!validation.isValid) {
-                // Show Custom Alert
-                setAlertMessage(validation.reason || "Please re-take image.");
-                setAlertVisible(true);
-                setLoading(false);
-                return;
-            }
-
-            // 2. Backend Analysis
+            // Backend Analysis
             const data = await GradingService.analyzeImage(image);
             setResult(data);
         } catch (error) {
@@ -396,7 +385,7 @@ export const GradingScreen = () => {
 
             {/* Result Section */}
             {renderResult()}
-            
+
             {/* Custom Validation Alert */}
             <ValidationAlert
                 visible={alertVisible}
