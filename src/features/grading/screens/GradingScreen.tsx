@@ -30,6 +30,37 @@ export const GradingScreen = () => {
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
 
+    // Validation function to check if all required fields are filled
+    const validateInputFields = () => {
+        if (!testerName.trim()) {
+            setAlertMessage("Please enter tester name");
+            setAlertVisible(true);
+            return false;
+        }
+        if (!sheetCount.trim()) {
+            setAlertMessage("Please enter sheet count");
+            setAlertVisible(true);
+            return false;
+        }
+        if (!sheetWeight.trim()) {
+            setAlertMessage("Please enter sheet weight");
+            setAlertVisible(true);
+            return false;
+        }
+        // Optional: Validate numeric values
+        if (isNaN(Number(sheetCount)) || Number(sheetCount) <= 0) {
+            setAlertMessage("Please enter a valid sheet count (positive number)");
+            setAlertVisible(true);
+            return false;
+        }
+        if (isNaN(Number(sheetWeight)) || Number(sheetWeight) <= 0) {
+            setAlertMessage("Please enter a valid weight (positive number)");
+            setAlertVisible(true);
+            return false;
+        }
+        return true;
+    };
+
     const pickImage = async () => {
         const currentPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (currentPermission.status !== 'granted') {
@@ -71,7 +102,16 @@ export const GradingScreen = () => {
     };
 
     const handleAnalyze = async () => {
-        if (!image) return;
+        // First validate all input fields
+        if (!validateInputFields()) {
+            return; // Stop execution if validation fails
+        }
+
+        if (!image) {
+            setAlertMessage("Please select an image first");
+            setAlertVisible(true);
+            return;
+        }
 
         setLoading(true);
         try {
@@ -81,7 +121,6 @@ export const GradingScreen = () => {
                 // Show Custom Alert
                 setAlertMessage(validation.reason || "Please re-take image.");
                 setAlertVisible(true);
-
                 setLoading(false);
                 return;
             }
@@ -253,7 +292,7 @@ export const GradingScreen = () => {
                         <View style={styles.fullWidthItem}>
                             <Text style={styles.label}>Tester Name</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, !testerName && styles.inputError]}
                                 value={testerName}
                                 onChangeText={setTesterName}
                                 placeholder="Enter name"
@@ -266,7 +305,7 @@ export const GradingScreen = () => {
                         <View style={styles.gridItem}>
                             <Text style={styles.label}>Sheet Count</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, !sheetCount && styles.inputError]}
                                 value={sheetCount}
                                 onChangeText={setSheetCount}
                                 keyboardType="numeric"
@@ -277,7 +316,7 @@ export const GradingScreen = () => {
                         <View style={styles.gridItem}>
                             <Text style={styles.label}>Weight (kg)</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, !sheetWeight && styles.inputError]}
                                 value={sheetWeight}
                                 onChangeText={setSheetWeight}
                                 keyboardType="numeric"
@@ -357,6 +396,7 @@ export const GradingScreen = () => {
 
             {/* Result Section */}
             {renderResult()}
+            
             {/* Custom Validation Alert */}
             <ValidationAlert
                 visible={alertVisible}
@@ -478,6 +518,10 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 2,
         elevation: 2,
+    },
+    inputError: {
+        borderColor: colors.error,
+        borderWidth: 2,
     },
     inputContainer: {
         backgroundColor: '#F8F9FA',
