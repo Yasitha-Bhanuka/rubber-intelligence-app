@@ -58,6 +58,10 @@ export const AuctionBiddingScreen = () => {
                     <View style={styles.gradeBadge}>
                         <Text style={styles.gradeText}>{auctionData.grade}</Text>
                     </View>
+                    <View style={styles.nftBadge}>
+                        <Ionicons name="shield-checkmark" size={12} color="#2E7D32" />
+                        <Text style={styles.nftBadgeText}>NFT Secured</Text>
+                    </View>
                 </View>
 
                 <Text style={styles.title}>{auctionData.title}</Text>
@@ -114,6 +118,25 @@ export const AuctionBiddingScreen = () => {
                     </View>
                 </View>
 
+                {/* NFT Passport Section */}
+                <View style={styles.nftSection}>
+                    <Text style={styles.nftTitle}>Digital Passport (NFT)</Text>
+                    <View style={styles.nftRow}>
+                        <Ionicons name="cube-outline" size={32} color="#333" />
+                        <View style={styles.nftDetails}>
+                            <Text style={styles.nftLabel}>Token ID</Text>
+                            <Text style={styles.nftValue}>0x7b...82a</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.traceBtn}
+                            onPress={() => navigation.navigate('Traceability', { lotId: id })}
+                        >
+                            <Text style={styles.traceBtnText}>Traceability</Text>
+                            <Ionicons name="chevron-forward" size={16} color="#2962FF" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
                 {/* Bid Actions */}
                 <View style={styles.bidActions}>
                     <View style={styles.incrementRow}>
@@ -159,8 +182,10 @@ const styles = StyleSheet.create({
     liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginRight: 8 },
     liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50', marginRight: 6 },
     liveText: { color: '#4CAF50', fontSize: 12, fontWeight: 'bold' },
-    gradeBadge: { backgroundColor: '#F5F5F5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+    gradeBadge: { backgroundColor: '#F5F5F5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginRight: 8 },
     gradeText: { color: '#666', fontSize: 12, fontWeight: 'bold' },
+    nftBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+    nftBadgeText: { color: '#2E7D32', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
 
     title: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 8 },
     subtitle: { fontSize: 14, color: '#666', marginBottom: 25 },
@@ -184,6 +209,15 @@ const styles = StyleSheet.create({
     infoLabel: { color: '#888', fontSize: 14 },
     infoValue: { color: '#333', fontSize: 14, fontWeight: '500' },
     viewHistoryText: { color: '#2962FF', fontSize: 12, fontWeight: 'bold' },
+
+    nftSection: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 15, marginBottom: 25, borderLeftWidth: 4, borderLeftColor: '#2E7D32' },
+    nftTitle: { fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 12 },
+    nftRow: { flexDirection: 'row', alignItems: 'center' },
+    nftDetails: { flex: 1, marginLeft: 12 },
+    nftLabel: { fontSize: 11, color: '#888' },
+    nftValue: { fontSize: 13, color: '#333', fontWeight: 'bold' },
+    traceBtn: { flexDirection: 'row', alignItems: 'center' },
+    traceBtnText: { color: '#2962FF', fontWeight: 'bold', fontSize: 13, marginRight: 4 },
 
     bidActions: { borderTopWidth: 1, borderTopColor: '#EEE', paddingTop: 20 },
     incrementRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },

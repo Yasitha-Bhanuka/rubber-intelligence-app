@@ -258,6 +258,20 @@ export const DashboardScreen = () => {
                         <Text style={styles.actionLabel}>View Reports</Text>
                     </TouchableOpacity>
                 </View>
+
+                <TouchableOpacity
+                    style={styles.portalActionCard}
+                    onPress={() => navigation.navigate('MyAuctions')}
+                >
+                    <View style={[styles.iconCircle, { backgroundColor: '#7B1FA2', marginBottom: 0, marginRight: 15 }]}>
+                        <Ionicons name="business" size={24} color="#FFF" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.portalActionLabel}>Farmer Portal</Text>
+                        <Text style={styles.portalActionSub}>Manage NFT Bidding & Lots</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#7B1FA2" />
+                </TouchableOpacity>
             </View>
 
             {/* Recent Activity List */}
@@ -280,7 +294,7 @@ export const DashboardScreen = () => {
                     ))
                 )}
             </View>
-        </ScrollView>
+        </ScrollView >
     );
 };
 
@@ -307,6 +321,22 @@ const styles = StyleSheet.create({
     actionCard: { width: '48%', padding: 20, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     iconCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
     actionLabel: { fontSize: 15, fontWeight: '600', color: '#333' },
+
+    portalActionCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3E5F5',
+        padding: 20,
+        borderRadius: 20,
+        marginTop: 15,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4
+    },
+    portalActionLabel: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    portalActionSub: { fontSize: 12, color: '#7B1FA2', marginTop: 2 },
 
     historyItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 15, borderRadius: 16, marginBottom: 10, elevation: 1 },
     historyIcon: { width: 40, height: 40, backgroundColor: '#F5F5F5', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
