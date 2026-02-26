@@ -8,108 +8,231 @@ import {
   StatusBar,
   SafeAreaView,
   Alert,
+  TextInput,
+  Dimensions,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../../../shared/styles/colors";
-import { ReportService } from "../../../core/services/ReportService";
-import { AnyComponent } from "react-native-reanimated/lib/typescript/createAnimatedComponent/commonTypes";
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+  ZoomIn
+} from "react-native-reanimated";
+import { latexQualityService, LatexQualityRequest } from "../../../core/services/latexQualityService";
 
-const LatexQualityStatus = () => {
+const { width } = Dimensions.get("window");
+
+// Define types for sensor data
+interface SensorData {
+  temperature: number | string;
+  turbidity: number | string;
+  pH: number | string;
+}
+
+// Helper function to get numeric value for status calculations
+const getNumericValue = (value: number | string): number => {
+  if (typeof value === "string") {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  }
+  return value;
+};
+
+const getTemperatureStatus = (temp: number | string) => {
+  const tempNum = getNumericValue(temp);
+  if (tempNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
+  if (tempNum >= 27 && tempNum <= 32) return { status: "Optimal", color: "#10B981", icon: "check-circle" };
+  if (tempNum >= 25 && tempNum < 27) return { status: "Low", color: "#F59E0B", icon: "alert-circle" };
+  if (tempNum > 32 && tempNum <= 35) return { status: "High", color: "#F59E0B", icon: "alert-circle" };
+  return { status: "Critical", color: "#EF4444", icon: "close-circle" };
+};
+
+const getTurbidityStatus = (turb: number | string) => {
+  const turbNum = getNumericValue(turb);
+  if (turbNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
+  if (turbNum <= -3500) return { status: "Clear", color: "#10B981", icon: "check-circle" };
+  if (turbNum >= -3500 && turbNum <= 0) return { status: "Moderate", color: "#F59E0B", icon: "alert-circle" };
+  return { status: "Critical", color: "#EF4444", icon: "close-circle" };
+};
+
+const getpHStatus = (ph: number | string) => {
+  const phNum = getNumericValue(ph);
+  if (phNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
+  if (phNum >= 6.5 && phNum <= 7.2) return { status: "Optimal", color: "#10B981", icon: "check-circle" };
+  if (phNum >= 6.0 && phNum < 6.5) return { status: "Low", color: "#F59E0B", icon: "alert-circle" };
+  if (phNum > 7.2 && phNum <= 7.5) return { status: "High", color: "#F59E0B", icon: "alert-circle" };
+  return { status: "Critical", color: "#EF4444", icon: "close-circle" };
+};
+
+const InputField = ({
+  label,
+  value,
+  onChangeText,
+  icon,
+  unit,
+  status,
+  optimalRange,
+  placeholder,
+  editable = true,
+  isSubmitting = false,
+}: any) => (
+  <Animated.View entering={FadeInDown.duration(500)} style={styles.inputFieldContainer}>
+    <View style={styles.inputHeader}>
+      <View style={styles.inputIconContainer}>
+        <MaterialCommunityIcons name={icon} size={24} color={colors.primary} />
+      </View>
+      <View style={styles.inputLabelContainer}>
+        <Text style={styles.inputLabel}>{label}</Text>
+        <Text style={styles.optimalRange}>{optimalRange}</Text>
+      </View>
+      {status && (
+        <View style={[styles.statusBadge, { backgroundColor: `${status.color}15` }]}>
+          <MaterialCommunityIcons name={status.icon as any} size={16} color={status.color} />
+          <Text style={[styles.statusText, { color: status.color }]}>
+            {status.status}
+          </Text>
+        </View>
+      )}
+    </View>
+
+    <View style={styles.inputWrapper}>
+      <TextInput
+        style={[styles.input, !value && styles.placeholderInput]}
+        value={value.toString()}
+        onChangeText={onChangeText}
+        keyboardType="decimal-pad"
+        placeholder={placeholder}
+        placeholderTextColor="#94A3B8"
+        editable={editable && !isSubmitting}
+        selectTextOnFocus={editable}
+      />
+      <Text style={styles.unitText}>{unit}</Text>
+    </View>
+  </Animated.View>
+);
+
+const InfoCard = ({ icon, title, value, color }: any) => (
+  <Animated.View entering={ZoomIn.duration(500)}>
+    <View style={styles.infoCard}>
+      <View style={[styles.infoCardIconContainer, { backgroundColor: `${color}15` }]}>
+        <MaterialCommunityIcons name={icon} size={20} color={color} />
+      </View>
+      <View style={styles.infoCardContent}>
+        <Text style={styles.infoCardTitle}>{title}</Text>
+        <Text style={styles.infoCardValue}>{value}</Text>
+      </View>
+    </View>
+  </Animated.View>
+);
+
+const NewTestScreen = () => {
   const navigation = useNavigation<any>();
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [sensorData, setSensorData] = useState({
-    temperature: 0,
-    turbidity: 0,
-    pH: 0,
+  const [testDate] = useState<string>(() => {
+    return new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: "long",
+    });
   });
 
-  // Simulate sensor data (in real app, this would come from actual sensors)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
+  const [testTime] = useState<string>(() => {
+    return new Date().toLocaleTimeString("en-US", {
+      hour12: true,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  });
 
-      // Simulate sensor readings with realistic values
-      setSensorData({
-        temperature: Math.random() * (35 - 25) + 25, // 25-35°C
-        turbidity: Math.random() * (50 - 5) + 5, // 5-50 NTU
-        pH: Math.random() * (7.5 - 6.0) + 6.0, // 6.0-7.5 pH
-      });
-    }, 5000);
+  const [testId, setTestId] = useState<string>("");
+  const testerName = "Rubber Latex Collector";
+  // Initial values are now placeholders (empty strings)
+  const [sensorData, setSensorData] = useState<SensorData>({
+    temperature: "",
+    turbidity: "",
+    pH: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-    return () => clearInterval(timer);
-  }, []);
-
-  // Quality assessment logic
-  const getQualityAssessment = () => {
-    const { temperature, pH, turbidity } = sensorData;
-
-    const isTempGood = temperature >= 27 && temperature <= 32;
-    const isPHGood = pH >= 6.5 && pH <= 7.2;
-    const isTurbidityGood = turbidity <= 30;
-
-    const isGoodQuality = isTempGood && isPHGood && isTurbidityGood;
-
-    let reasons = [];
-    if (!isTempGood) {
-      reasons.push(
-        `Temperature (${temperature.toFixed(
-          1
-        )}°C) is outside optimal range (27-32°C)`
-      );
-    }
-    if (!isPHGood) {
-      reasons.push(
-        `pH level (${pH.toFixed(1)}) is outside optimal range (6.5-7.2)`
-      );
-    }
-    if (!isTurbidityGood) {
-      reasons.push(
-        `Turbidity (${turbidity.toFixed(
-          1
-        )} NTU) is above acceptable limit (≤30 NTU)`
-      );
-    }
-
-    return {
-      isGoodQuality,
-      reasons:
-        reasons.length > 0 ? reasons : ["All parameters within optimal ranges"],
-      details: {
-        temperature: { value: temperature, isGood: isTempGood },
-        pH: { value: pH, isGood: isPHGood },
-        turbidity: { value: turbidity, isGood: isTurbidityGood },
-      },
-    };
+  // Sample values for placeholders
+  const sampleValues = {
+    temperature: "28.5",
+    turbidity: "-3600",
+    pH: "6.8"
   };
 
-  const assessment = getQualityAssessment();
+  // Generate test ID on component mount
+  useEffect(() => {
+    generateTestId();
+  }, []);
 
-  const handleGenerateReport = async () => {
+  const generateTestId = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const randomNum = Math.floor(Math.random() * 900) + 100;
+    const newTestId = `Test-${year}-${randomNum}`;
+    setTestId(newTestId);
+  };
+
+  const handleSubmitTest = async () => {
+    // Check if any field is empty
+    if (!sensorData.temperature || !sensorData.turbidity || !sensorData.pH) {
+      Alert.alert(
+        "Incomplete Data",
+        "Please fill in all sensor measurements before submitting.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Validate numeric values
+    const tempNum = getNumericValue(sensorData.temperature);
+    const turbNum = getNumericValue(sensorData.turbidity);
+    const phNum = getNumericValue(sensorData.pH);
+
+    if (tempNum === 0 || turbNum === 0 || phNum === 0) {
+      Alert.alert(
+        "Invalid Data",
+        "Please enter valid numeric values for all measurements.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
-      const html = ReportService.generateLatexHTML({ assessment, sensorData });
-      const filename = `Latex_${new Date().getTime()}.pdf`;
-      const pdfUri = await ReportService.generatePDF(html, filename);
+      const request: LatexQualityRequest = {
+        temperature: parseFloat(sensorData.temperature as string),
+        turbidity: parseFloat(sensorData.turbidity as string),
+        pH: parseFloat(sensorData.pH as string),
+        testId: testId,
+        testerName: testerName,
+        testDate: new Date()
+      };
 
-      if (pdfUri) {
-        navigation.navigate("TestReports", {
-          pdfUri,
-          source: "Latex",
-          result: {
-            predictedClass: assessment.isGoodQuality ? "Good Quality" : "Poor Quality",
-            confidence: 1.0,
-            severity: assessment.isGoodQuality ? "Low" : "High",
-            suggestions: assessment.reasons.join("\n")
-          },
-          params: {
-            testDate: formatDate(currentTime),
-            testTime: formatTime(currentTime as any)
-          }
-        });
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to generate report.");
+      console.log('Sending request:', request);
+      const result = await latexQualityService.predictQuality(request);
+      console.log('Received result:', result);
+
+      navigation.navigate('LatexQualityResult', {
+        result,
+        testId,
+        testDate,
+        testTime
+      });
+
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      Alert.alert(
+        "Prediction Failed",
+        error.message || "Failed to connect to quality prediction service. Please try again.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -117,280 +240,292 @@ const LatexQualityStatus = () => {
     navigation.goBack();
   };
 
-  const formatDate = (date: any) => {
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
+  const handleResetValues = () => {
+    // Clear all input values
+    setSensorData({
+      temperature: "",
+      turbidity: "",
+      pH: "",
     });
+    generateTestId(); // Regenerate test ID when resetting
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("en-US", {
-      hour12: true,
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
-
-  const StatusCard = ({
-    title,
-    value,
-    unit,
-    icon,
-    isGood,
-    optimalRange,
-  }: any) => (
-    <View style={[styles.statusCard, !isGood && styles.statusCardWarning]}>
-      <View style={styles.statusHeader}>
-        <MaterialCommunityIcons
-          name={icon}
-          size={24}
-          color={isGood ? colors.success : colors.error}
-        />
-        <Text style={styles.statusTitle}>{title}</Text>
-        <View
-          style={[
-            styles.statusIndicator,
-            isGood ? styles.statusGood : styles.statusBad,
-          ]}
-        >
-          <Text style={styles.statusIndicatorText}>
-            {isGood ? "✓ Good" : "✗ Poor"}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.statusValueContainer}>
-        <Text style={styles.statusValue}>{value}</Text>
-        <Text style={styles.statusUnit}>{unit}</Text>
-      </View>
-      <Text style={styles.optimalRange}>Optimal Range: {optimalRange}</Text>
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* Header */}
-      <View>
-        <LinearGradient
-          colors={[colors.primary, "#1B5E20"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.header}
-        >
-          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+      {/* Header Section */}
+      <LinearGradient
+        colors={[colors.primary, "#1B5E20"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
+      >
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleGoBack}
+            disabled={isSubmitting}
+          >
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <MaterialCommunityIcons name="test-tube" size={24} color="white" />
-            <Text style={styles.headerTitle}>Latex Quality Status</Text>
+
+          <View style={styles.headerCenter}>
+            <View style={styles.headerIconContainer}>
+              <MaterialCommunityIcons name="test-tube" size={28} color="white" />
+            </View>
+
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Rubber Latex Quality Test</Text>
+              <Text style={styles.headerSubtitle}>Real - Time Sensor Measurements</Text>
+            </View>
           </View>
-          <View style={styles.headerPlaceholder} />
-        </LinearGradient>
-      </View>
+
+          <View style={styles.headerRightPlaceholder} />
+        </View>
+      </LinearGradient>
 
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        {/* User Info Card */}
-        <View style={styles.userCard}>
-          <View style={styles.userInfo}>
-            <MaterialCommunityIcons
-              name="account-circle"
-              size={40}
-              color={colors.primary}
+        {/* Test Information Section */}
+        <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="clipboard-text" size={24} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Test Information</Text>
+          </View>
+
+          <View style={styles.infoGrid}>
+            <InfoCard
+              icon="calendar"
+              title="Test Date"
+              value={testDate}
+              color="#3B82F6"
             />
-            <View style={styles.userDetails}>
-              <Text style={styles.userLabel}>Consumer Name</Text>
-              <Text style={styles.userName}>Rubber Latex Collector</Text>
-            </View>
-          </View>
-          <View style={styles.dateTimeContainer}>
-            <View style={styles.dateTimeItem}>
-              <MaterialCommunityIcons
-                name="calendar"
-                size={16}
-                color="#6B7280"
-              />
-              <Text style={styles.dateTimeText}>{formatDate(currentTime)}</Text>
-            </View>
-            <View style={styles.dateTimeItem}>
-              <MaterialCommunityIcons
-                name="clock-outline"
-                size={16}
-                color="#6B7280"
-              />
-              <Text style={styles.dateTimeText}>
-                {formatTime(currentTime as any)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Quality Overview */}
-        <View style={styles.overviewCard}>
-          <View style={styles.overviewHeader}>
-            <Text style={styles.overviewTitle}>Quality Overview</Text>
-            <View
-              style={[
-                styles.qualityBadge,
-                assessment.isGoodQuality
-                  ? styles.qualityGood
-                  : styles.qualityPoor,
-              ]}
-            >
-              <Text style={styles.qualityBadgeText}>
-                {assessment.isGoodQuality ? "GOOD QUALITY" : "POOR QUALITY"}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.overviewStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>3</Text>
-              <Text style={styles.statLabel}>Parameters</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {
-                  Object.values(assessment.details).filter((d) => d.isGood)
-                    .length
-                }
-              </Text>
-              <Text style={styles.statLabel}>Optimal</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {
-                  Object.values(assessment.details).filter((d) => !d.isGood)
-                    .length
-                }
-              </Text>
-              <Text style={styles.statLabel}>Needs Attention</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Sensor Readings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Real-time Sensor Readings</Text>
-
-          <StatusCard
-            title="Latex Temperature"
-            value={sensorData.temperature.toFixed(1)}
-            unit="°C"
-            icon="thermometer"
-            isGood={assessment.details.temperature.isGood}
-            optimalRange="27-32°C"
-          />
-
-          <StatusCard
-            title="Latex Quality Level"
-            value={sensorData.turbidity.toFixed(1)}
-            unit="NTU"
-            icon="water-opacity"
-            isGood={assessment.details.turbidity.isGood}
-            optimalRange="≤30 NTU"
-          />
-
-          <StatusCard
-            title="Latex pH Level"
-            value={sensorData.pH.toFixed(1)}
-            unit="pH"
-            icon="ph"
-            isGood={assessment.details.pH.isGood}
-            optimalRange="6.5-7.2 pH"
-          />
-        </View>
-
-        {/* Quality Conclusion */}
-        <View style={styles.conclusionCard}>
-          <View style={styles.conclusionHeader}>
-            <MaterialCommunityIcons
-              name="clipboard-check"
-              size={24}
-              color="#1F2937"
+            <InfoCard
+              icon="clock-outline"
+              title="Test Time"
+              value={testTime}
+              color="#8B5CF6"
             />
-            <Text style={styles.conclusionTitle}>Quality Assessment</Text>
+          </View>
+        </Animated.View>
+
+        {/* Tester Information Section */}
+        <Animated.View entering={FadeInUp.delay(400).duration(500)} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="account-circle" size={24} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Tester Information</Text>
           </View>
 
-          <View style={styles.predictionContainer}>
-            <Text
-              style={[
-                styles.predictionText,
-                assessment.isGoodQuality
-                  ? styles.predictionGood
-                  : styles.predictionPoor,
-              ]}
-            >
-              {assessment.isGoodQuality
-                ? "✓ Latex is in GOOD Quality"
-                : "✗ Latex quality NEEDS ATTENTION"}
-            </Text>
+          <View style={styles.infoGrid}>
+            <InfoCard
+              icon="identifier"
+              title="Test ID"
+              value={testId || "Generating..."}
+              color="#10B981"
+            />
+
+            <InfoCard
+              icon="account-circle"
+              title="Tester Name"
+              value={testerName}
+              color="#3B82F6"
+            />
           </View>
 
-          <View style={styles.reasonsContainer}>
-            <Text style={styles.reasonsTitle}>Assessment Details:</Text>
-            {assessment.reasons.map((reason, index) => (
-              <View key={index} style={styles.reasonItem}>
-                <MaterialCommunityIcons
-                  name={
-                    assessment.isGoodQuality ? "check-circle" : "alert-circle"
-                  }
-                  size={16}
-                  color={assessment.isGoodQuality ? colors.success : colors.error}
-                />
-                <Text style={styles.reasonText}>{reason}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.qualityStandards}>
-            <Text style={styles.standardsTitle}>
-              Quality Standards Reference:
-            </Text>
-            <Text style={styles.standardItem}>
-              • Temperature: 27-32°C (Optimal for fresh latex)
-            </Text>
-            <Text style={styles.standardItem}>
-              • pH Level: 6.5-7.2 (Prevents premature coagulation)
-            </Text>
-            <Text style={styles.standardItem}>
-              • Turbidity: ≤30 NTU (Indicates purity level)
-            </Text>
-          </View>
-        </View>
-
-        {/* Report Generation */}
-        <TouchableOpacity
-          style={styles.reportBtnContainer}
-          onPress={handleGenerateReport}
-        >
-          <LinearGradient
-            colors={[colors.primary, "#1B5E20"]}
-            style={styles.reportBtnGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+          <TouchableOpacity
+            style={styles.regenerateButton}
+            onPress={generateTestId}
+            disabled={isSubmitting}
           >
-            <MaterialCommunityIcons
-              name="file-document-outline"
-              size={24}
-              color="white"
-            />
-            <Text style={styles.reportButtonText}>Generate Quality Report</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <MaterialCommunityIcons name="refresh" size={18} color="#64748B" />
+            <Text style={styles.regenerateButtonText}>Regenerate Test ID</Text>
+          </TouchableOpacity>
+        </Animated.View>
 
-        {/* Last Updated */}
-        <View style={styles.lastUpdated}>
-          <MaterialCommunityIcons name="update" size={16} color="#6B7280" />
-          <Text style={styles.lastUpdatedText}>
-            Last updated: {formatTime(currentTime as any)}
-          </Text>
-        </View>
+        {/* Sensor Inputs Section */}
+        <Animated.View entering={FadeInUp.delay(600).duration(500)} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="chip" size={24} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Sensor Measurements</Text>
+          </View>
+
+          <View style={[styles.sensorContainer, styles.leftBorderContainer]}>
+            <View style={styles.borderAccent} />
+
+            {/* Temperature Input - SIMPLIFIED */}
+            <InputField
+              label="Temperature"
+              value={sensorData.temperature}
+              onChangeText={(text: string) => {
+                // Allow empty string
+                if (text === "") {
+                  setSensorData(prev => ({ ...prev, temperature: "" }));
+                  return;
+                }
+
+                // Allow only numbers and one decimal point
+                const decimalRegex = /^\d*\.?\d*$/;
+                if (decimalRegex.test(text)) {
+                  setSensorData(prev => ({ ...prev, temperature: text }));
+                }
+              }}
+              icon="thermometer"
+              unit="°C"
+              status={getTemperatureStatus(sensorData.temperature)}
+              optimalRange="Optimal Range: (27-32)°C"
+              placeholder={`e.g., ${sampleValues.temperature}`}
+              editable={!isSubmitting}
+              isSubmitting={isSubmitting}
+            />
+            {/* Turbidity Input - SIMPLIFIED */}
+            <InputField
+              label="Turbidity"
+              value={sensorData.turbidity}
+              onChangeText={(text: string) => {
+                // Allow empty string
+                if (text === "") {
+                  setSensorData(prev => ({ ...prev, turbidity: "" }));
+                  return;
+                }
+
+                // Allow only numbers and one decimal point (allow negative for turbidity)
+                const decimalRegex = /^-?\d*\.?\d*$/;
+                if (decimalRegex.test(text)) {
+                  setSensorData(prev => ({ ...prev, turbidity: text }));
+                }
+              }}
+              icon="water-opacity"
+              unit="NTU"
+              status={getTurbidityStatus(sensorData.turbidity)}
+              optimalRange="Optimal Range:≤(-3500)NTU"
+              placeholder={`e.g., ${sampleValues.turbidity}`}
+              editable={!isSubmitting}
+              isSubmitting={isSubmitting}
+            />
+
+            {/* pH Level Input */}
+            <InputField
+              label="pH Level"
+              value={sensorData.pH}
+              onChangeText={(text: string) => {
+                // Allow empty string
+                if (text === "") {
+                  setSensorData(prev => ({ ...prev, pH: "" }));
+                  return;
+                }
+
+                // Allow only numbers and one decimal point
+                const decimalRegex = /^\d*\.?\d*$/;
+                if (decimalRegex.test(text)) {
+                  setSensorData(prev => ({ ...prev, pH: text }));
+                }
+              }}
+              icon="ph"
+              unit="pH"
+              status={getpHStatus(sensorData.pH)}
+              optimalRange="Optimal Range: (6.5-7.2)pH"
+              placeholder={`e.g., ${sampleValues.pH}`}
+              editable={!isSubmitting}
+              isSubmitting={isSubmitting}
+            />
+          </View>
+
+          {/* Quality Assessment Summary */}
+          <View style={[styles.assessmentCard, styles.leftBorderContainer]}>
+            <View style={styles.borderAccent} />
+
+            <View style={styles.assessmentHeader}>
+              <MaterialCommunityIcons name="chart-line" size={24} color="#1E293B" />
+              <Text style={styles.assessmentTitle}>Quality Assessment</Text>
+            </View>
+
+            <View style={styles.assessmentGrid}>
+              <View style={styles.assessmentItem}>
+                <MaterialCommunityIcons
+                  name={getTemperatureStatus(sensorData.temperature).icon as any}
+                  size={20}
+                  color={getTemperatureStatus(sensorData.temperature).color}
+                />
+                <Text style={styles.assessmentLabel}>Temperature</Text>
+                <Text style={styles.assessmentLabel}>(27-32)°C</Text>
+                <Text style={[styles.assessmentValue, { color: getTemperatureStatus(sensorData.temperature).color }]}>
+                  {getTemperatureStatus(sensorData.temperature).status}
+                </Text>
+              </View>
+
+              <View style={styles.assessmentItem}>
+                <MaterialCommunityIcons
+                  name={getTurbidityStatus(sensorData.turbidity).icon as any}
+                  size={20}
+                  color={getTurbidityStatus(sensorData.turbidity).color}
+                />
+                <Text style={styles.assessmentLabel}>Turbidity</Text>
+                <Text style={styles.assessmentLabel}>≤(-3500)NTU</Text>
+                <Text style={[styles.assessmentValue, { color: getTurbidityStatus(sensorData.turbidity).color }]}>
+                  {getTurbidityStatus(sensorData.turbidity).status}
+                </Text>
+              </View>
+
+              <View style={styles.assessmentItem}>
+                <MaterialCommunityIcons
+                  name={getpHStatus(sensorData.pH).icon as any}
+                  size={20}
+                  color={getpHStatus(sensorData.pH).color}
+                />
+                <Text style={styles.assessmentLabel}>pH Level</Text>
+                <Text style={styles.assessmentLabel}>(6.5-7.2)pH</Text>
+                <Text style={[styles.assessmentValue, { color: getpHStatus(sensorData.pH).color }]}>
+                  {getpHStatus(sensorData.pH).status}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Action Buttons */}
+        <Animated.View entering={FadeInUp.delay(800).duration(500)} style={styles.actionSection}>
+          <TouchableOpacity
+            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+            onPress={handleSubmitTest}
+            disabled={isSubmitting}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={isSubmitting ? ["#9CA3AF", "#6B7280"] : ["#10B981", "#059669"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.submitButtonGradient}
+            >
+              {isSubmitting ? (
+                <>
+                  <MaterialCommunityIcons name="loading" size={24} color="white" />
+                  <Text style={styles.submitButtonText}>Processing...</Text>
+                </>
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="check-circle" size={24} color="white" />
+                  <Text style={styles.submitButtonText}>Launch Quality Test</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={handleResetValues}
+            disabled={isSubmitting}
+          >
+            <MaterialCommunityIcons name="refresh" size={20} color="#64748B" />
+            <Text style={styles.secondaryButtonText}>Reset All Values</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -399,325 +534,345 @@ const LatexQualityStatus = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#F8FAFC",
   },
   header: {
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    height: 56,
   },
   backButton: {
-    padding: 8,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: -10,
   },
-  headerTitleContainer: {
+  headerCenter: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "center",
+    marginLeft: 36,
+  },
+  headerIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  headerTextContainer: {
+    alignItems: "center",
   },
   headerTitle: {
-    color: "white",
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "800",
+    color: "white",
+    letterSpacing: -0.5,
+    marginBottom: 2,
   },
-  headerPlaceholder: {
-    width: 40,
+  headerSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.9)",
+    fontWeight: "500",
+  },
+  headerRightPlaceholder: {
+    width: 44,
   },
   scrollView: {
     flex: 1,
   },
-  userCard: {
-    backgroundColor: "white",
-    margin: 16,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  userDetails: {
-    marginLeft: 12,
-  },
-  userLabel: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 4,
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1F2937",
-  },
-  dateTimeContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  dateTimeItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  dateTimeText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  overviewCard: {
-    backgroundColor: "white",
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  overviewHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  overviewTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1F2937",
-  },
-  qualityBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  qualityGood: {
-    backgroundColor: "#D1FAE5",
-  },
-  qualityPoor: {
-    backgroundColor: "#FEE2E2",
-  },
-  qualityBadgeText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#1F2937",
-  },
-  overviewStats: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: colors.primary,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 4,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
   section: {
-    marginHorizontal: 16,
+    marginBottom: 28,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1F2937",
-    marginBottom: 12,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginLeft: 12,
   },
-  statusCard: {
+  infoGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  infoCard: {
+    flex: 1,
     backgroundColor: "white",
+    borderRadius: 16,
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.success,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
   },
-  statusCardWarning: {
-    borderLeftColor: colors.error,
+  infoCardIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
   },
-  statusHeader: {
+  infoCardContent: {
+    flex: 1,
+  },
+  infoCardTitle: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  infoCardValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  regenerateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    backgroundColor: "white",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginTop: 16,
+    alignSelf: "flex-start",
+  },
+  regenerateButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#475569",
+    marginLeft: 8,
+  },
+  leftBorderContainer: {
+    position: "relative",
+    overflow: "hidden",
+  },
+  borderAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: colors.primary,
+    borderTopRightRadius: 2,
+    borderBottomRightRadius: 2,
+  },
+  sensorContainer: {
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    paddingLeft: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  inputFieldContainer: {
+    marginBottom: 20,
+  },
+  inputHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
   },
-  statusTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginLeft: 8,
+  inputIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#F0F9FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  inputLabelContainer: {
     flex: 1,
   },
-  statusIndicator: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusGood: {
-    backgroundColor: "#D1FAE5",
-  },
-  statusBad: {
-    backgroundColor: "#FEE2E2",
-  },
-  statusIndicatorText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#1F2937",
-  },
-  statusValueContainer: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: 8,
-  },
-  statusValue: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#1F2937",
-  },
-  statusUnit: {
+  inputLabel: {
     fontSize: 16,
-    color: "#6B7280",
-    marginLeft: 4,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginBottom: 2,
   },
   optimalRange: {
     fontSize: 12,
-    color: "#6B7280",
+    color: "#64748B",
+    fontWeight: "500",
   },
-  conclusionCard: {
-    backgroundColor: "white",
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  conclusionHeader: {
+  statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
-  },
-  conclusionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1F2937",
-    marginLeft: 8,
-  },
-  predictionContainer: {
-    backgroundColor: "#F3F4F6",
-    padding: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 12,
-    marginBottom: 16,
-  },
-  predictionText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  predictionGood: {
-    color: colors.success,
-  },
-  predictionPoor: {
-    color: colors.error,
-  },
-  reasonsContainer: {
-    marginBottom: 16,
-  },
-  reasonsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginBottom: 8,
-  },
-  reasonItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 8,
-  },
-  reasonText: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 20,
-  },
-  qualityStandards: {
-    backgroundColor: "#F0F9FF",
-    padding: 16,
-    borderRadius: 12,
-  },
-  standardsTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginBottom: 8,
-  },
-  standardItem: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginBottom: 4,
-  },
-  reportBtnContainer: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  reportBtnGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-  reportButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
-  },
-  lastUpdated: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
     gap: 6,
   },
-  lastUpdatedText: {
+  statusText: {
     fontSize: 12,
-    color: "#6B7280",
+    fontWeight: "700",
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  input: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1E293B",
+    paddingVertical: 16,
+  },
+  placeholderInput: {
+    color: "#94A3B8",
+    fontWeight: "500",
+  },
+  disabledInput: {
+    color: "#94A3B8",
+  },
+  unitText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#64748B",
+    marginLeft: 8,
+    minWidth: 40,
+  },
+  assessmentCard: {
+    marginTop: 24,
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    paddingLeft: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  assessmentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  assessmentTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginLeft: 12,
+  },
+  assessmentGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    width: 300,
+    marginLeft: -12,
+  },
+  assessmentItem: {
+    flex: 1,
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  assessmentLabel: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  assessmentValue: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  actionSection: {
+    marginTop: 8,
+  },
+  submitButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+    marginBottom: 16,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  submitButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    borderRadius: 16,
+  },
+  submitButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "700",
+    marginLeft: 12,
+  },
+  secondaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    backgroundColor: "white",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#475569",
+    marginLeft: 8,
   },
 });
 
-export default LatexQualityStatus;
+export default NewTestScreen;

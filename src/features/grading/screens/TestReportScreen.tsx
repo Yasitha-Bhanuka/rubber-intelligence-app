@@ -26,12 +26,6 @@ export const TestReportScreen = () => {
         }
     };
 
-    const StatusBadge = ({ label, isGood }: { label: string, isGood: boolean }) => (
-        <View style={[styles.badge, { backgroundColor: isGood ? colors.success : colors.error }]}>
-            <Text style={styles.badgeText}>{label}</Text>
-        </View>
-    );
-
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <LinearGradient
@@ -60,20 +54,85 @@ export const TestReportScreen = () => {
                     <View style={styles.divider} />
 
                     <View style={styles.resultSection}>
-                        <Text style={styles.sectionLabel}>Grading Result</Text>
-                        {result ? (
-                            <>
-                                <Text style={styles.gradeDisplay}>{result.predictedClass}</Text>
-                                <StatusBadge
-                                    label={result.severity || 'Unknown'}
-                                    isGood={result.predictedClass?.toLowerCase().includes('good')}
-                                />
+                        <View style={styles.row}>
+                            {/* Defect Type Section */}
+                            <View style={[styles.halfCardContainer, { marginRight: 8 }]}>
+                                <LinearGradient
+                                    colors={['#ffffff', '#FFF5F5']}
+                                    style={styles.halfCardGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                >
+                                    <View style={styles.iconCircleRed}>
+                                        <Ionicons name="alert-circle-outline" size={24} color="#E53935" />
+                                    </View>
+                                    <Text style={styles.sectionLabel}>Defect Type</Text>
+                                    {result ? (
+                                        <>
+                                            <Text style={styles.gradeDisplaySmall} numberOfLines={2}>
+                                                {result.predictedClass}
+                                            </Text>
+                                            <View style={[styles.severityBadge, { backgroundColor: '#FFEBEE' }]}>
+                                                <Text style={[styles.severityText, { color: '#D32F2F' }]}>
+                                                    {result.severity || 'Unknown'} Severity
+                                                </Text>
+                                            </View>
+                                        </>
+                                    ) : (
+                                        <Text style={styles.noData}>N/A</Text>
+                                    )}
+                                </LinearGradient>
+                            </View>
+
+                            {/* Quality Grade Section */}
+                            <View style={[styles.halfCardContainer, { marginLeft: 8 }]}>
+                                <LinearGradient
+                                    colors={['#ffffff', '#F1F8E9']}
+                                    style={styles.halfCardGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                >
+                                    <View style={styles.iconCircleGreen}>
+                                        <Ionicons name="ribbon-outline" size={24} color="#43A047" />
+                                    </View>
+                                    <Text style={styles.sectionLabel}>Quality Grade</Text>
+                                    {result ? (
+                                        (() => {
+                                            const prediction = result.predictedClass?.toLowerCase() || "";
+                                            let grade = "Ungraded";
+                                            let isGood = false;
+
+                                            if (prediction.includes("good")) { grade = "RSS 1"; isGood = true; }
+                                            else if (prediction.includes("pin")) { grade = "RSS 2"; isGood = false; }
+                                            else if (prediction.includes("reaper")) { grade = "RSS 3"; isGood = false; }
+
+                                            return (
+                                                <View style={styles.gradeContent}>
+                                                    <Text style={[styles.gradeValueLarge, { color: isGood ? '#2E7D32' : '#EF6C00' }]}>
+                                                        {grade}
+                                                    </Text>
+                                                    <View style={[styles.gradeBadge, { backgroundColor: isGood ? '#E8F5E9' : '#FFF3E0' }]}>
+                                                        <Text style={[styles.gradeBadgeText, { color: isGood ? '#1B5E20' : '#E65100' }]}>
+                                                            {isGood ? 'Premium' : 'Standard'}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            );
+                                        })()
+                                    ) : (
+                                        <Text style={styles.noData}>N/A</Text>
+                                    )}
+                                </LinearGradient>
+                            </View>
+                        </View>
+
+                        {result && (
+                            <View style={styles.confidenceContainer}>
+                                <Ionicons name="analytics-outline" size={16} color={colors.gray} style={{ marginRight: 6 }} />
                                 <Text style={styles.confidence}>
-                                    AI Confidence: <Text style={{ fontWeight: 'bold' }}>{(result.confidence * 100).toFixed(1)}%</Text>
+                                    AI Confidence: <Text style={styles.confidenceValue}>{(result.confidence * 100).toFixed(1)}%</Text>
                                 </Text>
-                            </>
-                        ) : (
-                            <Text style={styles.noData}>No result data available</Text>
+                            </View>
                         )}
                     </View>
 
@@ -81,9 +140,14 @@ export const TestReportScreen = () => {
                         <View style={styles.suggestionBox}>
                             <View style={styles.suggestionHeader}>
                                 <Ionicons name="bulb-outline" size={20} color={colors.secondary} />
-                                <Text style={styles.suggestionTitle}>AI Suggestion</Text>
+                                <Text style={styles.suggestionTitle}>AI Suggestions</Text>
                             </View>
-                            <Text style={styles.suggestionText}>{result.suggestions}</Text>
+                            {result.suggestions.split(/\r?\n/).map((point: string, index: number) => (
+                                <View key={index} style={styles.suggestionRow}>
+                                    <Text style={styles.bulletPoint}>•</Text>
+                                    <Text style={styles.suggestionText}>{point.replace(/^•\s*/, '')}</Text>
+                                </View>
+                            ))}
                         </View>
                     )}
 
@@ -161,11 +225,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingTop: 60,
-        paddingBottom: 25,
+        paddingTop: 35,
+        paddingBottom: 15,
         paddingHorizontal: 20,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
         marginBottom: 10,
     },
     backBtn: {
@@ -211,41 +275,121 @@ const styles = StyleSheet.create({
         marginVertical: 15,
     },
     resultSection: {
-        alignItems: 'center',
         marginBottom: 25,
     },
-    sectionLabel: {
-        fontSize: 13,
-        color: colors.gray,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 10,
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginBottom: 15,
     },
-    gradeDisplay: {
-        fontSize: 32,
-        fontWeight: '800',
-        color: colors.primary,
-        marginBottom: 10,
-        textAlign: 'center',
-    },
-    badge: {
-        paddingVertical: 6,
-        paddingHorizontal: 12,
+    halfCardContainer: {
+        flex: 1,
         borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    halfCardGradient: {
+        flex: 1,
+        padding: 16,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.03)',
+        minHeight: 180,
+    },
+    iconCircleRed: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#FFEBEE',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginBottom: 12,
     },
-    badgeText: {
-        color: '#FFF',
+    iconCircleGreen: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#E8F5E9',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    gradeDisplaySmall: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#2D3436',
+        marginBottom: 10,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    severityBadge: {
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+        marginTop: 4,
+    },
+    severityText: {
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+    },
+    gradeContent: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    gradeValueLarge: {
+        fontSize: 28,
+        fontWeight: '900',
+        marginBottom: 8,
+        letterSpacing: 0.5,
+    },
+    gradeBadge: {
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+    },
+    gradeBadgeText: {
         fontSize: 12,
-        fontWeight: 'bold',
+        fontWeight: '700',
+        textTransform: 'uppercase',
+    },
+    sectionLabel: {
+        fontSize: 12,
+        color: '#95A5A6',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    confidenceContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F8F9FA',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        alignSelf: 'center',
     },
     confidence: {
-        fontSize: 14,
+        fontSize: 13,
         color: colors.gray,
+        fontWeight: '500',
+    },
+    confidenceValue: {
+        color: colors.text,
+        fontWeight: '700',
     },
     noData: {
         color: colors.gray,
         fontStyle: 'italic',
+        fontSize: 14,
     },
     suggestionBox: {
         backgroundColor: '#FFF9C4', // Light yellow for suggestion
@@ -267,7 +411,20 @@ const styles = StyleSheet.create({
     suggestionText: {
         fontSize: 14,
         color: '#555',
-        lineHeight: 20,
+        lineHeight: 22,
+        flex: 1,
+    },
+    suggestionRow: {
+        flexDirection: 'row',
+        marginBottom: 6,
+        alignItems: 'flex-start',
+    },
+    bulletPoint: {
+        fontSize: 14,
+        color: colors.secondary,
+        marginRight: 8,
+        fontWeight: 'bold',
+        lineHeight: 22,
     },
     metaContainer: {
         backgroundColor: '#F9F9F9',
