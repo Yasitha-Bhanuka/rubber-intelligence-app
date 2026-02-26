@@ -5,6 +5,8 @@ interface PredictionResponse {
     confidence: number;
     remedy: string;
     severity: string;
+    isRejected: boolean;
+    rejectionReason: string | null;
 }
 
 export interface DiseaseRecord {
@@ -17,8 +19,18 @@ export interface DiseaseRecord {
     imagePath: string;
 }
 
+export interface MapDataPoint {
+    id: string;
+    disease: string;
+    latitude: number;
+    longitude: number;
+    confidence: number;
+    detectedAt: string;
+    diseaseType: string;
+}
+
 export const DiseaseService = {
-    detect: async (imageUri: string, type: number): Promise<PredictionResponse> => {
+    detect: async (imageUri: string, type: number, latitude?: number, longitude?: number): Promise<PredictionResponse> => {
         try {
             const formData = new FormData();
 
@@ -36,6 +48,12 @@ export const DiseaseService = {
             // Append Disease Type (0=Leaf, 1=Pest, 2=Weed)
             formData.append('Type', type.toString());
 
+            // Append GPS coordinates if available
+            if (latitude !== undefined && longitude !== undefined) {
+                formData.append('Latitude', latitude.toString());
+                formData.append('Longitude', longitude.toString());
+            }
+
             const response = await apiClient.post('/disease/detect', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
@@ -52,5 +70,11 @@ export const DiseaseService = {
     getHistory: async (): Promise<DiseaseRecord[]> => {
         const response = await apiClient.get<DiseaseRecord[]>('/disease/history');
         return response.data;
+    },
+
+    getMapData: async (days: number = 30): Promise<MapDataPoint[]> => {
+        const response = await apiClient.get<MapDataPoint[]>(`/disease/map-data?days=${days}`);
+        return response.data;
     }
 };
+

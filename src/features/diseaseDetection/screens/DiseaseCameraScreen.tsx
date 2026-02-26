@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/styles/colors';
 import { DiseaseService } from '../services/diseaseService';
@@ -12,9 +13,31 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
     const [loading, setLoading] = useState(false);
     const cameraRef = useRef<any>(null);
 
+    // GPS state
+    const [latitude, setLatitude] = useState<number | undefined>(undefined);
+    const [longitude, setLongitude] = useState<number | undefined>(undefined);
+
     // Default to Leaf Disease (0) if not passed
     const diseaseType = route.params?.type ?? 0;
     const diseaseTypeName = ['Leaf Disease', 'Pest', 'Weed'][diseaseType];
+
+    // Auto-capture GPS on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    const loc = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.Balanced,
+                    });
+                    setLatitude(loc.coords.latitude);
+                    setLongitude(loc.coords.longitude);
+                }
+            } catch (err) {
+                console.log('GPS unavailable, proceeding without location');
+            }
+        })();
+    }, []);
 
     if (!permission) {
         return <View />;
@@ -40,7 +63,7 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [4, 3],
             quality: 0.5,
@@ -58,8 +81,16 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
         setLoading(true);
         try {
-            const result = await DiseaseService.detect(image, diseaseType);
-            navigation.navigate('DiseaseResult', { result, imageUri: image });
+            const result = await DiseaseService.detect(image, diseaseType, latitude, longitude);
+            if (result.isRejected) {
+                Alert.alert(
+                    "Image Rejected",
+                    result.rejectionReason || "The image could not be processed. Please try a different photo.",
+                    [{ text: "OK" }]
+                );
+            } else {
+                navigation.navigate('DiseaseResult', { result, imageUri: image });
+            }
         } catch (error) {
             Alert.alert("Error", "Failed to analyze image. Please try again.");
         } finally {
