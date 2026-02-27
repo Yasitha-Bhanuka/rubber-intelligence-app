@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-const localhost = Platform.OS === 'android' ? '10.66.11.216' : 'localhost';
+const localhost = Platform.OS === 'android' ? '192.168.8.114' : 'localhost';
 
 export const ENV = {
     // 192.168.4.113 is your local machine IP. 
