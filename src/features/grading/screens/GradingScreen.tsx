@@ -9,8 +9,6 @@ import { colors } from '../../../shared/styles/colors';
 import { GradingService, GradingResponse } from '../services/gradingService';
 import { ReportService } from '../../../core/services/ReportService';
 
-
-
 export const GradingScreen = () => {
     const navigation = useNavigation<any>();
     const [image, setImage] = useState<string | null>(null);
@@ -21,10 +19,120 @@ export const GradingScreen = () => {
     const [testDate] = useState(new Date().toLocaleDateString());
     const [testTime] = useState(new Date().toLocaleTimeString());
     const [testerName, setTesterName] = useState('');
+    const [testerNameError, setTesterNameError] = useState('');
     const [batchId] = useState(`BATCH-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`);
     const [rubberCategory] = useState('RSS Rubber'); // Not editable
     const [sheetCount, setSheetCount] = useState('');
+    const [sheetCountError, setSheetCountError] = useState('');
     const [sheetWeight, setSheetWeight] = useState('');
+    const [sheetWeightError, setSheetWeightError] = useState('');
+
+    // Validation Functions
+    const validateTesterName = (name: string): boolean => {
+        if (!name.trim()) {
+            setTesterNameError('Tester name is required');
+            return false;
+        } else if (name.trim().length < 2) {
+            setTesterNameError('Name must be at least 2 characters');
+            return false;
+        } else if (name.trim().length > 50) {
+            setTesterNameError('Name must be less than 50 characters');
+            return false;
+        } else if (!/^[a-zA-Z\s]+$/.test(name.trim())) {
+            setTesterNameError('Name can only contain letters and spaces');
+            return false;
+        }
+        setTesterNameError('');
+        return true;
+    };
+
+    const validateSheetCount = (count: string): boolean => {
+        if (!count) {
+            setSheetCountError('Sheet count is required');
+            return false;
+        }
+        
+        const numCount = Number(count);
+        if (isNaN(numCount) || !Number.isInteger(numCount)) {
+            setSheetCountError('Sheet count must be a whole number');
+            return false;
+        }
+        
+        if (numCount <= 0) {
+            setSheetCountError('Sheet count must be greater than 0');
+            return false;
+        }
+        
+        if (numCount > 1000) {
+            setSheetCountError('Sheet count cannot exceed 1000');
+            return false;
+        }
+        
+        setSheetCountError('');
+        return true;
+    };
+
+    const validateSheetWeight = (weight: string): boolean => {
+        if (!weight) {
+            setSheetWeightError('Sheet weight is required');
+            return false;
+        }
+        
+        const numWeight = Number(weight);
+        if (isNaN(numWeight)) {
+            setSheetWeightError('Sheet weight must be a number');
+            return false;
+        }
+        
+        if (numWeight <= 0) {
+            setSheetWeightError('Sheet weight must be greater than 0');
+            return false;
+        }
+        
+        if (numWeight > 1000) {
+            setSheetWeightError('Sheet weight cannot exceed 1000 kg');
+            return false;
+        }
+        
+        // Check for decimal places (max 2 decimal places)
+        const decimalPlaces = (weight.split('.')[1] || '').length;
+        if (decimalPlaces > 2) {
+            setSheetWeightError('Weight can have maximum 2 decimal places');
+            return false;
+        }
+        
+        setSheetWeightError('');
+        return true;
+    };
+
+    const validateAllFields = (): boolean => {
+        const isTesterNameValid = validateTesterName(testerName);
+        const isSheetCountValid = validateSheetCount(sheetCount);
+        const isSheetWeightValid = validateSheetWeight(sheetWeight);
+        
+        return isTesterNameValid && isSheetCountValid && isSheetWeightValid;
+    };
+
+    const handleTesterNameChange = (text: string) => {
+        setTesterName(text);
+        if (testerNameError) validateTesterName(text);
+    };
+
+    const handleSheetCountChange = (text: string) => {
+        // Allow only numbers
+        const numericText = text.replace(/[^0-9]/g, '');
+        setSheetCount(numericText);
+        if (sheetCountError) validateSheetCount(numericText);
+    };
+
+    const handleSheetWeightChange = (text: string) => {
+        // Allow numbers and decimal point
+        const decimalRegex = /^\d*\.?\d{0,2}$/;
+        if (text === '' || decimalRegex.test(text)) {
+            setSheetWeight(text);
+            if (sheetWeightError) validateSheetWeight(text);
+        }
+    };
 
     const pickImage = useCallback(async () => {
         const currentPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -66,6 +174,19 @@ export const GradingScreen = () => {
     }, []);
 
     const handleAnalyze = useCallback(async () => {
+        // Validate all fields first
+        if (!validateAllFields()) {
+            Alert.alert(
+                "Validation Error",
+                "Please fill all required fields correctly:\n" +
+                `${testerNameError ? '• ' + testerNameError + '\n' : ''}` +
+                `${sheetCountError ? '• ' + sheetCountError + '\n' : ''}` +
+                `${sheetWeightError ? '• ' + sheetWeightError : ''}`,
+                [{ text: "OK" }]
+            );
+            return;
+        }
+
         if (!image) {
             Alert.alert("Warning", "Please select an image first");
             return;
@@ -82,17 +203,27 @@ export const GradingScreen = () => {
         } finally {
             setLoading(false);
         }
-    }, [image]);
+    }, [image, testerName, sheetCount, sheetWeight, testerNameError, sheetCountError, sheetWeightError]);
 
     const handleGenerateReport = useCallback(async () => {
         if (!result) return;
+
+        // Re-validate before generating report
+        if (!validateAllFields()) {
+            Alert.alert(
+                "Validation Error",
+                "Please ensure all fields are correctly filled before generating report.",
+                [{ text: "OK" }]
+            );
+            return;
+        }
 
         try {
             const html = ReportService.generateGradingHTML({
                 batchId,
                 result,
                 params: {
-                    testerName,
+                    testerName: testerName.trim(),
                     sheetCount,
                     sheetWeight,
                     testDate,
@@ -108,7 +239,7 @@ export const GradingScreen = () => {
                     result,
                     pdfUri,
                     params: {
-                        testerName,
+                        testerName: testerName.trim(),
                         sheetCount,
                         sheetWeight,
                         testDate,
@@ -238,40 +369,60 @@ export const GradingScreen = () => {
 
                     <View style={styles.gridRow}>
                         <View style={styles.fullWidthItem}>
-                            <Text style={styles.label}>Tester Name</Text>
+                            <Text style={styles.label}>Tester Name <Text style={styles.requiredStar}>*</Text></Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, testerNameError && styles.inputError]}
                                 value={testerName}
-                                onChangeText={setTesterName}
+                                onChangeText={handleTesterNameChange}
+                                onBlur={() => validateTesterName(testerName)}
                                 placeholder="Enter name"
                                 placeholderTextColor={colors.gray}
                             />
+                            {testerNameError ? (
+                                <Text style={styles.errorText}>{testerNameError}</Text>
+                            ) : null}
                         </View>
                     </View>
 
                     <View style={styles.gridRow}>
                         <View style={styles.gridItem}>
-                            <Text style={styles.label}>Sheet Count</Text>
+                            <Text style={styles.label}>Sheet Count <Text style={styles.requiredStar}>*</Text></Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, sheetCountError && styles.inputError]}
                                 value={sheetCount}
-                                onChangeText={setSheetCount}
+                                onChangeText={handleSheetCountChange}
+                                onBlur={() => validateSheetCount(sheetCount)}
                                 keyboardType="numeric"
-                                placeholder="0"
+                                placeholder="Enter count"
                                 placeholderTextColor={colors.gray}
+                                maxLength={4}
                             />
+                            {sheetCountError ? (
+                                <Text style={styles.errorText}>{sheetCountError}</Text>
+                            ) : null}
                         </View>
                         <View style={styles.gridItem}>
-                            <Text style={styles.label}>Weight (kg)</Text>
+                            <Text style={styles.label}>Weight (kg) <Text style={styles.requiredStar}>*</Text></Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, sheetWeightError && styles.inputError]}
                                 value={sheetWeight}
-                                onChangeText={setSheetWeight}
+                                onChangeText={handleSheetWeightChange}
+                                onBlur={() => validateSheetWeight(sheetWeight)}
                                 keyboardType="numeric"
-                                placeholder="0.0"
+                                placeholder="Enter weight"
                                 placeholderTextColor={colors.gray}
                             />
+                            {sheetWeightError ? (
+                                <Text style={styles.errorText}>{sheetWeightError}</Text>
+                            ) : null}
                         </View>
+                    </View>
+                    
+                    {/* Summary of required fields */}
+                    <View style={styles.requiredFieldsNote}>
+                        <Text style={styles.requiredNoteText}>
+                            <Text style={styles.requiredStar}>*</Text> Required fields
+                        </Text>
                     </View>
                 </View>
             </View>
@@ -344,10 +495,7 @@ export const GradingScreen = () => {
 
             {/* Result Section */}
             {renderResult()}
-
-
-
-        </ScrollView >
+        </ScrollView>
     );
 };
 
@@ -449,6 +597,11 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         letterSpacing: 0.2,
     },
+    requiredStar: {
+        color: colors.error,
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
     input: {
         backgroundColor: '#FFF',
         borderRadius: 10,
@@ -467,6 +620,12 @@ const styles = StyleSheet.create({
         borderColor: colors.error,
         borderWidth: 2,
     },
+    errorText: {
+        color: colors.error,
+        fontSize: 12,
+        marginTop: 4,
+        marginLeft: 4,
+    },
     inputContainer: {
         backgroundColor: '#F8F9FA',
         borderRadius: 10,
@@ -479,6 +638,17 @@ const styles = StyleSheet.create({
         color: colors.gray,
         fontSize: 15,
         fontWeight: '500',
+    },
+    requiredFieldsNote: {
+        marginTop: 10,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: colors.lightGray,
+    },
+    requiredNoteText: {
+        fontSize: 12,
+        color: colors.gray,
+        fontStyle: 'italic',
     },
 
     // Image Styles
