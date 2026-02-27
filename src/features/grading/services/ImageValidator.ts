@@ -97,12 +97,8 @@ export const ImageValidator = {
             const avgVariance = varianceSum / totalPixels;
 
             // Check 1: Content (Rubber Sheet Colors)
-<<<<<<< HEAD
             // Increased to 40% to ensure the sheet is the primary subject.
             if (rubberContentRatio < 0.40) {
-=======
-            if (rubberContentRatio < 0.30) {
->>>>>>> c09c8b6bbc518c87aac552475d73023b0d47081b
                 return {
                     isValid: false,
                     reason: "Subject not recognized as an RSS Rubber Sheet.\n\nTip: Place the sheet clearly in the frame with good lighting."
@@ -118,13 +114,8 @@ export const ImageValidator = {
             }
 
             // Check 3: Blur (Low Variance)
-<<<<<<< HEAD
             if (avgVariance < 2.5) {
                 return { isValid: false, reason: "Image is blurry or lacks texture.\nPlease ensure the sheet is in focus." };
-=======
-            if (avgVariance < 2.0) {
-                return { isValid: false, reason: "Image is blurry.\nPlease tap to focus." };
->>>>>>> c09c8b6bbc518c87aac552475d73023b0d47081b
             }
 
             return { isValid: true };
