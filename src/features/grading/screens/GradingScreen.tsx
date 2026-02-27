@@ -8,7 +8,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors } from '../../../shared/styles/colors';
 import { GradingService, GradingResponse } from '../services/gradingService';
 import { ReportService } from '../../../core/services/ReportService';
-import { ValidationAlert } from '../components/ValidationAlert';
+
+
 
 export const GradingScreen = () => {
     const navigation = useNavigation<any>();
@@ -25,46 +26,7 @@ export const GradingScreen = () => {
     const [sheetCount, setSheetCount] = useState('');
     const [sheetWeight, setSheetWeight] = useState('');
 
-    // Custom Alert State
-    const [alertVisible, setAlertVisible] = useState(false);
-    const [alertMessage, setAlertMessage] = useState('');
-
-<<<<<<< HEAD
-    // Validation function to check if all required fields are filled
-    const validateInputFields = () => {
-        if (!testerName.trim()) {
-            setAlertMessage("Please enter tester name");
-            setAlertVisible(true);
-            return false;
-        }
-        if (!sheetCount.trim()) {
-            setAlertMessage("Please enter sheet count");
-            setAlertVisible(true);
-            return false;
-        }
-        if (!sheetWeight.trim()) {
-            setAlertMessage("Please enter sheet weight");
-            setAlertVisible(true);
-            return false;
-        }
-        // Optional: Validate numeric values
-        if (isNaN(Number(sheetCount)) || Number(sheetCount) <= 0) {
-            setAlertMessage("Please enter a valid sheet count (positive number)");
-            setAlertVisible(true);
-            return false;
-        }
-        if (isNaN(Number(sheetWeight)) || Number(sheetWeight) <= 0) {
-            setAlertMessage("Please enter a valid weight (positive number)");
-            setAlertVisible(true);
-            return false;
-        }
-        return true;
-    };
-
-    const pickImage = async () => {
-=======
     const pickImage = useCallback(async () => {
->>>>>>> c09c8b6bbc518c87aac552475d73023b0d47081b
         const currentPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (currentPermission.status !== 'granted') {
             Alert.alert("Permission Required", "Need gallery access to upload images.");
@@ -87,8 +49,7 @@ export const GradingScreen = () => {
     const takePhoto = useCallback(async () => {
         const currentPermission = await ImagePicker.requestCameraPermissionsAsync();
         if (currentPermission.status !== 'granted') {
-            setAlertMessage("Need camera access to take photos.");
-            setAlertVisible(true);
+            Alert.alert("Permission Required", "Need camera access to take photos.");
             return;
         }
 
@@ -104,22 +65,11 @@ export const GradingScreen = () => {
         }
     }, []);
 
-<<<<<<< HEAD
-    const handleAnalyze = async () => {
-        // First validate all input fields
-        if (!validateInputFields()) {
-            return; // Stop execution if validation fails
-        }
-
+    const handleAnalyze = useCallback(async () => {
         if (!image) {
-            setAlertMessage("Please select an image first");
-            setAlertVisible(true);
+            Alert.alert("Warning", "Please select an image first");
             return;
         }
-=======
-    const handleAnalyze = useCallback(async () => {
-        if (!image) return;
->>>>>>> c09c8b6bbc518c87aac552475d73023b0d47081b
 
         setLoading(true);
         try {
@@ -290,7 +240,7 @@ export const GradingScreen = () => {
                         <View style={styles.fullWidthItem}>
                             <Text style={styles.label}>Tester Name</Text>
                             <TextInput
-                                style={[styles.input, !testerName && styles.inputError]}
+                                style={styles.input}
                                 value={testerName}
                                 onChangeText={setTesterName}
                                 placeholder="Enter name"
@@ -303,7 +253,7 @@ export const GradingScreen = () => {
                         <View style={styles.gridItem}>
                             <Text style={styles.label}>Sheet Count</Text>
                             <TextInput
-                                style={[styles.input, !sheetCount && styles.inputError]}
+                                style={styles.input}
                                 value={sheetCount}
                                 onChangeText={setSheetCount}
                                 keyboardType="numeric"
@@ -314,7 +264,7 @@ export const GradingScreen = () => {
                         <View style={styles.gridItem}>
                             <Text style={styles.label}>Weight (kg)</Text>
                             <TextInput
-                                style={[styles.input, !sheetWeight && styles.inputError]}
+                                style={styles.input}
                                 value={sheetWeight}
                                 onChangeText={setSheetWeight}
                                 keyboardType="numeric"
@@ -395,12 +345,8 @@ export const GradingScreen = () => {
             {/* Result Section */}
             {renderResult()}
 
-            {/* Custom Validation Alert */}
-            <ValidationAlert
-                visible={alertVisible}
-                message={alertMessage}
-                onClose={() => setAlertVisible(false)}
-            />
+
+
         </ScrollView >
     );
 };
