@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet } from 'react-native';
 import { useStore } from '../store';
@@ -24,13 +24,18 @@ const MonitoringScreen = () => <View style={styles.center}><Text>Monitoring Dash
 
 import ChatbotScreen from '../features/chatbot/screens/ChatbotScreen';
 
+// Moved outside to prevent re-creation on every render
+const HeaderBellButton = React.memo(({ onPress }: { onPress: () => void }) => (
+    <NotificationBell onPress={onPress} />
+));
+
 export const MainTabNavigator = () => {
     const { user } = useStore();
     const role = user?.role;
     const [notifVisible, setNotifVisible] = useState(false);
     const navigation = useNavigation<any>();
 
-    const handleViewOnMap = (alert: AlertItem) => {
+    const handleViewOnMap = useCallback((alert: AlertItem) => {
         // Navigate to Disease tab → DiseaseMap with coordinates
         navigation.navigate('Disease', {
             screen: 'DiseaseMap',
@@ -40,11 +45,10 @@ export const MainTabNavigator = () => {
                 diseaseName: alert.diseaseName,
             },
         });
-    };
+    }, [navigation]);
 
-    const HeaderBell = () => (
-        <NotificationBell onPress={() => setNotifVisible(true)} />
-    );
+    const handleOpenNotif = useCallback(() => setNotifVisible(true), []);
+    const handleCloseNotif = useCallback(() => setNotifVisible(false), []);
 
     return (
         <>
@@ -67,7 +71,7 @@ export const MainTabNavigator = () => {
                     tabBarActiveTintColor: colors.primary,
                     tabBarInactiveTintColor: 'gray',
                     // Show notification bell in header for farmer screens
-                    headerRight: role === 'farmer' ? () => <HeaderBell /> : undefined,
+                    headerRight: role === 'farmer' ? () => <HeaderBellButton onPress={handleOpenNotif} /> : undefined,
                 })}
             >
                 {/* Farmer Routes */}
@@ -108,12 +112,14 @@ export const MainTabNavigator = () => {
                 <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
             </Tab.Navigator>
 
-            {/* Notification Panel Overlay (renders above everything) */}
-            <NotificationPanel
-                visible={notifVisible}
-                onClose={() => setNotifVisible(false)}
-                onViewOnMap={handleViewOnMap}
-            />
+            {/* Notification Panel Overlay (only mounted when visible) */}
+            {notifVisible && (
+                <NotificationPanel
+                    visible={notifVisible}
+                    onClose={handleCloseNotif}
+                    onViewOnMap={handleViewOnMap}
+                />
+            )}
         </>
     );
 };

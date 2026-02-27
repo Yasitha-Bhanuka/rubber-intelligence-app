@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, TextInput,
-    ScrollView, KeyboardAvoidingView, Platform, Dimensions,
+    FlatList, KeyboardAvoidingView, Platform, Dimensions,
     ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatbotService, ChatResponse } from '../services/chatService';
 
 const { width } = Dimensions.get('window');
+const msgKeyExtractor = (item: Message) => item.id;
 
 const themeColors = {
     primary: '#10B981',
@@ -40,17 +41,20 @@ export default function ChatbotScreen() {
     const [isTyping, setIsTyping] = useState(false);
     const [sessionId] = useState(() => `session_${Date.now()}`);
     const [isOnline, setIsOnline] = useState(true);
-    const scrollViewRef = useRef<ScrollView>(null);
+    const flatListRef = useRef<FlatList>(null);
 
     // Load welcome message on mount
     useEffect(() => {
         loadWelcome();
     }, []);
 
-    const loadWelcome = async () => {
+    const loadWelcome = useCallback(async () => {
         setIsTyping(true);
-        const welcome = await ChatbotService.getWelcome();
-        const online = await ChatbotService.getHealth();
+        // Parallel API calls instead of sequential — halves initial load time
+        const [welcome, online] = await Promise.all([
+            ChatbotService.getWelcome(),
+            ChatbotService.getHealth()
+        ]);
         setIsOnline(online);
 
         setMessages([{
@@ -63,9 +67,9 @@ export default function ChatbotScreen() {
             suggested_topics: welcome.suggested_topics,
         }]);
         setIsTyping(false);
-    };
+    }, []);
 
-    const handleSend = async (text: string = message) => {
+    const handleSend = useCallback(async (text: string = message) => {
         if (!text.trim()) return;
 
         const userMsg: Message = {
@@ -94,37 +98,79 @@ export default function ChatbotScreen() {
 
         setMessages(prev => [...prev, botMsg]);
         setIsTyping(false);
-    };
+    }, [message, sessionId]);
 
-    const handleRefresh = () => {
+    const handleRefresh = useCallback(() => {
         setMessages([]);
         loadWelcome();
-    };
+    }, [loadWelcome]);
 
     useEffect(() => {
-        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }, [messages]);
 
-    const formatTime = (date: Date) =>
-        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const formatTime = useCallback((date: Date) =>
+        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), []);
 
-    const getConfidenceColor = (level?: string) => {
+    const getConfidenceColor = useCallback((level?: string) => {
         switch (level) {
             case 'high': return themeColors.highConfidence;
             case 'medium': return themeColors.mediumConfidence;
             case 'low': return themeColors.lowConfidence;
             default: return themeColors.textLight;
         }
-    };
+    }, []);
 
-    const getConfidenceIcon = (level?: string) => {
+    const getConfidenceIcon = useCallback((level?: string) => {
         switch (level) {
             case 'high': return 'checkmark-circle';
             case 'medium': return 'alert-circle';
             case 'low': return 'help-circle';
             default: return 'ellipse';
         }
-    };
+    }, []);
+
+    // Memoized render function for FlatList
+    const renderMessage = useCallback(({ item: msg }: { item: Message }) => (
+        <View key={msg.id} style={[styles.messageRow, msg.sender === 'user' ? styles.userRow : styles.botRow]}>
+            {msg.sender === 'bot' && (
+                <View style={styles.messageAvatar}>
+                    <MaterialCommunityIcons name="robot" size={16} color="#FFF" />
+                </View>
+            )}
+
+            <View style={[styles.messageBubble, msg.sender === 'user' ? styles.userBubble : styles.botBubble]}>
+                <Text style={[styles.messageText, msg.sender === 'user' ? styles.userText : styles.botText]}>
+                    {msg.text}
+                </Text>
+
+                {/* Confidence badge */}
+                {msg.sender === 'bot' && msg.confidence_level && msg.confidence_level !== 'high' && (
+                    <View style={styles.confidenceRow}>
+                        <Ionicons
+                            name={getConfidenceIcon(msg.confidence_level) as any}
+                            size={12}
+                            color={getConfidenceColor(msg.confidence_level)}
+                        />
+                        <Text style={[styles.confidenceText, { color: getConfidenceColor(msg.confidence_level) }]}>
+                            {msg.confidence_level === 'medium' ? 'Partial match' : 'Low confidence'}
+                        </Text>
+                    </View>
+                )}
+
+                {/* Category tag */}
+                {msg.sender === 'bot' && msg.category && msg.confidence_level === 'high' && (
+                    <View style={styles.categoryTag}>
+                        <Text style={styles.categoryText}>{msg.category}</Text>
+                    </View>
+                )}
+
+                <Text style={[styles.timestamp, msg.sender === 'user' ? styles.userTimestamp : styles.botTimestamp]}>
+                    {formatTime(msg.timestamp)}
+                </Text>
+            </View>
+        </View>
+    ), [formatTime, getConfidenceColor, getConfidenceIcon]);
 
     return (
         <KeyboardAvoidingView
@@ -156,84 +202,54 @@ export default function ChatbotScreen() {
                 </TouchableOpacity>
             </LinearGradient>
 
-            {/* Chat Area */}
-            <ScrollView
-                ref={scrollViewRef}
+            {/* Chat Area — FlatList for virtualized rendering */}
+            <FlatList
+                ref={flatListRef}
                 style={styles.chatArea}
                 contentContainerStyle={styles.chatContent}
                 showsVerticalScrollIndicator={false}
-            >
-                <Text style={styles.dateLabel}>Today</Text>
+                data={messages}
+                renderItem={renderMessage}
+                keyExtractor={msgKeyExtractor}
+                initialNumToRender={15}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+                ListHeaderComponent={<Text style={styles.dateLabel}>Today</Text>}
+                ListFooterComponent={
+                    <>
+                        {/* Suggested Topics */}
+                        {messages.length > 0 && messages[messages.length - 1].sender === 'bot' &&
+                            messages[messages.length - 1].suggested_topics &&
+                            (messages[messages.length - 1].suggested_topics?.length ?? 0) > 0 && (
+                                <View style={styles.suggestionsContainer}>
+                                    <Text style={styles.suggestionsLabel}>Related topics:</Text>
+                                    <FlatList
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}
+                                        data={messages[messages.length - 1].suggested_topics}
+                                        keyExtractor={(topic, i) => `topic-${i}`}
+                                        renderItem={({ item: topic }) => (
+                                            <TouchableOpacity
+                                                style={styles.suggestionChip}
+                                                onPress={() => handleSend(topic)}
+                                            >
+                                                <Text style={styles.suggestionText} numberOfLines={2}>{topic}</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    />
+                                </View>
+                            )}
 
-                {messages.map((msg) => (
-                    <View key={msg.id} style={[styles.messageRow, msg.sender === 'user' ? styles.userRow : styles.botRow]}>
-                        {msg.sender === 'bot' && (
-                            <View style={styles.messageAvatar}>
-                                <MaterialCommunityIcons name="robot" size={16} color="#FFF" />
+                        {/* Typing indicator */}
+                        {isTyping && (
+                            <View style={styles.typingContainer}>
+                                <ActivityIndicator size="small" color={themeColors.primary} />
+                                <Text style={styles.typingText}>RubberBot is thinking...</Text>
                             </View>
                         )}
-
-                        <View style={[styles.messageBubble, msg.sender === 'user' ? styles.userBubble : styles.botBubble]}>
-                            <Text style={[styles.messageText, msg.sender === 'user' ? styles.userText : styles.botText]}>
-                                {msg.text}
-                            </Text>
-
-                            {/* Confidence badge */}
-                            {msg.sender === 'bot' && msg.confidence_level && msg.confidence_level !== 'high' && (
-                                <View style={styles.confidenceRow}>
-                                    <Ionicons
-                                        name={getConfidenceIcon(msg.confidence_level) as any}
-                                        size={12}
-                                        color={getConfidenceColor(msg.confidence_level)}
-                                    />
-                                    <Text style={[styles.confidenceText, { color: getConfidenceColor(msg.confidence_level) }]}>
-                                        {msg.confidence_level === 'medium' ? 'Partial match' : 'Low confidence'}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {/* Category tag */}
-                            {msg.sender === 'bot' && msg.category && msg.confidence_level === 'high' && (
-                                <View style={styles.categoryTag}>
-                                    <Text style={styles.categoryText}>{msg.category}</Text>
-                                </View>
-                            )}
-
-                            <Text style={[styles.timestamp, msg.sender === 'user' ? styles.userTimestamp : styles.botTimestamp]}>
-                                {formatTime(msg.timestamp)}
-                            </Text>
-                        </View>
-                    </View>
-                ))}
-
-                {/* Suggested Topics */}
-                {messages.length > 0 && messages[messages.length - 1].sender === 'bot' &&
-                    messages[messages.length - 1].suggested_topics &&
-                    (messages[messages.length - 1].suggested_topics?.length ?? 0) > 0 && (
-                        <View style={styles.suggestionsContainer}>
-                            <Text style={styles.suggestionsLabel}>Related topics:</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                {messages[messages.length - 1].suggested_topics?.map((topic, i) => (
-                                    <TouchableOpacity
-                                        key={i}
-                                        style={styles.suggestionChip}
-                                        onPress={() => handleSend(topic)}
-                                    >
-                                        <Text style={styles.suggestionText} numberOfLines={2}>{topic}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-                    )}
-
-                {/* Typing indicator */}
-                {isTyping && (
-                    <View style={styles.typingContainer}>
-                        <ActivityIndicator size="small" color={themeColors.primary} />
-                        <Text style={styles.typingText}>RubberBot is thinking...</Text>
-                    </View>
-                )}
-            </ScrollView>
+                    </>
+                }
+            />
 
             {/* Input Area */}
             <View style={styles.inputContainer}>

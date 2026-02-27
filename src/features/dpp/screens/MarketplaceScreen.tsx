@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { getSellingPosts, buyItem } from '../services/marketplaceService';
+import { getSellingPosts, buyItem, getMyTransactions } from '../services/marketplaceService';
 import { SellingPost } from '../types';
 
 export default function MarketplaceScreen() {
@@ -12,25 +12,32 @@ export default function MarketplaceScreen() {
     const [viewMode, setViewMode] = useState<'marketplace' | 'orders'>('marketplace');
     const [loading, setLoading] = useState(false);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             if (viewMode === 'marketplace') {
                 const data = await getSellingPosts();
                 setPosts(data);
             } else {
-                const data = await import('../services/marketplaceService').then(m => m.getMyTransactions());
+                const data = await getMyTransactions();
                 setTransactions(data);
             }
         } finally {
             setLoading(false);
         }
-    };
+    }, [viewMode]);
+
+    // Cache guard: prevent redundant refetches on rapid tab switches
+    const lastFetchRef = useRef(0);
+    const CACHE_TTL = 30000;
 
     useFocusEffect(
         useCallback(() => {
-            loadData();
-        }, [viewMode])
+            if (Date.now() - lastFetchRef.current > CACHE_TTL) {
+                lastFetchRef.current = Date.now();
+                loadData();
+            }
+        }, [loadData])
     );
 
     const handleBuy = (post: SellingPost) => {
