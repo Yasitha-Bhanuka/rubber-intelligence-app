@@ -21,6 +21,16 @@ interface StorageDetails {
     tips: string;
     ammoniaLevel?: string;
     coagulation?: string;
+    locations?: StorageLocation[];
+}
+
+interface StorageLocation {
+    name: string;
+    type: string;
+    description: string;
+    recommended: boolean;
+   注意事项?: string;
+    advantages?: string[];
 }
 
 interface Prediction {
@@ -31,6 +41,7 @@ interface Prediction {
     details: StorageDetails;
     humidity: number;
     temperature: number;
+    recommendedLocations?: StorageLocation[];
 }
 
 export default function StorageSelectionScreen() {
@@ -81,6 +92,145 @@ export default function StorageSelectionScreen() {
         return true;
     };
 
+    const getRecommendedLocations = (hum: number, temp: number): StorageLocation[] => {
+        const locations: StorageLocation[] = [];
+
+        // Temperature-Controlled Storage Facilities
+        if (temp >= 15 && temp <= 25 && hum >= 60 && hum <= 75) {
+            locations.push({
+                name: 'Climate-Controlled Latex Warehouse',
+                type: 'Premium Storage',
+                description: 'Specialized facility with precise temperature and humidity control',
+                recommended: true,
+                advantages: [
+                    'Automated temperature regulation (±1°C)',
+                    'Humidity control systems',
+                    'Ammonia monitoring equipment',
+                    'Emergency backup systems'
+                ],
+                注意事项: 'Regular maintenance of HVAC systems required'
+            });
+        }
+
+        // Underground Storage
+        if (temp >= 18 && temp <= 22 && hum >= 65 && hum <= 70) {
+            locations.push({
+                name: 'Underground Latex Cellar',
+                type: 'Natural Climate Storage',
+                description: 'Below-ground storage with natural temperature stability',
+                recommended: temp >= 18 && temp <= 22,
+                advantages: [
+                    'Natural temperature insulation',
+                    'Minimal temperature fluctuation',
+                    'Energy efficient',
+                    'Protection from external elements'
+                ],
+                注意事项: 'Ensure proper ventilation and moisture control'
+            });
+        }
+
+        // Indoor Storage Areas
+        if (temp >= 20 && temp <= 28 && hum >= 50 && hum <= 70) {
+            locations.push({
+                name: 'Indoor Processing Facility Storage',
+                type: 'Standard Indoor Storage',
+                description: 'Covered storage area within processing facility',
+                recommended: temp >= 20 && temp <= 25,
+                advantages: [
+                    'Easy access for processing',
+                    'Basic climate control',
+                    'Security monitoring',
+                    'Quick material transfer'
+                ],
+                注意事项: 'Monitor for temperature spikes during peak hours'
+            });
+        }
+
+        // Cold Storage
+        if (temp >= 2 && temp <= 10 && hum >= 70 && hum <= 85) {
+            locations.push({
+                name: 'Refrigerated Latex Storage Unit',
+                type: 'Cold Storage',
+                description: 'Temperature-controlled cold room for extended preservation',
+                recommended: temp >= 4 && temp <= 8,
+                advantages: [
+                    'Extended storage duration',
+                    'Reduced bacterial growth',
+                    'Minimal coagulation risk',
+                    'Ideal for concentrated latex'
+                ],
+                注意事项: 'Prevent freezing; allow gradual warming before use'
+            });
+        }
+
+        // Tropical Climate Storage
+        if (temp >= 25 && temp <= 32 && hum >= 60 && hum <= 80) {
+            locations.push({
+                name: 'Tropical Climate Storage Shed',
+                type: 'Ventilated Storage',
+                description: 'Well-ventilated structure designed for warm climates',
+                recommended: temp <= 30 && hum <= 75,
+                advantages: [
+                    'Natural ventilation',
+                    'Shaded from direct sunlight',
+                    'Cost-effective for tropical regions',
+                    'Adapted to local conditions'
+                ],
+                注意事项: 'Increase ammonia levels; avoid afternoon heat'
+            });
+        }
+
+        // High-Temperature Storage
+        if (temp > 30 && temp <= 35) {
+            locations.push({
+                name: 'High-Temperature Storage Zone',
+                type: 'Emergency/Short-term Storage',
+                description: 'Designated area with enhanced cooling measures',
+                recommended: false,
+                advantages: [
+                    'Quick access for emergency storage',
+                    'Equipped with cooling fans',
+                    'Regular monitoring protocols'
+                ],
+                注意事项: 'Limit storage to maximum 2 weeks; use maximum preservation'
+            });
+        }
+
+        // Humidity-Controlled Areas
+        if (hum < 40 || hum > 90) {
+            locations.push({
+                name: 'Humidity-Contained Storage Chamber',
+                type: 'Specialized Storage',
+                description: 'Sealed environment with humidity control',
+                recommended: false,
+                advantages: [
+                    'Prevents extreme humidity effects',
+                    'Protected from external moisture',
+                    'Ideal for sensitive latex grades'
+                ],
+                注意事项: hum < 40 ? 'Use humidifiers to prevent skinning' : 'Install dehumidifiers and antifungal systems'
+            });
+        }
+
+        // Open Storage Areas (with protection)
+        if (temp >= 22 && temp <= 28 && hum >= 55 && hum <= 75) {
+            locations.push({
+                name: 'Covered Open-Air Storage',
+                type: 'Basic Protection Storage',
+                description: 'Roofed area with open sides for ventilation',
+                recommended: false,
+                advantages: [
+                    'Low infrastructure cost',
+                    'Good natural ventilation',
+                    'Easy access for large containers'
+                ],
+                注意事项: 'Ensure roof protection from rain; monitor for pest infiltration'
+            });
+        }
+
+        return locations;
+    };
+
     const predictStorage = () => {
         if (!validateInputs()) return;
 
@@ -90,6 +240,9 @@ export default function StorageSelectionScreen() {
         setTimeout(() => {
             const hum = parseFloat(humidity);
             const temp = parseFloat(temperature);
+
+            // Get recommended locations based on conditions
+            const recommendedLocations = getRecommendedLocations(hum, temp);
 
             // Rubber Latex specific storage conditions
             let type = '';
@@ -101,7 +254,8 @@ export default function StorageSelectionScreen() {
                 duration: '',
                 tips: '',
                 ammoniaLevel: '',
-                coagulation: ''
+                coagulation: '',
+                locations: recommendedLocations
             };
 
             // Optimal conditions for rubber latex storage
@@ -115,7 +269,8 @@ export default function StorageSelectionScreen() {
                     duration: '3-6 months with proper preservation',
                     tips: 'Maintain ammonia levels at 0.6-0.7% for preservation',
                     ammoniaLevel: '0.6% - 0.7% recommended',
-                    coagulation: 'Low risk of coagulation'
+                    coagulation: 'Low risk of coagulation',
+                    locations: recommendedLocations
                 };
             } else if (temp >= 10 && temp < 15 && hum >= 65 && hum <= 80) {
                 type = 'Cool Latex Storage';
@@ -127,7 +282,8 @@ export default function StorageSelectionScreen() {
                     duration: '2-4 months',
                     tips: 'Monitor viscosity regularly; consider gentle warming before use',
                     ammoniaLevel: '0.7% - 0.8% recommended',
-                    coagulation: 'Minimal coagulation risk'
+                    coagulation: 'Minimal coagulation risk',
+                    locations: recommendedLocations
                 };
             } else if (temp >= 25 && temp <= 30 && hum >= 55 && hum <= 70) {
                 type = 'Warm Climate Storage';
@@ -139,7 +295,8 @@ export default function StorageSelectionScreen() {
                     duration: '1-2 months',
                     tips: 'Increase ammonia to 0.8%; store in shaded area; avoid direct sunlight',
                     ammoniaLevel: '0.8% - 0.9% recommended',
-                    coagulation: 'Moderate coagulation risk'
+                    coagulation: 'Moderate coagulation risk',
+                    locations: recommendedLocations
                 };
             } else if (temp >= 2 && temp < 10 && hum >= 70 && hum <= 85) {
                 type = 'Chilled Latex Storage';
@@ -151,7 +308,8 @@ export default function StorageSelectionScreen() {
                     duration: '6-8 months',
                     tips: 'Prevent freezing; warm gradually before use; check for pre-coagulation',
                     ammoniaLevel: '0.5% - 0.6% sufficient',
-                    coagulation: 'Low risk but check for thickening'
+                    coagulation: 'Low risk but check for thickening',
+                    locations: recommendedLocations
                 };
             } else if (temp > 30 && temp <= 35 && hum >= 40 && hum <= 60) {
                 type = 'High Temperature Storage';
@@ -163,7 +321,8 @@ export default function StorageSelectionScreen() {
                     duration: '< 2 weeks',
                     tips: 'Use maximum preservation (1.0% ammonia); frequent quality checks; consider cooling',
                     ammoniaLevel: '0.9% - 1.0% required',
-                    coagulation: 'High coagulation risk'
+                    coagulation: 'High coagulation risk',
+                    locations: recommendedLocations
                 };
             } else if (hum < 40 || hum > 90) {
                 type = 'Humidity Warning';
@@ -177,7 +336,8 @@ export default function StorageSelectionScreen() {
                         ? 'Risk of surface skinning; increase humidity or use sealed containers'
                         : 'Risk of bacterial growth; increase ammonia and antifungal agents',
                     ammoniaLevel: hum < 40 ? '0.6% minimum' : '0.8% - 1.0% recommended',
-                    coagulation: hum < 40 ? 'Surface coagulation risk' : 'Bacterial coagulation risk'
+                    coagulation: hum < 40 ? 'Surface coagulation risk' : 'Bacterial coagulation risk',
+                    locations: recommendedLocations
                 };
             } else {
                 type = 'Non-Standard Conditions';
@@ -189,7 +349,8 @@ export default function StorageSelectionScreen() {
                     duration: 'Not recommended for long-term',
                     tips: 'Consider immediate processing or enhanced preservation',
                     ammoniaLevel: 'Consult preservation guidelines',
-                    coagulation: 'High risk - monitor closely'
+                    coagulation: 'High risk - monitor closely',
+                    locations: recommendedLocations
                 };
             }
 
@@ -201,7 +362,8 @@ export default function StorageSelectionScreen() {
                 icon,
                 details,
                 humidity: hum,
-                temperature: temp
+                temperature: temp,
+                recommendedLocations
             });
             setIsLoading(false);
         }, 1000);
@@ -233,6 +395,18 @@ export default function StorageSelectionScreen() {
         setTemperature('');
         setPrediction(null);
         setStorageType(null);
+    };
+
+    const getLocationIcon = (locationName: string): string => {
+        if (locationName.includes('Climate-Controlled')) return 'air-conditioner';
+        if (locationName.includes('Underground')) return 'mine';
+        if (locationName.includes('Indoor')) return 'factory';
+        if (locationName.includes('Refrigerated')) return 'fridge-industrial';
+        if (locationName.includes('Tropical')) return 'palm-tree';
+        if (locationName.includes('High-Temperature')) return 'thermometer-alert';
+        if (locationName.includes('Humidity')) return 'water-circle';
+        if (locationName.includes('Open-Air')) return 'tent';
+        return 'warehouse';
     };
 
     return (
@@ -401,6 +575,84 @@ export default function StorageSelectionScreen() {
                                         </View>
                                     </View>
                                 </View>
+
+                                {prediction.recommendedLocations && prediction.recommendedLocations.length > 0 && (
+                                    <View style={styles.locationsSection}>
+                                        <Text style={styles.locationsTitle}>
+                                            <MaterialCommunityIcons name="map-marker" size={18} color={colors.primary} />
+                                            {' '}Recommended Storage Locations
+                                        </Text>
+                                        
+                                        {prediction.recommendedLocations.map((location, index) => (
+                                            <View key={index} style={[
+                                                styles.locationCard,
+                                                location.recommended && styles.recommendedLocationCard
+                                            ]}>
+                                                <View style={styles.locationHeader}>
+                                                    <MaterialCommunityIcons 
+                                                        name={getLocationIcon(location.name) as any} 
+                                                        size={24} 
+                                                        color={location.recommended ? colors.primary : '#6B7280'} 
+                                                    />
+                                                    <View style={styles.locationTitleContainer}>
+                                                        <Text style={styles.locationName}>{location.name}</Text>
+                                                        <View style={[
+                                                            styles.locationTypeBadge,
+                                                            location.recommended && styles.recommendedBadge
+                                                        ]}>
+                                                            <Text style={[
+                                                                styles.locationTypeText,
+                                                                location.recommended && styles.recommendedBadgeText
+                                                            ]}>
+                                                                {location.type}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+                                                    {location.recommended && (
+                                                        <MaterialCommunityIcons 
+                                                            name="star" 
+                                                            size={20} 
+                                                            color="#F59E0B" 
+                                                        />
+                                                    )}
+                                                </View>
+
+                                                <Text style={styles.locationDescription}>
+                                                    {location.description}
+                                                </Text>
+
+                                                {location.advantages && location.advantages.length > 0 && (
+                                                    <View style={styles.advantagesContainer}>
+                                                        <Text style={styles.advantagesTitle}>Advantages:</Text>
+                                                        {location.advantages.map((advantage, idx) => (
+                                                            <View key={idx} style={styles.advantageItem}>
+                                                                <MaterialCommunityIcons 
+                                                                    name="check-circle" 
+                                                                    size={16} 
+                                                                    color="#10B981" 
+                                                                />
+                                                                <Text style={styles.advantageText}>{advantage}</Text>
+                                                            </View>
+                                                        ))}
+                                                    </View>
+                                                )}
+
+                                                {location.注意事项 && (
+                                                    <View style={styles.noteContainer}>
+                                                        <MaterialCommunityIcons 
+                                                            name="alert-circle" 
+                                                            size={16} 
+                                                            color="#F59E0B" 
+                                                        />
+                                                        <Text style={styles.noteText}>
+                                                            {location.注意事项}
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
 
                                 <View style={styles.recommendationContainer}>
                                     <MaterialCommunityIcons name="information" size={20} color={colors.primary} />
@@ -670,6 +922,106 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#1F2937',
         lineHeight: 20,
+    },
+    locationsSection: {
+        marginTop: 16,
+        marginBottom: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#E5E7EB',
+        paddingTop: 16,
+    },
+    locationsTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1F2937',
+        marginBottom: 16,
+    },
+    locationCard: {
+        backgroundColor: '#F9FAFB',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    recommendedLocationCard: {
+        backgroundColor: '#F0F9FF',
+        borderColor: colors.primary,
+        borderWidth: 2,
+    },
+    locationHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    locationTitleContainer: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    locationName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#1F2937',
+        marginBottom: 4,
+    },
+    locationTypeBadge: {
+        backgroundColor: '#E5E7EB',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        alignSelf: 'flex-start',
+    },
+    recommendedBadge: {
+        backgroundColor: colors.primary,
+    },
+    locationTypeText: {
+        fontSize: 11,
+        color: '#4B5563',
+        fontWeight: '500',
+    },
+    recommendedBadgeText: {
+        color: '#FFF',
+    },
+    locationDescription: {
+        fontSize: 14,
+        color: '#4B5563',
+        marginBottom: 12,
+        lineHeight: 20,
+    },
+    advantagesContainer: {
+        marginTop: 8,
+        marginBottom: 8,
+    },
+    advantagesTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: 8,
+    },
+    advantageItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    advantageText: {
+        fontSize: 13,
+        color: '#4B5563',
+        marginLeft: 8,
+        flex: 1,
+    },
+    noteContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#FEF3C7',
+        padding: 10,
+        borderRadius: 8,
+        marginTop: 8,
+        alignItems: 'center',
+    },
+    noteText: {
+        flex: 1,
+        marginLeft: 8,
+        fontSize: 12,
+        color: '#92400E',
     },
     recommendationContainer: {
         flexDirection: 'row',
