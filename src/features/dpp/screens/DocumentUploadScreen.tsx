@@ -27,7 +27,8 @@ export default function DocumentUploadScreen() {
     const [loading, setLoading] = useState(false);
 
     const pickImage = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
+        // No permissions request is necessary for launching the image library
+        let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsEditing: true,
             quality: 1,
