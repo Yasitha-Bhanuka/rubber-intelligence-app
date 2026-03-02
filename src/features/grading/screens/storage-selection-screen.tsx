@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -15,6 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../../shared/styles/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+const ESP32_IP = "http://10.148.43.34"; // Replace with your ESP32 IP
+
 interface StorageDetails {
     suitability: string;
     duration: string;
@@ -29,7 +31,7 @@ interface StorageLocation {
     type: string;
     description: string;
     recommended: boolean;
-   注意事项?: string;
+    注意事项?: string;
     advantages?: string[];
 }
 
@@ -41,21 +43,81 @@ interface Prediction {
     details: StorageDetails;
     humidity: number;
     temperature: number;
+    airTemperature?: number;
     recommendedLocations?: StorageLocation[];
+}
+
+interface LiveSensorData {
+    temperature: number;
+    humidity: number;
+    airTemperature: number;
 }
 
 export default function StorageSelectionScreen() {
     const navigation = useNavigation();
     const [humidity, setHumidity] = useState('');
     const [temperature, setTemperature] = useState('');
+    const [airTemperature, setAirTemperature] = useState('');
     const [prediction, setPrediction] = useState<Prediction | null>(null);
     const [storageType, setStorageType] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Live data states
+    const [liveData, setLiveData] = useState<LiveSensorData | null>(null);
+    const [liveDataLoading, setLiveDataLoading] = useState(true);
+    const [connectionError, setConnectionError] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<string>("");
+
     // Animation value for fade-in effect
     const fadeAnim = useState(new Animated.Value(0))[0];
 
-    React.useEffect(() => {
+    // Fetch live data from ESP32
+    const fetchLiveData = async () => {
+        try {
+            setLiveDataLoading(true);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+            const response = await fetch(`${ESP32_IP}/data`, {
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const data = await response.json();
+            const newData = {
+                temperature: Number(data.temp ?? 0),
+                humidity: Number(data.hum ?? 0),
+                airTemperature: Number(data.airtemp ?? 0),
+            };
+
+            setLiveData(newData);
+            setConnectionError(false);
+            setLastUpdated(new Date().toLocaleTimeString());
+
+        } catch (err: any) {
+            if (err.name === "AbortError") {
+                console.warn("Fetch timed out. ESP32 might be slow or offline.");
+            } else {
+                console.error("Error fetching sensor data:", err);
+            }
+            setConnectionError(true);
+        } finally {
+            setLiveDataLoading(false);
+        }
+    };
+
+    // Initial fetch and interval setup
+    useEffect(() => {
+        fetchLiveData();
+        const interval = setInterval(fetchLiveData, 5000); // update every 5s
+        return () => clearInterval(interval);
+    }, []);
+
+    // Animation effect for predictions
+    useEffect(() => {
         if (prediction) {
             Animated.timing(fadeAnim, {
                 toValue: 1,
@@ -66,15 +128,16 @@ export default function StorageSelectionScreen() {
     }, [prediction]);
 
     const validateInputs = () => {
-        if (!humidity.trim() || !temperature.trim()) {
-            Alert.alert('Missing Information', 'Please enter both humidity and temperature values');
+        if (!humidity.trim() || !temperature.trim() || !airTemperature.trim()) {
+            Alert.alert('Missing Information', 'Please enter humidity, temperature, and air temperature values');
             return false;
         }
 
         const hum = parseFloat(humidity);
         const temp = parseFloat(temperature);
+        const airTemp = parseFloat(airTemperature);
 
-        if (isNaN(hum) || isNaN(temp)) {
+        if (isNaN(hum) || isNaN(temp) || isNaN(airTemp)) {
             Alert.alert('Invalid Input', 'Please enter valid numbers');
             return false;
         }
@@ -86,6 +149,11 @@ export default function StorageSelectionScreen() {
 
         if (temp < 0 || temp > 40) {
             Alert.alert('Invalid Temperature', 'Rubber latex temperature must be between 0°C and 40°C');
+            return false;
+        }
+
+        if (airTemp < -10 || airTemp > 50) {
+            Alert.alert('Invalid Air Temperature', 'Air temperature must be between -10°C and 50°C');
             return false;
         }
 
@@ -240,6 +308,7 @@ export default function StorageSelectionScreen() {
         setTimeout(() => {
             const hum = parseFloat(humidity);
             const temp = parseFloat(temperature);
+            const airTemp = parseFloat(airTemperature);
 
             // Get recommended locations based on conditions
             const recommendedLocations = getRecommendedLocations(hum, temp);
@@ -267,7 +336,7 @@ export default function StorageSelectionScreen() {
                 details = {
                     suitability: 'Natural Rubber Latex - Field Grade, Concentrated Latex',
                     duration: '3-6 months with proper preservation',
-                    tips: 'Maintain ammonia levels at 0.6-0.7% for preservation',
+                    tips: `Maintain ammonia levels at 0.6-0.7% for preservation. Air temperature: ${airTemp}°C`,
                     ammoniaLevel: '0.6% - 0.7% recommended',
                     coagulation: 'Low risk of coagulation',
                     locations: recommendedLocations
@@ -280,7 +349,7 @@ export default function StorageSelectionScreen() {
                 details = {
                     suitability: 'Preserved Latex Concentrate, Field Latex',
                     duration: '2-4 months',
-                    tips: 'Monitor viscosity regularly; consider gentle warming before use',
+                    tips: `Monitor viscosity regularly; consider gentle warming before use. Air temperature: ${airTemp}°C`,
                     ammoniaLevel: '0.7% - 0.8% recommended',
                     coagulation: 'Minimal coagulation risk',
                     locations: recommendedLocations
@@ -293,7 +362,7 @@ export default function StorageSelectionScreen() {
                 details = {
                     suitability: 'Stabilized Latex with enhanced preservation',
                     duration: '1-2 months',
-                    tips: 'Increase ammonia to 0.8%; store in shaded area; avoid direct sunlight',
+                    tips: `Increase ammonia to 0.8%; store in shaded area; avoid direct sunlight. Air temperature: ${airTemp}°C`,
                     ammoniaLevel: '0.8% - 0.9% recommended',
                     coagulation: 'Moderate coagulation risk',
                     locations: recommendedLocations
@@ -306,7 +375,7 @@ export default function StorageSelectionScreen() {
                 details = {
                     suitability: 'Long-term latex concentrate storage',
                     duration: '6-8 months',
-                    tips: 'Prevent freezing; warm gradually before use; check for pre-coagulation',
+                    tips: `Prevent freezing; warm gradually before use; check for pre-coagulation. Air temperature: ${airTemp}°C`,
                     ammoniaLevel: '0.5% - 0.6% sufficient',
                     coagulation: 'Low risk but check for thickening',
                     locations: recommendedLocations
@@ -319,7 +388,7 @@ export default function StorageSelectionScreen() {
                 details = {
                     suitability: 'Emergency/Short-term only',
                     duration: '< 2 weeks',
-                    tips: 'Use maximum preservation (1.0% ammonia); frequent quality checks; consider cooling',
+                    tips: `Use maximum preservation (1.0% ammonia); frequent quality checks; consider cooling. Air temperature: ${airTemp}°C`,
                     ammoniaLevel: '0.9% - 1.0% required',
                     coagulation: 'High coagulation risk',
                     locations: recommendedLocations
@@ -332,9 +401,9 @@ export default function StorageSelectionScreen() {
                 details = {
                     suitability: 'Not recommended for standard latex',
                     duration: 'Temporary only',
-                    tips: hum < 40 
-                        ? 'Risk of surface skinning; increase humidity or use sealed containers'
-                        : 'Risk of bacterial growth; increase ammonia and antifungal agents',
+                    tips: hum < 40
+                        ? `Risk of surface skinning; increase humidity or use sealed containers. Air temperature: ${airTemp}°C`
+                        : `Risk of bacterial growth; increase ammonia and antifungal agents. Air temperature: ${airTemp}°C`,
                     ammoniaLevel: hum < 40 ? '0.6% minimum' : '0.8% - 1.0% recommended',
                     coagulation: hum < 40 ? 'Surface coagulation risk' : 'Bacterial coagulation risk',
                     locations: recommendedLocations
@@ -347,7 +416,7 @@ export default function StorageSelectionScreen() {
                 details = {
                     suitability: 'Consult latex technical specialist',
                     duration: 'Not recommended for long-term',
-                    tips: 'Consider immediate processing or enhanced preservation',
+                    tips: `Consider immediate processing or enhanced preservation. Air temperature: ${airTemp}°C`,
                     ammoniaLevel: 'Consult preservation guidelines',
                     coagulation: 'High risk - monitor closely',
                     locations: recommendedLocations
@@ -363,6 +432,7 @@ export default function StorageSelectionScreen() {
                 details,
                 humidity: hum,
                 temperature: temp,
+                airTemperature: airTemp,
                 recommendedLocations
             });
             setIsLoading(false);
@@ -393,6 +463,7 @@ export default function StorageSelectionScreen() {
     const clearInputs = () => {
         setHumidity('');
         setTemperature('');
+        setAirTemperature('');
         setPrediction(null);
         setStorageType(null);
     };
@@ -407,6 +478,16 @@ export default function StorageSelectionScreen() {
         if (locationName.includes('Humidity')) return 'water-circle';
         if (locationName.includes('Open-Air')) return 'tent';
         return 'warehouse';
+    };
+
+    const useLiveData = () => {
+        if (liveData) {
+            setTemperature(liveData.temperature.toString());
+            setHumidity(liveData.humidity.toString());
+            setAirTemperature(liveData.airTemperature.toString());
+        } else {
+            Alert.alert('No Live Data', 'Please wait for sensor data to load or check connection.');
+        }
     };
 
     return (
@@ -433,6 +514,66 @@ export default function StorageSelectionScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.content}>
+                    {/* Live Data Display - Temperature, Humidity, and Air Temperature */}
+                    {liveData && !connectionError && (
+                        <View style={styles.liveDataContainer}>
+                            <View style={styles.liveDataHeader}>
+                                <View style={styles.liveDataTitleContainer}>
+                                    <MaterialCommunityIcons name="access-point" size={20} color="#10B981" />
+                                    <Text style={styles.liveDataTitle}>Live Sensor Readings</Text>
+                                </View>
+                                {lastUpdated && (
+                                    <Text style={styles.lastUpdated}>Updated: {lastUpdated}</Text>
+                                )}
+                            </View>
+
+                            <View style={styles.liveDataGrid}>
+                                {/* Latex Temperature Display */}
+                                {/* <View style={styles.liveDataItem}>
+                                    <MaterialCommunityIcons name="thermometer" size={24} color={colors.primary} />
+                                    <Text style={styles.liveDataLabel}>Latex Temp</Text>
+                                    <Text style={styles.liveDataValue}>{liveData.temperature.toFixed(1)}°C</Text>
+                                </View> */}
+
+                                {/* Humidity Display */}
+                                <View style={styles.liveDataItem}>
+                                    <MaterialCommunityIcons name="water-percent" size={24} color={colors.primary} />
+                                    <Text style={styles.liveDataLabel}>Humidity</Text>
+                                    <Text style={styles.liveDataValue}>{liveData.humidity.toFixed(0)}%</Text>
+                                </View>
+
+                                {/* Air Temperature Display */}
+                                <View style={styles.liveDataItem}>
+                                    <MaterialCommunityIcons name="weather-sunny" size={24} color={colors.primary} />
+                                    <Text style={styles.liveDataLabel}>Air Temp</Text>
+                                    <Text style={styles.liveDataValue}>{liveData.airTemperature.toFixed(1)}°C</Text>
+                                </View>
+                            </View>
+
+                            {/* Use Live Data Button */}
+                            <TouchableOpacity
+                                style={styles.useLiveButton}
+                                onPress={useLiveData}
+                            >
+                                <MaterialCommunityIcons name="flash" size={18} color="#FFF" />
+                                <Text style={styles.useLiveButtonText}>Use Live Data</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {/* Connection Error Message */}
+                    {connectionError && (
+                        <View style={styles.errorContainer}>
+                            <MaterialCommunityIcons name="wifi-off" size={24} color="#EF4444" />
+                            <Text style={styles.errorText}>
+                                Cannot connect to ESP32. Please enter values manually.
+                            </Text>
+                            <TouchableOpacity style={styles.retryButton} onPress={fetchLiveData}>
+                                <Text style={styles.retryButtonText}>Retry</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
                     <View style={styles.iconContainer}>
                         <View style={styles.iconBackground}>
                             <MaterialCommunityIcons
@@ -444,7 +585,7 @@ export default function StorageSelectionScreen() {
                     </View>
 
                     <Text style={styles.sectionTitle}>Storage Conditions</Text>
-                    <Text style={styles.sectionSubtitle}>Enter temperature and humidity for rubber latex</Text>
+                    <Text style={styles.sectionSubtitle}>Enter humidity, temperature, and air temperature for rubber latex</Text>
 
                     <View style={styles.inputWrapper}>
                         <View style={styles.inputContainer}>
@@ -462,15 +603,31 @@ export default function StorageSelectionScreen() {
                             />
                         </View>
 
-                        <View style={styles.inputContainer}>
+                        {/* <View style={styles.inputContainer}>
                             <View style={styles.inputIconContainer}>
                                 <MaterialCommunityIcons name="thermometer" size={24} color={colors.primary} />
                             </View>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Temperature (°C)"
+                                placeholder="Latex Temperature (°C)"
                                 value={temperature}
                                 onChangeText={setTemperature}
+                                keyboardType="numeric"
+                                placeholderTextColor="#9CA3AF"
+                                maxLength={6}
+                            />
+                        </View> */}
+
+                        {/* Air Temperature Input Field */}
+                        <View style={styles.inputContainer}>
+                            <View style={styles.inputIconContainer}>
+                                <MaterialCommunityIcons name="weather-sunny" size={24} color={colors.primary} />
+                            </View>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Air Temperature (°C)"
+                                value={airTemperature}
+                                onChangeText={setAirTemperature}
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={6}
@@ -533,6 +690,15 @@ export default function StorageSelectionScreen() {
                                     </View>
                                 </View>
 
+                                {prediction.airTemperature && (
+                                    <View style={styles.airTempContainer}>
+                                        <MaterialCommunityIcons name="weather-sunny" size={18} color={colors.primary} />
+                                        <Text style={styles.airTempText}>
+                                            Air Temperature: {prediction.airTemperature}°C
+                                        </Text>
+                                    </View>
+                                )}
+
                                 <View style={styles.detailsSection}>
                                     <Text style={styles.detailsTitle}>Latex Storage Details</Text>
                                     <Text style={styles.detailsText}>{prediction.details.suitability}</Text>
@@ -582,17 +748,17 @@ export default function StorageSelectionScreen() {
                                             <MaterialCommunityIcons name="map-marker" size={18} color={colors.primary} />
                                             {' '}Recommended Storage Locations
                                         </Text>
-                                        
+
                                         {prediction.recommendedLocations.map((location, index) => (
                                             <View key={index} style={[
                                                 styles.locationCard,
                                                 location.recommended && styles.recommendedLocationCard
                                             ]}>
                                                 <View style={styles.locationHeader}>
-                                                    <MaterialCommunityIcons 
-                                                        name={getLocationIcon(location.name) as any} 
-                                                        size={24} 
-                                                        color={location.recommended ? colors.primary : '#6B7280'} 
+                                                    <MaterialCommunityIcons
+                                                        name={getLocationIcon(location.name) as any}
+                                                        size={24}
+                                                        color={location.recommended ? colors.primary : '#6B7280'}
                                                     />
                                                     <View style={styles.locationTitleContainer}>
                                                         <Text style={styles.locationName}>{location.name}</Text>
@@ -609,10 +775,10 @@ export default function StorageSelectionScreen() {
                                                         </View>
                                                     </View>
                                                     {location.recommended && (
-                                                        <MaterialCommunityIcons 
-                                                            name="star" 
-                                                            size={20} 
-                                                            color="#F59E0B" 
+                                                        <MaterialCommunityIcons
+                                                            name="star"
+                                                            size={20}
+                                                            color="#F59E0B"
                                                         />
                                                     )}
                                                 </View>
@@ -626,10 +792,10 @@ export default function StorageSelectionScreen() {
                                                         <Text style={styles.advantagesTitle}>Advantages:</Text>
                                                         {location.advantages.map((advantage, idx) => (
                                                             <View key={idx} style={styles.advantageItem}>
-                                                                <MaterialCommunityIcons 
-                                                                    name="check-circle" 
-                                                                    size={16} 
-                                                                    color="#10B981" 
+                                                                <MaterialCommunityIcons
+                                                                    name="check-circle"
+                                                                    size={16}
+                                                                    color="#10B981"
                                                                 />
                                                                 <Text style={styles.advantageText}>{advantage}</Text>
                                                             </View>
@@ -639,10 +805,10 @@ export default function StorageSelectionScreen() {
 
                                                 {location.注意事项 && (
                                                     <View style={styles.noteContainer}>
-                                                        <MaterialCommunityIcons 
-                                                            name="alert-circle" 
-                                                            size={16} 
-                                                            color="#F59E0B" 
+                                                        <MaterialCommunityIcons
+                                                            name="alert-circle"
+                                                            size={16}
+                                                            color="#F59E0B"
                                                         />
                                                         <Text style={styles.noteText}>
                                                             {location.注意事项}
@@ -718,6 +884,114 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 24,
         alignItems: 'center',
+    },
+    // Live Data Styles
+    liveDataContainer: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 3,
+        width: '100%',
+    },
+    liveDataHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+        flexWrap: 'wrap',
+    },
+    liveDataTitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    liveDataTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1E293B',
+        marginLeft: 8,
+    },
+    lastUpdated: {
+        fontSize: 12,
+        color: '#64748B',
+        fontWeight: '500',
+    },
+    liveDataGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 8,
+        marginBottom: 16,
+    },
+    liveDataItem: {
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        padding: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    liveDataLabel: {
+        fontSize: 12,
+        color: '#64748B',
+        fontWeight: '600',
+        marginTop: 6,
+        marginBottom: 4,
+    },
+    liveDataValue: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1E293B',
+    },
+    useLiveButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.primary,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+    },
+    useLiveButtonText: {
+        color: '#FFF',
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+    errorContainer: {
+        backgroundColor: '#FEF2F2',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#FECACA',
+        width: '100%',
+    },
+    errorText: {
+        flex: 1,
+        marginLeft: 12,
+        color: '#991B1B',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    retryButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        backgroundColor: '#EF4444',
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        color: 'white',
+        fontWeight: '600',
+        fontSize: 12,
     },
     iconContainer: {
         marginTop: 20,
@@ -883,6 +1157,22 @@ const styles = StyleSheet.create({
     statDivider: {
         width: 1,
         backgroundColor: '#E5E7EB',
+    },
+    airTempContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F9FF',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#E0F2FE',
+    },
+    airTempText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#0369A1',
+        marginLeft: 8,
     },
     detailsSection: {
         marginBottom: 16,
