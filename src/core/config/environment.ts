@@ -1,10 +1,21 @@
 import { Platform } from 'react-native';
 
-const localhost = Platform.OS === 'android' ? '192.168.8.114' : 'localhost';
+// Your machine's current WiFi IP — update this if you change networks.
+// Find it with: ipconfig (Windows) → look for "Wireless LAN adapter WiFi" → IPv4 Address.
+const MACHINE_IP = '10.246.112.253';
+
+function getApiUrl(): string {
+    const envUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (Platform.OS === 'android') {
+        // On Android, 'localhost' resolves to the device itself — must use the machine's LAN IP.
+        if (envUrl) return envUrl.replace('localhost', MACHINE_IP);
+        return `http://${MACHINE_IP}:5001/api`;
+    }
+    // iOS simulator: 'localhost' correctly reaches the host machine.
+    return envUrl || `http://localhost:5001/api`;
+}
 
 export const ENV = {
-    // 192.168.4.113 is your local machine IP. 
-    // This allows both Emulator AND Physical Device to connect.
-    API_URL: process.env.EXPO_PUBLIC_API_URL || `http://${localhost}:5001/api`,
+    API_URL: getApiUrl(),
     IS_DEV: __DEV__,
 };

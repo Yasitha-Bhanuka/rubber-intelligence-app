@@ -1,6 +1,7 @@
 import { StateCreator } from 'zustand';
 import { User, AuthResponse, RegisterCredentials } from '../core/auth/authTypes';
 import { AuthService } from '../core/auth/authService';
+import { getToken } from '../core/auth/tokenStorage';
 
 export interface AuthSlice {
     user: User | null;
@@ -50,13 +51,24 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
     },
 
     checkAuth: async () => {
+        set({ isLoading: true });
+        // Only call /auth/me if a token exists — avoids spurious 401 warnings on fresh installs
+        const token = await getToken();
+        if (!token) {
+            set({ isAuthenticated: false, user: null, isLoading: false });
+            return;
+        }
         try {
             const user = await AuthService.getCurrentUser();
             if (user) {
-                set({ isAuthenticated: true, user });
+                set({ isAuthenticated: true, user, isLoading: false });
+            } else {
+                set({ isAuthenticated: false, user: null, isLoading: false });
             }
         } catch (e) {
-            set({ isAuthenticated: false, user: null });
+            // Token is stale/expired — clear it so next login starts fresh
+            await AuthService.logout();
+            set({ isAuthenticated: false, user: null, isLoading: false });
         }
     },
 });

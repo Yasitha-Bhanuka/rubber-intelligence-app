@@ -9,6 +9,9 @@ import DppPassportScreen from '../features/dpp/screens/DppPassportScreen';
 import CreateSellingPostScreen from '../features/dpp/screens/CreateSellingPostScreen';
 import MarketplaceScreen from '../features/dpp/screens/MarketplaceScreen';
 import OrderReceiptScreen from '../features/dpp/screens/OrderReceiptScreen';
+import PendingRequestsScreen from '../features/dpp/screens/PendingRequestsScreen';
+import ConfidentialAccessScreen from '../features/dpp/screens/ConfidentialAccessScreen';
+import LotMessagingScreen from '../features/dpp/screens/LotMessagingScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -20,19 +23,31 @@ export default function DppNavigator() {
                 contentStyle: { backgroundColor: '#F2F2F7' }
             }}
         >
-            {/* Logic to determine initial route based on Role could be handled here or in MainNavigator. 
-                For now we register all, and entry point can be decided by role. */}
+            {/* Core buyer screens */}
             <Stack.Screen name="BuyerDashboard" component={BuyerDashboardScreen} />
             <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
             <Stack.Screen name="ClassificationResult" component={ClassificationResultScreen} />
 
-            <Stack.Screen name="ExporterScanner" component={ExporterScannerScreen} />
-            <Stack.Screen name="DppDetail" component={DppDetailScreen} />
+            {/* DPP passport & detail */}
             <Stack.Screen name="DppPassport" component={DppPassportScreen} />
+            <Stack.Screen name="DppDetail" component={DppDetailScreen} />
 
-            <Stack.Screen name="CreateSellingPost" component={CreateSellingPostScreen} />
+            {/* Exporter QR scanner — now includes hash verification result */}
+            <Stack.Screen name="ExporterScanner" component={ExporterScannerScreen} />
+
+            {/* Confidential field access */}
+            <Stack.Screen name="ConfidentialAccess" component={ConfidentialAccessScreen} />
+
+            {/* Pending access requests (Buyer) — includes ExporterContext panel */}
+            <Stack.Screen name="PendingRequests" component={PendingRequestsScreen} />
+
+            {/* Marketplace — includes BuyerHistory modal per post */}
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
+            <Stack.Screen name="CreateSellingPost" component={CreateSellingPostScreen} />
             <Stack.Screen name="OrderReceipt" component={OrderReceiptScreen} />
+
+            {/* Secure Lot-Linked Messaging */}
+            <Stack.Screen name="LotMessaging" component={LotMessagingScreen} />
         </Stack.Navigator>
     );
 }

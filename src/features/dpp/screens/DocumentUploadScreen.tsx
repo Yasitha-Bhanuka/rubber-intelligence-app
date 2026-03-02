@@ -116,7 +116,7 @@ export default function DocumentUploadScreen() {
                         <View style={styles.placeholder}>
                             <Ionicons name="document-text-outline" size={64} color="#C7C7CC" />
                             <Text style={styles.placeholderText}>No document selected</Text>
-                            <Text style={styles.placeholderSub}>JPG · PNG · PDF</Text>
+                            <Text style={styles.placeholderSub}>JPG · PNG · PDF · WEBP · GIF</Text>
                         </View>
                     )}
                 </View>
@@ -133,12 +133,23 @@ export default function DocumentUploadScreen() {
                     </TouchableOpacity>
                 </View>
 
+                {/* Supported formats */}
+                <View style={styles.formatsStrip}>
+                    <Ionicons name="document-attach-outline" size={14} color={COLORS.purple} />
+                    <Text style={styles.formatsLabel}>Supported:</Text>
+                    {['JPG', 'PNG', 'PDF', 'WEBP', 'GIF'].map(fmt => (
+                        <View key={fmt} style={styles.formatChip}>
+                            <Text style={styles.formatChipText}>{fmt}</Text>
+                        </View>
+                    ))}
+                </View>
+
                 {image && (
                     <TouchableOpacity
                         style={[styles.buttonPrimary, loading && styles.buttonDisabled]}
                         onPress={processDocument}
                         disabled={loading}
-                    >
+                    >  
                         {loading ? (
                             <>
                                 <ActivityIndicator color="white" />
@@ -147,7 +158,7 @@ export default function DocumentUploadScreen() {
                         ) : (
                             <>
                                 <Ionicons name="scan-circle-outline" size={24} color="white" />
-                                <Text style={styles.buttonTextPrimary}>Analyze & Protect</Text>
+                                <Text style={styles.buttonTextPrimary}>Analyze & Classify</Text>
                             </>
                         )}
                     </TouchableOpacity>
@@ -234,4 +245,14 @@ const styles = StyleSheet.create({
         alignSelf: 'stretch',
     },
     infoText: { flex: 1, fontSize: 12, color: COLORS.sub, lineHeight: 18 },
+    formatsStrip: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        marginBottom: 14, flexWrap: 'wrap', alignSelf: 'stretch',
+    },
+    formatsLabel: { fontSize: 11, color: COLORS.sub, fontWeight: '700' },
+    formatChip: {
+        borderWidth: 1.5, borderColor: COLORS.purple,
+        paddingHorizontal: 10, paddingVertical: 3, borderRadius: 14,
+    },
+    formatChipText: { color: COLORS.purple, fontSize: 11, fontWeight: '700' },
 });
