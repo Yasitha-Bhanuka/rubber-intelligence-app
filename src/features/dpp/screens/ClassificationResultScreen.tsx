@@ -34,11 +34,14 @@ export default function ClassificationResultScreen() {
         </View>
     );
 
-    const { classification, dppId, fields, fieldsExtracted } = result;
+    const { classification, dppId, fields, fieldsExtracted, supportedFormats } = result;
     const isConfidential = classification.classification === 'CONFIDENTIAL';
     const themeColor = isConfidential ? COLORS.red : COLORS.green;
     const confidentialFields = fields.filter(f => f.isConfidential);
     const publicFields = fields.filter(f => !f.isConfidential);
+    const geminiCount   = classification.geminiExtractedCount ?? fieldsExtracted;
+    const pubCount      = classification.publicFieldCount     ?? publicFields.length;
+    const encCount      = classification.confidentialFieldCount ?? confidentialFields.length;
 
     const handleGeneratePassport = async () => {
         setGenerating(true);
@@ -74,9 +77,96 @@ export default function ClassificationResultScreen() {
                 </Text>
             </View>
 
+            {/* ── Gemini AI OCR Extraction ── */}
+            <View style={styles.card}>
+                <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="sparkles" size={16} color="#FF9F0A" />
+                    <Text style={[styles.cardLabel, { color: '#FF9F0A', marginBottom: 0 }]}>Gemini AI · Extracted Content</Text>
+                </View>
+
+                {/* Stats row */}
+                <View style={styles.statRow}>
+                    <View style={[styles.statBox, { backgroundColor: '#FFF9EE' }]}>
+                        <Text style={[styles.statNum, { color: '#FF9F0A' }]}>{geminiCount}</Text>
+                        <Text style={styles.statLbl}>Total Fields</Text>
+                    </View>
+                    <View style={[styles.statBox, { backgroundColor: '#F0FFF4' }]}>
+                        <Text style={[styles.statNum, { color: COLORS.green }]}>{pubCount}</Text>
+                        <Text style={styles.statLbl}>Public</Text>
+                    </View>
+                    <View style={[styles.statBox, { backgroundColor: '#FFF0F0' }]}>
+                        <Text style={[styles.statNum, { color: COLORS.red }]}>{encCount}</Text>
+                        <Text style={styles.statLbl}>Encrypted</Text>
+                    </View>
+                </View>
+
+                {/* Field-value list */}
+                {fields.map((f, i) => (
+                    <View key={i} style={[
+                        styles.extractedRow,
+                        i < fields.length - 1 && styles.extractedRowBorder
+                    ]}>
+                        <View style={styles.extractedLeft}>
+                            <Text style={styles.extractedFieldName}>{f.fieldName}</Text>
+                            {f.isConfidential ? (
+                                <View style={styles.encryptedBadge}>
+                                    <Ionicons name="lock-closed" size={10} color={COLORS.red} />
+                                    <Text style={styles.encryptedBadgeText}>AES-256 Encrypted</Text>
+                                </View>
+                            ) : (
+                                <Text style={styles.extractedValue} numberOfLines={2}>
+                                    {f.extractedValue && f.extractedValue.trim() ? f.extractedValue : '—'}
+                                </Text>
+                            )}
+                        </View>
+                        <View style={[
+                            styles.fieldConfBadge,
+                            { backgroundColor: f.isConfidential ? '#FFE5E5' : '#E5FFE5' }
+                        ]}>
+                            <Text style={[
+                                styles.fieldConfBadgeText,
+                                { color: f.isConfidential ? COLORS.red : COLORS.green }
+                            ]}>
+                                {(f.confidenceScore * 100).toFixed(0)}%
+                            </Text>
+                        </View>
+                    </View>
+                ))}
+            </View>
+
+            {/* ── Supported File Formats ── */}
+            <View style={[styles.card, styles.formatsCard]}>
+                <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="document-attach-outline" size={16} color={COLORS.purple} />
+                    <Text style={[styles.cardLabel, { color: COLORS.purple, marginBottom: 0 }]}>Supported Formats</Text>
+                </View>
+                <View style={styles.formatsRow}>
+                    {(supportedFormats ?? ['JPEG', 'PNG', 'WEBP', 'GIF', 'PDF']).map((fmt, i) => {
+                        const label = fmt.includes('/') ? fmt.split('/')[1].toUpperCase() : fmt.toUpperCase();
+                        const isPdf = label === 'PDF';
+                        return (
+                            <View key={i} style={[styles.formatChip, { borderColor: isPdf ? COLORS.orange : COLORS.purple }]}>
+                                <Ionicons
+                                    name={isPdf ? 'document-outline' : 'image-outline'}
+                                    size={12}
+                                    color={isPdf ? COLORS.orange : COLORS.purple}
+                                />
+                                <Text style={[styles.formatChipText, { color: isPdf ? COLORS.orange : COLORS.purple }]}>
+                                    {label}
+                                </Text>
+                            </View>
+                        );
+                    })}
+                </View>
+            </View>
+
+            {/* ── ONNX Model Classification ── */}
             {/* System Action */}
             <View style={styles.card}>
-                <Text style={styles.cardLabel}>System Action</Text>
+                <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="hardware-chip-outline" size={14} color={COLORS.purple} />
+                    <Text style={[styles.cardLabel, { color: COLORS.purple, marginBottom: 0 }]}>ONNX Model · System Action</Text>
+                </View>
                 <View style={styles.actionRow}>
                     <Ionicons
                         name={isConfidential ? 'shield-checkmark' : 'eye-outline'}
@@ -92,7 +182,7 @@ export default function ClassificationResultScreen() {
             {/* Confidence */}
             <View style={styles.card}>
                 <View style={styles.rowBetween}>
-                    <Text style={styles.cardLabel}>Confidence Score</Text>
+                    <Text style={styles.cardLabel}>ONNX Model · Confidence Score</Text>
                     <Text style={[styles.confidenceValue, { color: themeColor }]}>
                         {(classification.confidenceScore * 100).toFixed(1)}% · {classification.confidenceLevel}
                     </Text>
@@ -158,9 +248,16 @@ export default function ClassificationResultScreen() {
                             </Text>
                         </View>
                         {publicFields.map((f, i) => (
-                            <View key={i} style={styles.fieldRow}>
-                                <Ionicons name="checkmark-circle-outline" size={14} color={COLORS.green} />
-                                <Text style={styles.fieldName}>{f.fieldName}</Text>
+                            <View key={i} style={[styles.fieldRow, { alignItems: 'flex-start' }]}>
+                                <Ionicons name="checkmark-circle-outline" size={14} color={COLORS.green} style={{ marginTop: 3 }} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.fieldName}>{f.fieldName}</Text>
+                                    {f.extractedValue ? (
+                                        <Text style={styles.fieldExtractedVal} numberOfLines={2}>
+                                            {f.extractedValue}
+                                        </Text>
+                                    ) : null}
+                                </View>
                                 <View style={[styles.fieldTag, { backgroundColor: '#E5FFE5' }]}>
                                     <Text style={[styles.fieldTagText, { color: COLORS.green }]}>Public</Text>
                                 </View>
@@ -277,4 +374,50 @@ const styles = StyleSheet.create({
         borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: COLORS.white,
     },
     secondaryBtnText: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
+    // ── Gemini extraction card ──
+    sectionHeaderRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12,
+    },
+    statRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+    statBox: {
+        flex: 1, borderRadius: 10, padding: 10, alignItems: 'center',
+    },
+    statNum: { fontSize: 22, fontWeight: '800' },
+    statLbl: { fontSize: 10, color: COLORS.sub, fontWeight: '600', marginTop: 2 },
+    extractedRow: {
+        flexDirection: 'row', alignItems: 'flex-start',
+        paddingVertical: 9, gap: 8,
+    },
+    extractedRowBorder: {
+        borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    },
+    extractedLeft: { flex: 1 },
+    extractedFieldName: {
+        fontSize: 13, fontWeight: '700', color: COLORS.text, marginBottom: 3,
+    },
+    extractedValue: {
+        fontSize: 12, color: COLORS.sub, lineHeight: 16,
+    },
+    encryptedBadge: {
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        backgroundColor: '#FFE5E5', paddingHorizontal: 8, paddingVertical: 3,
+        borderRadius: 6, alignSelf: 'flex-start',
+    },
+    encryptedBadgeText: { fontSize: 10, color: COLORS.red, fontWeight: '700' },
+    fieldConfBadge: {
+        paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, minWidth: 40, alignItems: 'center',
+    },
+    fieldConfBadgeText: { fontSize: 11, fontWeight: '800' },
+    // ── Supported formats card ──
+    formatsCard: {},
+    formatsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+    formatChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        borderWidth: 1.5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16,
+    },
+    formatChipText: { fontSize: 11, fontWeight: '700' },
+    // ── Field breakdown extras ──
+    fieldExtractedVal: {
+        fontSize: 11, color: COLORS.sub, marginTop: 2, lineHeight: 16,
+    },
 });

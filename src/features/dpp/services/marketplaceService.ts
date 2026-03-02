@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { SellingPost, MarketplaceTransaction } from '../types';
+import { SellingPost, MarketplaceTransaction, BuyerHistory } from '../types';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -71,6 +71,14 @@ export const linkDppToTransaction = async (transactionId: string, dppId: string)
         console.error('Link DPP Error:', error);
         throw error;
     }
+};
+
+// ── BUYER HISTORY ─────────────────────────────────────────────────────
+
+// GET /api/marketplace/buyer-history/{buyerId} (Exporter only)
+export const getBuyerHistory = async (buyerId: string): Promise<BuyerHistory> => {
+    const response = await apiClient.get<BuyerHistory>(`/Marketplace/buyer-history/${buyerId}`);
+    return response.data;
 };
 
 export const getInvoice = async (transactionId: string): Promise<string> => {

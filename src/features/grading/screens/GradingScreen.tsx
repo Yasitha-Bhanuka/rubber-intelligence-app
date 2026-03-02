@@ -240,41 +240,6 @@ export const GradingScreen = () => {
         }
     };
 
-    // Custom Alert State
-    const [alertVisible, setAlertVisible] = useState(false);
-    const [alertMessage, setAlertMessage] = useState('');
-
-    // Validation function to check if all required fields are filled
-    const validateInputFields = () => {
-        if (!testerName.trim()) {
-            setAlertMessage("Please enter tester name");
-            setAlertVisible(true);
-            return false;
-        }
-        if (!sheetCount.trim()) {
-            setAlertMessage("Please enter sheet count");
-            setAlertVisible(true);
-            return false;
-        }
-        if (!sheetWeight.trim()) {
-            setAlertMessage("Please enter sheet weight");
-            setAlertVisible(true);
-            return false;
-        }
-        // Optional: Validate numeric values
-        if (isNaN(Number(sheetCount)) || Number(sheetCount) <= 0) {
-            setAlertMessage("Please enter a valid sheet count (positive number)");
-            setAlertVisible(true);
-            return false;
-        }
-        if (isNaN(Number(sheetWeight)) || Number(sheetWeight) <= 0) {
-            setAlertMessage("Please enter a valid weight (positive number)");
-            setAlertVisible(true);
-            return false;
-        }
-        return true;
-    };
-
     const pickImage = useCallback(async () => {
         const currentPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (currentPermission.status !== 'granted') {
