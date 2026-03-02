@@ -1,227 +1,280 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import {
+    View, Text, StyleSheet, ScrollView,
+    TouchableOpacity, ActivityIndicator, Alert
+} from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { DppResult } from '../types';
+import { DppUploadResponse } from '../types';
+import { generatePassport } from '../services/dppService';
+
+const COLORS = {
+    primary: '#007AFF',
+    bg: '#F2F2F7',
+    white: '#FFFFFF',
+    text: '#1C1C1E',
+    sub: '#636366',
+    border: '#E5E5EA',
+    green: '#34C759',
+    red: '#FF3B30',
+    purple: '#5856D6',
+    orange: '#FF9500',
+};
 
 export default function ClassificationResultScreen() {
     const route = useRoute<any>();
     const navigation = useNavigation<any>();
-    const result: DppResult = route.params?.result;
+    const result: DppUploadResponse = route.params?.result;
+    const [generating, setGenerating] = useState(false);
 
-    if (!result) return <View><Text>No Result</Text></View>;
+    if (!result) return (
+        <View style={styles.fallback}>
+            <Ionicons name="alert-circle-outline" size={48} color={COLORS.red} />
+            <Text style={styles.fallbackText}>No result available</Text>
+        </View>
+    );
 
-    const isConfidential = result.classification === 'CONFIDENTIAL';
-    const themeColor = isConfidential ? '#FF3B30' : '#34C759'; // Red for secret, Green for public
+    const { classification, dppId, fields, fieldsExtracted } = result;
+    const isConfidential = classification.classification === 'CONFIDENTIAL';
+    const themeColor = isConfidential ? COLORS.red : COLORS.green;
+    const confidentialFields = fields.filter(f => f.isConfidential);
+    const publicFields = fields.filter(f => !f.isConfidential);
+
+    const handleGeneratePassport = async () => {
+        setGenerating(true);
+        try {
+            const passport = await generatePassport(dppId);
+            navigation.navigate('DppPassport', { passport, dppId });
+        } catch (err: any) {
+            Alert.alert(
+                'Passport Error',
+                err.response?.data?.error || 'Failed to generate Digital Product Passport.'
+            );
+        } finally {
+            setGenerating(false);
+        }
+    };
 
     return (
-        <ScrollView style={styles.container}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.inner}>
             {/* Status Header */}
             <View style={[styles.header, { backgroundColor: themeColor }]}>
-                <Ionicons
-                    name={isConfidential ? "lock-closed" : "lock-open"}
-                    size={48}
-                    color="white"
-                />
+                <View style={styles.headerIconRing}>
+                    <Ionicons
+                        name={isConfidential ? 'lock-closed' : 'lock-open'}
+                        size={40}
+                        color={themeColor}
+                    />
+                </View>
                 <Text style={styles.statusTitle}>
                     {isConfidential ? 'CONFIDENTIAL' : 'NON-CONFIDENTIAL'}
                 </Text>
-                <Text style={styles.statusSubtitle}>{result.fileName}</Text>
+                <Text style={styles.statusSubtitle}>
+                    {fieldsExtracted} fields extracted · {confidentialFields.length} encrypted
+                </Text>
             </View>
 
-            <View style={styles.content}>
-                {/* Action Card */}
-                <View style={styles.card}>
-                    <Text style={styles.cardLabel}>System Action</Text>
-                    <View style={styles.actionRow}>
-                        <Ionicons
-                            name={isConfidential ? "shield-checkmark" : "eye-outline"}
-                            size={24}
-                            color={themeColor}
-                        />
-                        <Text style={[styles.actionText, { color: themeColor }]}>
-                            {result.systemAction}
-                        </Text>
-                    </View>
-                    {isConfidential && (
-                        <Text style={styles.encryptionNote}>
-                            This file has been encrypted using AES-256 and access is restricted.
-                        </Text>
-                    )}
-                </View>
-
-                {/* Confidence Card */}
-                <View style={styles.card}>
-                    <View style={styles.rowBetween}>
-                        <Text style={styles.cardLabel}> Confidence Score :</Text>
-                        <Text style={[styles.confidenceValue, { color: themeColor }]}>
-                            {(result.confidenceScore * 100).toFixed(1)}% ({result.confidenceLevel})
-                        </Text>
-                    </View>
-                    <View style={styles.progressBarBg}>
-                        <View
-                            style={[
-                                styles.progressBarFill,
-                                { width: `${result.confidenceScore * 100}%`, backgroundColor: themeColor }
-                            ]}
-                        />
-                    </View>
-                </View>
-
-                {/* Explanation Card */}
-                <View style={styles.card}>
-                    <Text style={styles.cardLabel}>Explanation/Reasoning</Text>
-                    <Text style={styles.explanationText}>
-                        {result.explanation}
+            {/* System Action */}
+            <View style={styles.card}>
+                <Text style={styles.cardLabel}>System Action</Text>
+                <View style={styles.actionRow}>
+                    <Ionicons
+                        name={isConfidential ? 'shield-checkmark' : 'eye-outline'}
+                        size={22}
+                        color={themeColor}
+                    />
+                    <Text style={[styles.actionText, { color: themeColor }]}>
+                        {classification.systemAction}
                     </Text>
+                </View>
+            </View>
 
-                    <Text style={[styles.cardLabel, { marginTop: 16 }]}>Influential Keywords</Text>
-                    <View style={styles.keywordContainer}>
-                        {result.influentialKeywords.map((kw, i) => (
-                            <View key={i} style={[styles.keywordTag, { borderColor: themeColor }]}>
-                                <Text style={[styles.keywordText, { color: themeColor }]}>{kw}</Text>
+            {/* Confidence */}
+            <View style={styles.card}>
+                <View style={styles.rowBetween}>
+                    <Text style={styles.cardLabel}>Confidence Score</Text>
+                    <Text style={[styles.confidenceValue, { color: themeColor }]}>
+                        {(classification.confidenceScore * 100).toFixed(1)}% · {classification.confidenceLevel}
+                    </Text>
+                </View>
+                <View style={styles.progressBg}>
+                    <View style={[
+                        styles.progressFill,
+                        { width: `${classification.confidenceScore * 100}%` as any, backgroundColor: themeColor }
+                    ]} />
+                </View>
+            </View>
+
+            {/* Explanation */}
+            <View style={styles.card}>
+                <Text style={styles.cardLabel}>AI Explanation</Text>
+                <Text style={styles.explanationText}>{classification.explanation}</Text>
+                {classification.influentialKeywords.length > 0 && (
+                    <>
+                        <Text style={[styles.cardLabel, { marginTop: 16 }]}>Influential Keywords</Text>
+                        <View style={styles.keywordRow}>
+                            {classification.influentialKeywords.map((kw, i) => (
+                                <View key={i} style={[styles.keyword, { borderColor: themeColor }]}>
+                                    <Text style={[styles.keywordText, { color: themeColor }]}>{kw}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    </>
+                )}
+            </View>
+
+            {/* Field breakdown */}
+            <View style={styles.card}>
+                <Text style={styles.cardLabel}>Field Classification</Text>
+
+                {confidentialFields.length > 0 && (
+                    <View style={styles.fieldGroup}>
+                        <View style={[styles.fieldGroupHeader, { backgroundColor: '#FFF0F0' }]}>
+                            <Ionicons name="lock-closed" size={14} color={COLORS.red} />
+                            <Text style={[styles.fieldGroupTitle, { color: COLORS.red }]}>
+                                Encrypted Fields ({confidentialFields.length})
+                            </Text>
+                        </View>
+                        {confidentialFields.map((f, i) => (
+                            <View key={i} style={styles.fieldRow}>
+                                <Ionicons name="key-outline" size={14} color={COLORS.red} />
+                                <Text style={styles.fieldName}>{f.fieldName}</Text>
+                                <View style={[styles.fieldTag, { backgroundColor: '#FFE5E5' }]}>
+                                    <Text style={[styles.fieldTagText, { color: COLORS.red }]}>
+                                        {(f.confidenceScore * 100).toFixed(0)}%
+                                    </Text>
+                                </View>
                             </View>
                         ))}
                     </View>
-                </View>
-
-                {/* Extracted Text (Optional/Debug) */}
-                {result.extractedText && (
-                    <View style={[styles.card, { backgroundColor: '#f0f0f0' }]}>
-                        <Text style={styles.cardLabel}>Extracted Scanned Text (Snippet)</Text>
-                        <Text style={styles.debugText}>
-                            {result.extractedText}
-                        </Text>
-                    </View>
                 )}
 
-                <TouchableOpacity
-                    style={[styles.button, { backgroundColor: themeColor }]}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Text style={styles.buttonText}>Process Another Document</Text>
-                </TouchableOpacity>
+                {publicFields.length > 0 && (
+                    <View style={styles.fieldGroup}>
+                        <View style={[styles.fieldGroupHeader, { backgroundColor: '#F0FFF4' }]}>
+                            <Ionicons name="eye-outline" size={14} color={COLORS.green} />
+                            <Text style={[styles.fieldGroupTitle, { color: COLORS.green }]}>
+                                Public Fields ({publicFields.length})
+                            </Text>
+                        </View>
+                        {publicFields.map((f, i) => (
+                            <View key={i} style={styles.fieldRow}>
+                                <Ionicons name="checkmark-circle-outline" size={14} color={COLORS.green} />
+                                <Text style={styles.fieldName}>{f.fieldName}</Text>
+                                <View style={[styles.fieldTag, { backgroundColor: '#E5FFE5' }]}>
+                                    <Text style={[styles.fieldTagText, { color: COLORS.green }]}>Public</Text>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                )}
             </View>
+
+            {/* DPP ID */}
+            <View style={styles.idCard}>
+                <Ionicons name="finger-print-outline" size={18} color={COLORS.purple} />
+                <Text style={styles.idLabel}>DPP ID</Text>
+                <Text style={styles.idValue} numberOfLines={1}>{dppId}</Text>
+            </View>
+
+            {/* Actions */}
+            <TouchableOpacity
+                style={[styles.primaryBtn, { backgroundColor: COLORS.purple }, generating && styles.disabled]}
+                onPress={handleGeneratePassport}
+                disabled={generating}
+            >
+                {generating ? (
+                    <ActivityIndicator color="white" />
+                ) : (
+                    <Ionicons name="document-lock-outline" size={22} color="white" />
+                )}
+                <Text style={styles.primaryBtnText}>
+                    {generating ? 'Generating...' : 'Generate Digital Product Passport'}
+                </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={() => navigation.navigate('DocumentUpload')}
+            >
+                <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
+                <Text style={styles.secondaryBtnText}>Process Another Document</Text>
+            </TouchableOpacity>
         </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F2F2F7',
-    },
+    container: { flex: 1, backgroundColor: COLORS.bg },
+    inner: { paddingBottom: 40 },
+    fallback: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+    fallbackText: { fontSize: 16, color: COLORS.sub },
     header: {
-        padding: 32,
-        paddingTop: 60,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
+        paddingTop: 60, paddingBottom: 32, paddingHorizontal: 24,
+        alignItems: 'center', borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
+        marginBottom: 20,
     },
-    statusTitle: {
-        color: 'white',
-        fontSize: 24,
-        fontWeight: '800',
-        marginTop: 16,
-        letterSpacing: 1,
+    headerIconRing: {
+        width: 80, height: 80, borderRadius: 40,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        justifyContent: 'center', alignItems: 'center', marginBottom: 14,
     },
-    statusSubtitle: {
-        color: 'rgba(255,255,255,0.8)',
-        fontSize: 14,
-        marginTop: 4,
-    },
-    content: {
-        padding: 20,
-    },
+    statusTitle: { color: 'white', fontSize: 22, fontWeight: '800', letterSpacing: 1.5 },
+    statusSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 6 },
     card: {
-        backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        backgroundColor: COLORS.white, borderRadius: 16,
+        padding: 18, marginHorizontal: 16, marginBottom: 14,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
     },
     cardLabel: {
-        fontSize: 13,
-        color: '#888',
-        fontWeight: '600',
-        marginBottom: 8,
-        textTransform: 'uppercase',
+        fontSize: 11, color: '#8E8E93', fontWeight: '700',
+        textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
     },
-    actionRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
+    actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    actionText: { fontSize: 17, fontWeight: '700' },
+    rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    confidenceValue: { fontWeight: '700', fontSize: 14 },
+    progressBg: { height: 8, backgroundColor: '#E5E5EA', borderRadius: 4, overflow: 'hidden' },
+    progressFill: { height: '100%', borderRadius: 4 },
+    explanationText: { fontSize: 15, color: '#333', lineHeight: 22 },
+    keywordRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+    keyword: { borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
+    keywordText: { fontSize: 12, fontWeight: '700' },
+    fieldGroup: { marginBottom: 10 },
+    fieldGroupHeader: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, marginBottom: 8,
     },
-    actionText: {
-        fontSize: 18,
-        fontWeight: '700',
+    fieldGroupTitle: { fontSize: 12, fontWeight: '700' },
+    fieldRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6,
+        borderBottomWidth: 1, borderBottomColor: COLORS.border,
     },
-    encryptionNote: {
-        marginTop: 8,
-        color: '#666',
-        fontStyle: 'italic',
-        fontSize: 12,
+    fieldName: { flex: 1, fontSize: 14, color: COLORS.text, fontWeight: '500' },
+    fieldTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    fieldTagText: { fontSize: 11, fontWeight: '700' },
+    idCard: {
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        marginHorizontal: 16, marginBottom: 20,
+        backgroundColor: '#EEF0FF', padding: 14, borderRadius: 12,
     },
-    rowBetween: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
+    idLabel: { color: COLORS.purple, fontWeight: '700', fontSize: 13 },
+    idValue: { flex: 1, fontSize: 11, color: COLORS.sub, fontFamily: 'monospace' },
+    primaryBtn: {
+        marginHorizontal: 16, marginBottom: 12,
+        padding: 18, borderRadius: 16,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+        shadowColor: COLORS.purple, shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
     },
-    confidenceValue: {
-        fontWeight: '700',
-        fontSize: 16,
+    primaryBtnText: { color: 'white', fontSize: 16, fontWeight: '800' },
+    disabled: { opacity: 0.7 },
+    secondaryBtn: {
+        marginHorizontal: 16,
+        padding: 14, borderRadius: 14,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: COLORS.white,
     },
-    progressBarBg: {
-        height: 8,
-        backgroundColor: '#E5E5EA',
-        borderRadius: 4,
-        overflow: 'hidden',
-    },
-    progressBarFill: {
-        height: '100%',
-        borderRadius: 4,
-    },
-    explanationText: {
-        fontSize: 16,
-        color: '#333',
-        lineHeight: 24,
-    },
-    keywordContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    keywordTag: {
-        borderWidth: 1,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        backgroundColor: 'white',
-    },
-    keywordText: {
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    debugText: {
-        color: '#666',
-        fontFamily: 'monospace',
-        fontSize: 11,
-    },
-    button: {
-        padding: 18,
-        borderRadius: 16,
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    buttonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '700',
-    },
+    secondaryBtnText: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
 });

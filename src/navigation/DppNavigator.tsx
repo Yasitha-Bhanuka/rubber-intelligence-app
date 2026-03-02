@@ -5,6 +5,7 @@ import ClassificationResultScreen from '../features/dpp/screens/ClassificationRe
 import BuyerDashboardScreen from '../features/dpp/screens/BuyerDashboardScreen';
 import ExporterScannerScreen from '../features/dpp/screens/ExporterScannerScreen';
 import DppDetailScreen from '../features/dpp/screens/DppDetailScreen';
+import DppPassportScreen from '../features/dpp/screens/DppPassportScreen';
 import CreateSellingPostScreen from '../features/dpp/screens/CreateSellingPostScreen';
 import MarketplaceScreen from '../features/dpp/screens/MarketplaceScreen';
 import OrderReceiptScreen from '../features/dpp/screens/OrderReceiptScreen';
@@ -27,6 +28,7 @@ export default function DppNavigator() {
 
             <Stack.Screen name="ExporterScanner" component={ExporterScannerScreen} />
             <Stack.Screen name="DppDetail" component={DppDetailScreen} />
+            <Stack.Screen name="DppPassport" component={DppPassportScreen} />
 
             <Stack.Screen name="CreateSellingPost" component={CreateSellingPostScreen} />
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
