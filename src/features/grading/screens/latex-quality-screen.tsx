@@ -144,12 +144,12 @@ const LiveSensorScreen = () => {
   useEffect(() => {
     generateTestId();
     fetchSensorData();
-    
+
     // Set up interval to refresh ONLY sensor data
     const interval = setInterval(() => {
       fetchSensorData();
     }, 5000); // update every 5s
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -261,63 +261,6 @@ const LiveSensorScreen = () => {
     generateTestId(); // Regenerate test ID when resetting
   };
 
-  const InputField = ({
-    label,
-    value,
-    onChangeText,
-    icon,
-    unit,
-    status,
-    optimalRange,
-    placeholder,
-    editable = true,
-    isSubmitting = false,
-  }: any) => (
-    <Animated.View entering={FadeInDown.duration(500)} style={styles.inputFieldContainer}>
-      <View style={styles.inputHeader}>
-        <View style={styles.inputIconContainer}>
-          <MaterialCommunityIcons name={icon} size={24} color={colors.primary} />
-        </View>
-        <View style={styles.inputLabelContainer}>
-          <Text style={styles.inputLabel}>{label}</Text>
-          <Text style={styles.optimalRange}>{optimalRange}</Text>
-        </View>
-        {status && (
-          <View style={[styles.statusBadge, { backgroundColor: `${status.color}15` }]}>
-            <MaterialCommunityIcons name={status.icon as any} size={16} color={status.color} />
-            <Text style={[styles.statusText, { color: status.color }]}>
-              {status.status}
-            </Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.inputWrapper}>
-        <TextInput
-          style={[styles.input, !value && styles.placeholderInput]}
-          value={value.toString()}
-          onChangeText={onChangeText}
-          keyboardType="decimal-pad"
-          placeholder={placeholder}
-          placeholderTextColor="#94A3B8"
-          editable={editable && !isSubmitting}
-          selectTextOnFocus={editable}
-        />
-        <Text style={styles.unitText}>{unit}</Text>
-      </View>
-    </Animated.View>
-  );
-
-  const InfoCard = ({ icon, title, value, color }: any) => (
-    <Animated.View entering={ZoomIn.duration(500)} style={styles.infoCard}>
-      <View style={[styles.infoCardIconContainer, { backgroundColor: `${color}15` }]}>
-        <MaterialCommunityIcons name={icon} size={20} color={color} />
-      </View>
-      <View style={styles.infoCardContent}>
-        <Text style={styles.infoCardTitle}>{title}</Text>
-        <Text style={styles.infoCardValue}>{value}</Text>
-      </View>
-    </Animated.View>
-  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -647,6 +590,64 @@ const LiveSensorScreen = () => {
     </SafeAreaView>
   );
 };
+
+const InputField = ({
+  label,
+  value,
+  onChangeText,
+  icon,
+  unit,
+  status,
+  optimalRange,
+  placeholder,
+  editable = true,
+  isSubmitting = false,
+}: any) => (
+  <Animated.View entering={FadeInDown.duration(500)} style={styles.inputFieldContainer}>
+    <View style={styles.inputHeader}>
+      <View style={styles.inputIconContainer}>
+        <MaterialCommunityIcons name={icon} size={24} color={colors.primary} />
+      </View>
+      <View style={styles.inputLabelContainer}>
+        <Text style={styles.inputLabel}>{label}</Text>
+        <Text style={styles.optimalRange}>{optimalRange}</Text>
+      </View>
+      {status && (
+        <View style={[styles.statusBadge, { backgroundColor: `${status.color}15` }]}>
+          <MaterialCommunityIcons name={status.icon as any} size={16} color={status.color} />
+          <Text style={[styles.statusText, { color: status.color }]}>
+            {status.status}
+          </Text>
+        </View>
+      )}
+    </View>
+    <View style={styles.inputWrapper}>
+      <TextInput
+        style={[styles.input, !value && styles.placeholderInput]}
+        value={value ? value.toString() : ""}
+        onChangeText={onChangeText}
+        keyboardType="decimal-pad"
+        placeholder={placeholder}
+        placeholderTextColor="#94A3B8"
+        editable={editable && !isSubmitting}
+        selectTextOnFocus={editable}
+      />
+      <Text style={styles.unitText}>{unit}</Text>
+    </View>
+  </Animated.View>
+);
+
+const InfoCard = ({ icon, title, value, color }: any) => (
+  <Animated.View entering={ZoomIn.duration(500)} style={styles.infoCard}>
+    <View style={[styles.infoCardIconContainer, { backgroundColor: `${color}15` }]}>
+      <MaterialCommunityIcons name={icon} size={20} color={color} />
+    </View>
+    <View style={styles.infoCardContent}>
+      <Text style={styles.infoCardTitle}>{title}</Text>
+      <Text style={styles.infoCardValue}>{value}</Text>
+    </View>
+  </Animated.View>
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -1016,7 +1017,8 @@ const styles = StyleSheet.create({
   assessmentGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 8,
+    gap: 6,
+    width: 285
   },
   assessmentItem: {
     flex: 1,
