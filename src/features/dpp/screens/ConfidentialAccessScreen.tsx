@@ -2,12 +2,12 @@
  * ConfidentialAccessScreen — EXPORTER ONLY
  *
  * Flow:
- *   1. Exporter sees a "Request Access" button on a DPP detail.
- *   2. On pressing, POST /api/dpp/request-confidential/{lotId} is called.
- *   3. If already approved, GET /api/dpp/confidential/{lotId} is called and
- *      decrypted fields are shown.
+ *   1. On mount, checks GET /api/dpp/my-requests to see if a request already
+ *      exists for this lot — auto-restores phase to 'requested' or 'viewing'.
+ *   2. Exporter can submit a new request via POST /api/dpp/request-confidential/{lotId}.
+ *   3. Once approved, GET /api/dpp/confidential/{lotId} decrypts and shows fields.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
     ActivityIndicator, ScrollView, Alert
@@ -15,7 +15,7 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { requestConfidentialAccess, getConfidentialFields } from '../services/dppService';
+import { requestConfidentialAccess, getConfidentialFields, getMyAccessRequests } from '../services/dppService';
 import { ConfidentialField } from '../types';
 
 export default function ConfidentialAccessScreen() {
@@ -23,11 +23,46 @@ export default function ConfidentialAccessScreen() {
     const navigation = useNavigation<any>();
     const { lotId } = route.params as { lotId: string };
 
+    const [initializing, setInitializing] = useState(true);
     const [loading, setLoading] = useState(false);
     const [phase, setPhase] = useState<'idle' | 'requested' | 'viewing'>('idle');
     const [requestId, setRequestId] = useState<string | null>(null);
+    const [existingStatus, setExistingStatus] = useState<string | null>(null);
     const [fields, setFields] = useState<ConfidentialField[]>([]);
     const [accessGrantedAt, setGrantedAt] = useState<string | null>(null);
+
+    // ── On mount: auto-restore request state from the server ──────────
+    useEffect(() => {
+        (async () => {
+            try {
+                const allRequests = await getMyAccessRequests();
+                const existing = allRequests.find(r => r.lotId === lotId);
+                if (existing) {
+                    setRequestId(existing.id);
+                    setExistingStatus(existing.status);
+                    if (existing.status === 'APPROVED') {
+                        // Try to auto-load confidential fields
+                        try {
+                            const result = await getConfidentialFields(lotId);
+                            setFields(result.fields);
+                            setGrantedAt(result.accessGrantedAt);
+                            setPhase('viewing');
+                        } catch {
+                            // Show as requested if decryption fails
+                            setPhase('requested');
+                        }
+                    } else if (existing.status === 'PENDING') {
+                        setPhase('requested');
+                    }
+                    // REJECTED stays 'idle' so exporter knows they can re-request
+                }
+            } catch {
+                // Network error — start fresh from idle
+            } finally {
+                setInitializing(false);
+            }
+        })();
+    }, [lotId]);
 
     const handleRequestAccess = async () => {
         try {
@@ -91,9 +126,28 @@ export default function ConfidentialAccessScreen() {
                 </Text>
             </View>
 
-            {/* Phase: IDLE — show Request Access button */}
-            {phase === 'idle' && (
+            {/* Initializing — check existing request status */}
+            {initializing && (
                 <View style={styles.section}>
+                    <ActivityIndicator size="large" color="#4F46E5" />
+                    <Text style={{ textAlign: 'center', color: '#6B7280', marginTop: 12 }}>
+                        Checking access status...
+                    </Text>
+                </View>
+            )}
+
+            {/* Phase: IDLE — show Request Access button */}
+            {!initializing && phase === 'idle' && (
+                <View style={styles.section}>
+                    {/* Show rejection notice if a previous request was rejected */}
+                    {existingStatus === 'REJECTED' && (
+                        <View style={styles.statusBadgeRejected}>
+                            <Ionicons name="close-circle" size={22} color="#EF4444" />
+                            <Text style={styles.statusBadgeRejectedText}>
+                                Previous request was REJECTED. You may submit a new request.
+                            </Text>
+                        </View>
+                    )}
                     <Text style={styles.sectionTitle}>Step 1 — Request Access</Text>
                     <Text style={styles.sectionDesc}>
                         Submit a request to the buyer to view the encrypted financial fields in this DPP lot.
@@ -121,7 +175,7 @@ export default function ConfidentialAccessScreen() {
             )}
 
             {/* Phase: REQUESTED — show pending notice */}
-            {phase === 'requested' && (
+            {!initializing && phase === 'requested' && (
                 <View style={styles.section}>
                     <View style={styles.statusBadgePending}>
                         <Ionicons name="time" size={24} color="#F59E0B" />
@@ -144,7 +198,7 @@ export default function ConfidentialAccessScreen() {
             )}
 
             {/* Phase: VIEWING — show decrypted fields */}
-            {phase === 'viewing' && (
+            {!initializing && phase === 'viewing' && (
                 <View style={styles.section}>
                     <View style={styles.statusBadgeApproved}>
                         <Ionicons name="checkmark-circle" size={24} color="#10B981" />
@@ -219,6 +273,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 8,
         backgroundColor: '#D1FAE5', padding: 12, borderRadius: 10, marginBottom: 8
     },
+    statusBadgeRejected: {
+        flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+        backgroundColor: '#FEE2E2', padding: 12, borderRadius: 10, marginBottom: 16,
+    },
+    statusBadgeRejectedText: { flex: 1, fontWeight: '600', color: '#EF4444', fontSize: 13 },
     statusBadgeText: { fontWeight: '700', color: '#F59E0B', fontSize: 14 },
     grantedAt: { color: '#6B7280', fontSize: 12, marginBottom: 16 },
 

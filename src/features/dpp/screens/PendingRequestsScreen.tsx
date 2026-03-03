@@ -12,7 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getPendingAccessRequests, approveAccessRequest, getExporterContext } from '../services/dppService';
+import { getPendingAccessRequests, approveAccessRequest, rejectAccessRequest, getExporterContext } from '../services/dppService';
 import { AccessRequest, ExporterContext } from '../types';
 
 export default function PendingRequestsScreen() {
@@ -22,6 +22,7 @@ export default function PendingRequestsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [approving, setApproving] = useState<string | null>(null);
+    const [rejecting, setRejecting] = useState<string | null>(null);
 
     // ExporterContext modal state
     const [contextModal, setContextModal] = useState(false);
@@ -82,6 +83,32 @@ export default function PendingRequestsScreen() {
         );
     };
 
+    const handleReject = async (requestId: string) => {
+        Alert.alert(
+            'Reject Access',
+            'Deny this exporter access to the confidential fields for this lot? They will be notified.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Reject',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            setRejecting(requestId);
+                            await rejectAccessRequest(requestId);
+                            setRequests(prev => prev.filter(r => r.id !== requestId));
+                            Alert.alert('Rejected', 'Access has been denied for this request.');
+                        } catch (e: any) {
+                            Alert.alert('Error', e?.response?.data?.error ?? 'Failed to reject request.');
+                        } finally {
+                            setRejecting(null);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const renderItem = ({ item }: { item: AccessRequest }) => (
         <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -121,19 +148,35 @@ export default function PendingRequestsScreen() {
                 <Text style={styles.profileBtnText}>View Exporter Profile</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-                style={styles.approveBtn}
-                onPress={() => handleApprove(item.id)}
-                disabled={approving === item.id}
-            >
-                {approving === item.id
-                    ? <ActivityIndicator color="white" />
-                    : <>
-                        <Ionicons name="checkmark-circle" size={18} color="white" />
-                        <Text style={styles.approveBtnText}>Approve Access</Text>
-                    </>
-                }
-            </TouchableOpacity>
+            <View style={styles.actionRow}>
+                <TouchableOpacity
+                    style={[styles.approveBtn, { flex: 1 }]}
+                    onPress={() => handleApprove(item.id)}
+                    disabled={approving === item.id || rejecting === item.id}
+                >
+                    {approving === item.id
+                        ? <ActivityIndicator color="white" />
+                        : <>
+                            <Ionicons name="checkmark-circle" size={18} color="white" />
+                            <Text style={styles.approveBtnText}>Approve</Text>
+                        </>
+                    }
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.rejectBtn, { flex: 1 }]}
+                    onPress={() => handleReject(item.id)}
+                    disabled={approving === item.id || rejecting === item.id}
+                >
+                    {rejecting === item.id
+                        ? <ActivityIndicator color="white" />
+                        : <>
+                            <Ionicons name="close-circle" size={18} color="white" />
+                            <Text style={styles.rejectBtnText}>Reject</Text>
+                        </>
+                    }
+                </TouchableOpacity>
+            </View>
         </View>
     );
 
@@ -294,6 +337,13 @@ const styles = StyleSheet.create({
         gap: 8, marginTop: 10
     },
     approveBtnText: { color: 'white', fontWeight: '700', fontSize: 15 },
+    actionRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+    rejectBtn: {
+        backgroundColor: '#EF4444', borderRadius: 12, padding: 14,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 8
+    },
+    rejectBtnText: { color: 'white', fontWeight: '700', fontSize: 15 },
 
     emptyTitle: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 16 },
     emptyDesc: { color: '#9CA3AF', textAlign: 'center', marginTop: 8, lineHeight: 20 },

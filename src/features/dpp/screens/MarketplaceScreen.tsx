@@ -134,41 +134,72 @@ export default function MarketplaceScreen() {
     );
 
     const renderTransaction = ({ item }: { item: any }) => (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('OrderReceipt', { transactionId: item.id })}
-        >
-            <View style={styles.headerRow}>
-                <View>
-                    <Text style={styles.grade}>Order #{item.id.substring(0, 8)}</Text>
-                    <Text style={[
-                        styles.location,
-                        { color: item.status === 'Completed' ? '#34C759' : '#FF9500', fontWeight: 'bold' }
-                    ]}>
-                        {item.status === 'Completed' ? 'Payment Completed'
-                            : item.status === 'InvoiceUploaded' ? 'Invoice Ready'
-                                : 'Pending Invoice'}
-                    </Text>
-                </View>
-                <View style={styles.priceTag}>
-                    <Text style={styles.price}>LKR {item.offerPrice}</Text>
-                    <Text style={styles.unit}>Total</Text>
-                </View>
-            </View>
-
-            <View style={styles.detailsRow}>
-                <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Seller</Text>
-                    <Text style={styles.detailValue}>ID: {item.buyerId.substring(0, 6)}</Text>
-                </View>
-                {item.dppDocumentId && (
-                    <View style={[styles.verifiedTag, { marginBottom: 0 }]}>
-                        <Ionicons name="shield-checkmark" size={14} color="#34C759" />
-                        <Text style={styles.verifiedText}>DPP Linked</Text>
+        <View style={styles.card}>
+            {/* Tappable header row — navigates to order receipt */}
+            <TouchableOpacity
+                onPress={() => navigation.navigate('OrderReceipt', { transactionId: item.id })}
+                activeOpacity={0.7}
+            >
+                <View style={styles.headerRow}>
+                    <View>
+                        <Text style={styles.grade}>Order #{item.id.substring(0, 8)}</Text>
+                        <Text style={[
+                            styles.location,
+                            { color: item.status === 'Completed' ? '#34C759' : '#FF9500', fontWeight: 'bold' }
+                        ]}>
+                            {item.status === 'Completed' ? 'Payment Completed'
+                                : item.status === 'InvoiceUploaded' ? 'Invoice Ready'
+                                    : 'Pending Invoice'}
+                        </Text>
                     </View>
-                )}
-            </View>
-        </TouchableOpacity>
+                    <View style={styles.priceTag}>
+                        <Text style={styles.price}>LKR {item.offerPrice}</Text>
+                        <Text style={styles.unit}>Total</Text>
+                    </View>
+                </View>
+
+                <View style={styles.detailsRow}>
+                    <View style={styles.detailItem}>
+                        <Text style={styles.detailLabel}>Seller</Text>
+                        <Text style={styles.detailValue}>ID: {item.buyerId.substring(0, 6)}</Text>
+                    </View>
+                    {item.dppDocumentId && (
+                        <View style={[styles.verifiedTag, { marginBottom: 0 }]}>
+                            <Ionicons name="shield-checkmark" size={14} color="#34C759" />
+                            <Text style={styles.verifiedText}>DPP Linked</Text>
+                        </View>
+                    )}
+                </View>
+            </TouchableOpacity>
+
+            {/* ── DPP Access Panel (shown only when DPP is linked to this lot) ── */}
+            {item.dppDocumentId && (
+                <View style={styles.dppPanel}>
+                    <View style={styles.dppPanelHeader}>
+                        <Ionicons name="document-lock" size={14} color="#5856D6" />
+                        <Text style={styles.dppPanelTitle}>Digital Product Passport</Text>
+                    </View>
+                    <View style={styles.dppPanelActions}>
+                        {/* View DPP public summary — allows generating/viewing the passport */}
+                        <TouchableOpacity
+                            style={styles.dppSummaryBtn}
+                            onPress={() => navigation.navigate('DppPassport', { dppId: item.dppDocumentId })}
+                        >
+                            <Ionicons name="eye-outline" size={14} color="#5856D6" />
+                            <Text style={styles.dppSummaryBtnText}>View DPP Summary</Text>
+                        </TouchableOpacity>
+                        {/* Request or view confidential field access */}
+                        <TouchableOpacity
+                            style={styles.dppConfidBtn}
+                            onPress={() => navigation.navigate('ConfidentialAccess', { lotId: item.dppDocumentId })}
+                        >
+                            <Ionicons name="lock-open-outline" size={14} color="#FF9500" />
+                            <Text style={styles.dppConfidBtnText}>Confidential Fields</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+        </View>
     );
 
     return (
@@ -357,4 +388,27 @@ const styles = StyleSheet.create({
         backgroundColor: '#5856D6', borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 12
     },
     closeHistoryBtnText: { color: 'white', fontWeight: '700', fontSize: 15 },
+
+    // ── DPP Panel (exporter My Orders view) ──────────────────────────
+    dppPanel: {
+        borderTopWidth: 1, borderTopColor: '#F2F2F7',
+        paddingTop: 12, marginTop: 4,
+    },
+    dppPanelHeader: {
+        flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10,
+    },
+    dppPanelTitle: { fontSize: 12, fontWeight: '700', color: '#5856D6', textTransform: 'uppercase', letterSpacing: 0.5 },
+    dppPanelActions: { flexDirection: 'row', gap: 8 },
+    dppSummaryBtn: {
+        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+        borderWidth: 1.5, borderColor: '#5856D6', borderRadius: 10,
+        paddingVertical: 10, backgroundColor: '#EEF0FF',
+    },
+    dppSummaryBtnText: { color: '#5856D6', fontWeight: '700', fontSize: 13 },
+    dppConfidBtn: {
+        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+        borderWidth: 1.5, borderColor: '#FF9500', borderRadius: 10,
+        paddingVertical: 10, backgroundColor: '#FFF5E5',
+    },
+    dppConfidBtnText: { color: '#FF9500', fontWeight: '700', fontSize: 13 },
 });

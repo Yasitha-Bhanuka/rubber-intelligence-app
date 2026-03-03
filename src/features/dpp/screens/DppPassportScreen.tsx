@@ -7,7 +7,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { DigitalProductPassport } from '../types';
-import { generatePassport } from '../services/dppService';
+import { generatePassport, getPassport } from '../services/dppService';
 
 const COLORS = {
     primary: '#007AFF',
@@ -73,11 +73,32 @@ export default function DppPassportScreen() {
     const fetchPassport = async () => {
         setLoading(true);
         try {
-            const p = await generatePassport(dppId);
+            // Step 1: Try GET (works for both Buyer and Exporter — no role restriction)
+            const p = await getPassport(dppId);
             setPassport(p);
-        } catch (err: any) {
-            Alert.alert('Error', err.response?.data?.error || 'Could not load passport');
-            navigation.goBack();
+        } catch (getErr: any) {
+            const status = getErr?.response?.status;
+            if (status === 404) {
+                // Passport not yet generated — buyers can generate it via POST
+                try {
+                    const p = await generatePassport(dppId);
+                    setPassport(p);
+                } catch (genErr: any) {
+                    const genStatus = genErr?.response?.status;
+                    if (genStatus === 403) {
+                        Alert.alert(
+                            'Passport Not Ready',
+                            'The buyer has not yet generated a Digital Product Passport for this lot. Please scan the buyer-shared QR code or ask the buyer to generate the passport first.'
+                        );
+                    } else {
+                        Alert.alert('Error', genErr.response?.data?.error || 'Could not generate passport');
+                    }
+                    navigation.goBack();
+                }
+            } else {
+                Alert.alert('Error', getErr.response?.data?.error || 'Could not load passport');
+                navigation.goBack();
+            }
         } finally {
             setLoading(false);
         }
@@ -204,6 +225,15 @@ export default function DppPassportScreen() {
             </View>
 
             {/* Actions */}
+            {passport.confidentialDataExists && (
+                <TouchableOpacity
+                    style={styles.confidBtn}
+                    onPress={() => navigation.navigate('ConfidentialAccess', { lotId: passport.lotId })}
+                >
+                    <Ionicons name="lock-open-outline" size={20} color="white" />
+                    <Text style={styles.confidBtnText}>Request / View Confidential Fields</Text>
+                </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
                 <Ionicons name="share-outline" size={20} color="white" />
                 <Text style={styles.shareBtnText}>Share Passport</Text>
@@ -275,6 +305,14 @@ const styles = StyleSheet.create({
     },
     idLabel: { color: COLORS.purple, fontWeight: '700', fontSize: 13 },
     idValue: { flex: 1, fontSize: 11, color: COLORS.sub, fontFamily: 'monospace' },
+    confidBtn: {
+        marginHorizontal: 16, marginBottom: 12,
+        backgroundColor: '#FF9500', padding: 16, borderRadius: 16,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+        shadowColor: '#FF9500', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
+    },
+    confidBtnText: { color: 'white', fontSize: 15, fontWeight: '800' },
     shareBtn: {
         marginHorizontal: 16, marginBottom: 12,
         backgroundColor: COLORS.purple, padding: 18, borderRadius: 16,

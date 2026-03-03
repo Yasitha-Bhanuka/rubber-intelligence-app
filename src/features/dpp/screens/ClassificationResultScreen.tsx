@@ -25,6 +25,7 @@ export default function ClassificationResultScreen() {
     const route = useRoute<any>();
     const navigation = useNavigation<any>();
     const result: DppUploadResponse = route.params?.result;
+    const isInvoice: boolean = route.params?.isInvoice ?? false;
     const [generating, setGenerating] = useState(false);
 
     if (!result) return (
@@ -62,24 +63,37 @@ export default function ClassificationResultScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.inner}>
-            {/* ── Pipeline Progress ── */}
-            <View style={styles.pipelineBar}>
-                <View style={styles.pipelineStep}>
-                    <View style={[styles.stepDot, styles.stepDone]}>
-                        <Ionicons name="checkmark" size={14} color="white" />
+            {/* ── Pipeline Progress (DPP only) ── */}
+            {!isInvoice && (
+                <View style={styles.pipelineBar}>
+                    <View style={styles.pipelineStep}>
+                        <View style={[styles.stepDot, styles.stepDone]}>
+                            <Ionicons name="checkmark" size={14} color="white" />
+                        </View>
+                        <Text style={styles.stepLabelDone}>Step A Complete</Text>
+                        <Text style={styles.stepSubDone}>Extracted · Classified · Encrypted</Text>
                     </View>
-                    <Text style={styles.stepLabelDone}>Step A Complete</Text>
-                    <Text style={styles.stepSubDone}>Extracted · Classified · Encrypted</Text>
-                </View>
-                <View style={styles.pipelineConnector} />
-                <View style={styles.pipelineStep}>
-                    <View style={[styles.stepDot, styles.stepPending]}>
-                        <Text style={styles.stepDotTextPending}>B</Text>
+                    <View style={styles.pipelineConnector} />
+                    <View style={styles.pipelineStep}>
+                        <View style={[styles.stepDot, styles.stepPending]}>
+                            <Text style={styles.stepDotTextPending}>B</Text>
+                        </View>
+                        <Text style={styles.stepLabelPending}>Step B — Awaiting Your Approval</Text>
+                        <Text style={styles.stepSubPending}>Review below, then approve</Text>
                     </View>
-                    <Text style={styles.stepLabelPending}>Step B — Awaiting Your Approval</Text>
-                    <Text style={styles.stepSubPending}>Review below, then approve</Text>
                 </View>
-            </View>
+            )}
+            {isInvoice && (
+                <View style={styles.pipelineBar}>
+                    <View style={styles.pipelineStep}>
+                        <View style={[styles.stepDot, styles.stepDone]}>
+                            <Ionicons name="checkmark" size={14} color="white" />
+                        </View>
+                        <Text style={styles.stepLabelDone}>Invoice Processed</Text>
+                        <Text style={styles.stepSubDone}>Extracted · Classified · Encrypted</Text>
+                    </View>
+                </View>
+            )}
 
             {/* Status Header */}
             <View style={[styles.header, { backgroundColor: themeColor }]}>
@@ -121,35 +135,70 @@ export default function ClassificationResultScreen() {
                     </View>
                 </View>
 
-                {/* Field-value list */}
+                {/* ── Side-by-Side Comparison Table ── */}
+                {/* Header row */}
+                <View style={sbTable.headerRow}>
+                    <Text style={[sbTable.col1, sbTable.hd]}>FIELD</Text>
+                    <Text style={[sbTable.col2, sbTable.hd]}>EXTRACTED VALUE</Text>
+                    <Text style={[sbTable.col3, sbTable.hd]}>OUTCOME</Text>
+                </View>
+
                 {fields.map((f, i) => (
-                    <View key={i} style={[
-                        styles.extractedRow,
-                        i < fields.length - 1 && styles.extractedRowBorder
-                    ]}>
-                        <View style={styles.extractedLeft}>
-                            <Text style={styles.extractedFieldName}>{f.fieldName}</Text>
+                    <View
+                        key={i}
+                        style={[
+                            sbTable.row,
+                            { backgroundColor: f.isConfidential ? '#FFF8F8' : '#F8FFF8' },
+                            i < fields.length - 1 && sbTable.rowBorder,
+                        ]}
+                    >
+                        {/* Col 1 — Field name */}
+                        <View style={sbTable.col1}>
+                            <Ionicons
+                                name={f.isConfidential ? 'lock-closed' : 'checkmark-circle'}
+                                size={12}
+                                color={f.isConfidential ? COLORS.red : COLORS.green}
+                                style={{ marginBottom: 3 }}
+                            />
+                            <Text style={sbTable.fieldTxt} numberOfLines={2}>
+                                {f.fieldName}
+                            </Text>
+                        </View>
+
+                        {/* Col 2 — Extracted value or hidden badge */}
+                        <View style={sbTable.col2}>
                             {f.isConfidential ? (
-                                <View style={styles.encryptedBadge}>
-                                    <Ionicons name="lock-closed" size={10} color={COLORS.red} />
-                                    <Text style={styles.encryptedBadgeText}>AES-256 Encrypted</Text>
+                                <View style={sbTable.hiddenBadge}>
+                                    <Ionicons name="eye-off-outline" size={11} color={COLORS.red} />
+                                    <Text style={sbTable.hiddenTxt}>Hidden</Text>
                                 </View>
                             ) : (
-                                <Text style={styles.extractedValue} numberOfLines={2}>
-                                    {f.extractedValue && f.extractedValue.trim() ? f.extractedValue : '—'}
+                                <Text style={sbTable.valTxt} numberOfLines={3}>
+                                    {f.extractedValue?.trim() || '—'}
                                 </Text>
                             )}
-                        </View>
-                        <View style={[
-                            styles.fieldConfBadge,
-                            { backgroundColor: f.isConfidential ? '#FFE5E5' : '#E5FFE5' }
-                        ]}>
-                            <Text style={[
-                                styles.fieldConfBadgeText,
-                                { color: f.isConfidential ? COLORS.red : COLORS.green }
-                            ]}>
-                                {(f.confidenceScore * 100).toFixed(0)}%
+                            <Text style={sbTable.confTxt}>
+                                {(f.confidenceScore * 100).toFixed(0)}% conf.
                             </Text>
+                        </View>
+
+                        {/* Col 3 — Passport destination */}
+                        <View style={sbTable.col3}>
+                            {f.isConfidential ? (
+                                <View style={[sbTable.outcomeBadge, { backgroundColor: '#FFE5E5', borderColor: COLORS.red }]}>
+                                    <Ionicons name="lock-closed" size={10} color={COLORS.red} />
+                                    <Text style={[sbTable.outcomeTxt, { color: COLORS.red }]}>
+                                        {'AES-256\nVault'}
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={[sbTable.outcomeBadge, { backgroundColor: '#E5FFE5', borderColor: COLORS.green }]}>
+                                    <Ionicons name="document-text-outline" size={10} color={COLORS.green} />
+                                    <Text style={[sbTable.outcomeTxt, { color: COLORS.green }]}>
+                                        {'→ Passport'}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     </View>
                 ))}
@@ -295,62 +344,76 @@ export default function ClassificationResultScreen() {
                 <Text style={styles.idValue} numberOfLines={1}>{dppId}</Text>
             </View>
 
-            {/* ── Glass Box Review Panel ── */}
-            <View style={styles.reviewPanel}>
-                <View style={styles.reviewPanelHeader}>
-                    <Ionicons name="eye" size={18} color={COLORS.purple} />
-                    <Text style={styles.reviewPanelTitle}>Glass Box Review — Step B</Text>
-                </View>
-                <Text style={styles.reviewPanelBody}>
-                    You have reviewed the field-level classification above. Encrypted fields (red) contain your
-                    commercial secrets and will <Text style={{ fontWeight: '800' }}>never</Text> appear in the
-                    Digital Product Passport. Public fields (green) will form the passport.
-                </Text>
-                <View style={styles.reviewSummaryRow}>
-                    <View style={[styles.reviewSummaryChip, { backgroundColor: '#F0FFF4' }]}>
-                        <Ionicons name="eye-outline" size={13} color={COLORS.green} />
-                        <Text style={[styles.reviewSummaryChipText, { color: COLORS.green }]}>
-                            {publicFields.length} fields → Passport
-                        </Text>
+            {/* ── Glass Box Review Panel (DPP only) ── */}
+            {!isInvoice && (
+                <View style={styles.reviewPanel}>
+                    <View style={styles.reviewPanelHeader}>
+                        <Ionicons name="eye" size={18} color={COLORS.purple} />
+                        <Text style={styles.reviewPanelTitle}>Glass Box Review — Step B</Text>
                     </View>
-                    <View style={[styles.reviewSummaryChip, { backgroundColor: '#FFF0F0' }]}>
-                        <Ionicons name="lock-closed" size={13} color={COLORS.red} />
-                        <Text style={[styles.reviewSummaryChipText, { color: COLORS.red }]}>
-                            {confidentialFields.length} fields → AES-256 vault
-                        </Text>
+                    <Text style={styles.reviewPanelBody}>
+                        You have reviewed the field-level classification above. Encrypted fields (red) contain your
+                        commercial secrets and will <Text style={{ fontWeight: '800' }}>never</Text> appear in the
+                        Digital Product Passport. Public fields (green) will form the passport.
+                    </Text>
+                    <View style={styles.reviewSummaryRow}>
+                        <View style={[styles.reviewSummaryChip, { backgroundColor: '#F0FFF4' }]}>
+                            <Ionicons name="eye-outline" size={13} color={COLORS.green} />
+                            <Text style={[styles.reviewSummaryChipText, { color: COLORS.green }]}>
+                                {publicFields.length} fields → Passport
+                            </Text>
+                        </View>
+                        <View style={[styles.reviewSummaryChip, { backgroundColor: '#FFF0F0' }]}>
+                            <Ionicons name="lock-closed" size={13} color={COLORS.red} />
+                            <Text style={[styles.reviewSummaryChipText, { color: COLORS.red }]}>
+                                {confidentialFields.length} fields → AES-256 vault
+                            </Text>
+                        </View>
                     </View>
+                    <Text style={styles.reviewPanelNote}>
+                        Tapping "Approve" triggers POST /{dppId.substring(0, 8)}…/generate-passport (Step B). The server
+                        applies a Where(!IsConfidential) filter and seals the result with SHA-256.
+                    </Text>
                 </View>
-                <Text style={styles.reviewPanelNote}>
-                    Tapping "Approve" triggers POST /{dppId.substring(0, 8)}…/generate-passport (Step B). The server
-                    applies a Where(!IsConfidential) filter and seals the result with SHA-256.
-                </Text>
-            </View>
+            )}
 
-            {/* Actions */}
-            <TouchableOpacity
-                style={[styles.primaryBtn, { backgroundColor: COLORS.purple }, generating && styles.disabled]}
-                onPress={handleGeneratePassport}
-                disabled={generating}
-            >
-                {generating ? (
-                    <>
-                        <ActivityIndicator color="white" />
-                        <Text style={styles.primaryBtnText}>Generating Passport...</Text>
-                    </>
-                ) : (
-                    <>
-                        <Ionicons name="checkmark-circle" size={22} color="white" />
-                        <Text style={styles.primaryBtnText}>Approve &amp; Generate Passport</Text>
-                    </>
-                )}
-            </TouchableOpacity>
+            {/* Actions — DPP: Approve & Generate Passport | Invoice: Done */}
+            {!isInvoice ? (
+                <TouchableOpacity
+                    style={[styles.primaryBtn, { backgroundColor: COLORS.purple }, generating && styles.disabled]}
+                    onPress={handleGeneratePassport}
+                    disabled={generating}
+                >
+                    {generating ? (
+                        <>
+                            <ActivityIndicator color="white" />
+                            <Text style={styles.primaryBtnText}>Generating Passport...</Text>
+                        </>
+                    ) : (
+                        <>
+                            <Ionicons name="checkmark-circle" size={22} color="white" />
+                            <Text style={styles.primaryBtnText}>Approve &amp; Generate Passport</Text>
+                        </>
+                    )}
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity
+                    style={[styles.primaryBtn, { backgroundColor: COLORS.green }]}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Ionicons name="checkmark-circle" size={22} color="white" />
+                    <Text style={styles.primaryBtnText}>Invoice Secured — Done</Text>
+                </TouchableOpacity>
+            )}
 
             <TouchableOpacity
                 style={styles.secondaryBtn}
-                onPress={() => navigation.navigate('DocumentUpload')}
+                onPress={() => isInvoice ? navigation.goBack() : navigation.navigate('DocumentUpload')}
             >
-                <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.secondaryBtnText}>Process Another Document</Text>
+                <Ionicons name={isInvoice ? 'arrow-back-outline' : 'add-circle-outline'} size={20} color={COLORS.primary} />
+                <Text style={styles.secondaryBtnText}>
+                    {isInvoice ? 'Back to Dashboard' : 'Process Another Document'}
+                </Text>
             </TouchableOpacity>
         </ScrollView>
     );
@@ -516,4 +579,53 @@ const styles = StyleSheet.create({
     fieldExtractedVal: {
         fontSize: 11, color: COLORS.sub, marginTop: 2, lineHeight: 16,
     },
+});
+
+// ── Side-by-Side Comparison Table styles ───────────────────────────────────
+const sbTable = StyleSheet.create({
+    headerRow: {
+        flexDirection: 'row',
+        borderBottomWidth: 1.5,
+        borderBottomColor: COLORS.border,
+        paddingBottom: 6,
+        marginBottom: 2,
+    },
+    hd: {
+        fontSize: 9,
+        fontWeight: '800',
+        color: '#8E8E93',
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+        borderRadius: 6,
+    },
+    rowBorder: {
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    // Column widths
+    col1: { flex: 3, paddingRight: 6 },
+    col2: { flex: 4, paddingRight: 6 },
+    col3: { flex: 3, alignItems: 'center' },
+    // Cell content
+    fieldTxt: { fontSize: 12, fontWeight: '700', color: COLORS.text, lineHeight: 16 },
+    valTxt:   { fontSize: 12, color: '#3A3A4A', lineHeight: 16 },
+    confTxt:  { fontSize: 9,  color: COLORS.sub, marginTop: 3, fontWeight: '600' },
+    hiddenBadge: {
+        flexDirection: 'row', alignItems: 'center', gap: 3,
+        backgroundColor: '#FFE5E5', paddingHorizontal: 6, paddingVertical: 3,
+        borderRadius: 5, alignSelf: 'flex-start',
+    },
+    hiddenTxt: { fontSize: 10, color: COLORS.red, fontWeight: '700' },
+    outcomeBadge: {
+        borderWidth: 1, borderRadius: 7,
+        paddingHorizontal: 7, paddingVertical: 5,
+        alignItems: 'center', gap: 3,
+    },
+    outcomeTxt: { fontSize: 10, fontWeight: '800', textAlign: 'center', lineHeight: 14 },
 });

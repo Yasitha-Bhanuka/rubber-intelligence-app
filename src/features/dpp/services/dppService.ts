@@ -74,11 +74,25 @@ export const approveAccessRequest = async (
     return response.data;
 };
 
+// POST /api/dpp/reject-confidential/{requestId} (Buyer only)
+export const rejectAccessRequest = async (
+    requestId: string
+): Promise<{ requestId: string; status: string }> => {
+    const response = await apiClient.post(`/dpp/reject-confidential/${requestId}`);
+    return response.data;
+};
+
 // GET /api/dpp/confidential/{lotId} (Exporter only — requires approved request)
 export const getConfidentialFields = async (
     lotId: string
 ): Promise<ConfidentialAccessResponse> => {
     const response = await apiClient.get<ConfidentialAccessResponse>(`/dpp/confidential/${lotId}`);
+    return response.data;
+};
+
+// GET /api/dpp/my-requests (Exporter only — returns all access requests by this exporter)
+export const getMyAccessRequests = async (): Promise<{ id: string; lotId: string; status: string; requestedAt: string; approvedAt?: string }[]> => {
+    const response = await apiClient.get(`/dpp/my-requests`);
     return response.data;
 };
 
