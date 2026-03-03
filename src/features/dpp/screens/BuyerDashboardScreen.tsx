@@ -7,7 +7,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
-import { getBuyerDocuments } from '../services/dppService';
+import { getBuyerDocuments, getPendingAccessRequests } from '../services/dppService';
 import { getMyTransactions, uploadInvoice } from '../services/marketplaceService';
 import { DppDocument, MarketplaceTransaction } from '../types';
 
@@ -66,14 +66,20 @@ export default function BuyerDashboardScreen() {
     const [documents, setDocuments] = useState<DppDocument[]>([]);
     const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
     const [loading, setLoading] = useState(false);
+    const [pendingCount, setPendingCount] = useState(0);
 
     /* ── Data fetch ─────────────────────── */
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [docs, trans] = await Promise.all([getBuyerDocuments(), getMyTransactions()]);
+            const [docs, trans, pending] = await Promise.all([
+                getBuyerDocuments(),
+                getMyTransactions(),
+                getPendingAccessRequests().catch(() => [] as any[]),
+            ]);
             setDocuments(docs);
             setTransactions(trans);
+            setPendingCount(pending.length);
         } finally {
             setLoading(false);
         }
@@ -97,9 +103,10 @@ export default function BuyerDashboardScreen() {
             if (result.canceled) return;
             const file = result.assets[0];
             setLoading(true);
-            await uploadInvoice(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
-            Alert.alert('Success', 'Invoice uploaded securely!');
+            const response = await uploadInvoice(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
             loadData();
+            // Navigate to ClassificationResultScreen with isInvoice=true to show invoice-specific UI
+            navigation.navigate('ClassificationResult', { result: response, isInvoice: true });
         } catch {
             Alert.alert('Error', 'Failed to upload invoice');
         } finally {
@@ -129,6 +136,11 @@ export default function BuyerDashboardScreen() {
                     onPress={() => navigation.navigate('PendingRequests')}
                 >
                     <Ionicons name="notifications-outline" size={22} color={C.text} />
+                    {pendingCount > 0 && (
+                        <View style={s.notifBadge}>
+                            <Text style={s.notifBadgeText}>{pendingCount > 9 ? '9+' : pendingCount}</Text>
+                        </View>
+                    )}
                 </TouchableOpacity>
             </View>
 
@@ -357,9 +369,10 @@ export default function BuyerDashboardScreen() {
                                         {doc.classification}
                                     </Text>
                                 </View>
+                                {/* Navigate to DppPassportScreen which has the proper {lotId,hash} QR */}
                                 <TouchableOpacity
                                     style={s.qrBtn}
-                                    onPress={() => setSelectedQr(doc.id)}
+                                    onPress={() => navigation.navigate('DppPassport', { dppId: doc.id })}
                                 >
                                     <Ionicons name="qr-code-outline" size={20} color={C.blue} />
                                 </TouchableOpacity>
@@ -413,7 +426,17 @@ const s = StyleSheet.create({
     profileBtn: {
         width: 40, height: 40, borderRadius: 20,
         backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center',
+        position: 'relative',
     },
+    notifBadge: {
+        position: 'absolute', top: 0, right: 0,
+        backgroundColor: C.red, borderRadius: 10,
+        minWidth: 18, height: 18,
+        justifyContent: 'center', alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 1.5, borderColor: C.card,
+    },
+    notifBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '800' },
 
     /* ── Section titles ────── */
     sectionTitle: { fontSize: 17, fontWeight: '700', color: C.text, marginTop: 22, marginBottom: 10 },

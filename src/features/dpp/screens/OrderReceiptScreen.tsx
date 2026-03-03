@@ -51,10 +51,14 @@ export default function OrderReceiptScreen() {
                 reader.readAsDataURL(blob);
             });
 
-            // Write to cache using the new File API
-            const cacheDir = Paths.cache;
-            const file = new File(cacheDir, `invoice_${transaction.id}.pdf`);
-            await file.write(base64, 'base64');
+            // Decode base64 → Uint8Array then write with the new File API
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            const file = new File(Paths.cache, `invoice_${transaction.id}.pdf`);
+            file.write(bytes);
 
             // Share the saved file
             if (await Sharing.isAvailableAsync()) {

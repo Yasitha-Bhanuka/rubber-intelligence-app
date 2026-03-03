@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { SellingPost, MarketplaceTransaction, BuyerHistory } from '../types';
+import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse } from '../types';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -42,7 +42,7 @@ export const getMyTransactions = async (): Promise<MarketplaceTransaction[]> => 
     }
 };
 
-export const uploadInvoice = async (transactionId: string, file: any): Promise<any> => {
+export const uploadInvoice = async (transactionId: string, file: any): Promise<InvoiceUploadResponse> => {
     try {
         const formData = new FormData();
         formData.append('file', {
@@ -51,10 +51,9 @@ export const uploadInvoice = async (transactionId: string, file: any): Promise<a
             type: file.mimeType || 'application/pdf'
         } as any);
 
-        const response = await apiClient.post(`/Marketplace/transactions/${transactionId}/invoice`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
+        const response = await apiClient.post<InvoiceUploadResponse>(
+            `/Marketplace/transactions/${transactionId}/invoice`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
         });
         return response.data;
     } catch (error) {

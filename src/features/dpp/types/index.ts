@@ -7,6 +7,20 @@ export interface DppUploadResponse {
   supportedFormats: string[];
 }
 
+/**
+ * Returned by POST /api/Marketplace/transactions/{id}/invoice.
+ * Shape mirrors DppUploadResponse so ClassificationResultScreen is reusable.
+ * dppId here is the transactionId.
+ */
+export interface InvoiceUploadResponse {
+  dppId: string;
+  message: string;
+  fieldsExtracted: number;
+  fields: DppFieldSummary[];
+  classification: DppClassification;
+  supportedFormats: string[];
+}
+
 export interface DppFieldSummary {
   fieldName: string;
   isConfidential: boolean;
@@ -84,6 +98,8 @@ export interface MarketplaceTransaction {
   dppClassification?: string;
   encryptionMetadata?: string;
   dppDocumentId?: string;
+  /** Safe invoice fields extracted by Gemini. Confidential values are null. */
+  invoiceFields?: Record<string, string | null>;
 }
 
 export interface UploadState {
