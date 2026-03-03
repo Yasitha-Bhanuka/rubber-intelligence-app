@@ -37,6 +37,8 @@ export interface DigitalProductPassport {
   quantity: number;
   dispatchDetails: string;
   confidentialDataExists: boolean;
+  /** GENERATED | VERIFIED | REINSPECTION_REQUESTED | ACCEPTED | REJECTED */
+  lifecycleState: string;
   dppHash: string;
   createdAt: string;
 }

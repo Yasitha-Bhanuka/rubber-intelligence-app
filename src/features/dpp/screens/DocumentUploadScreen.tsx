@@ -101,10 +101,27 @@ export default function DocumentUploadScreen() {
 
             <ScrollView contentContainerStyle={styles.content}>
                 {/* Security badge */}
+                {/* Pipeline step indicator */}
+                <View style={styles.pipelineStrip}>
+                    <View style={styles.pipelineStep}>
+                        <View style={[styles.stepDot, styles.stepDotActive]}>
+                            <Text style={styles.stepDotText}>A</Text>
+                        </View>
+                        <Text style={styles.stepLabel}>Extract &amp; Secure</Text>
+                    </View>
+                    <View style={styles.pipelineConnector} />
+                    <View style={styles.pipelineStep}>
+                        <View style={styles.stepDot}>
+                            <Text style={styles.stepDotTextInactive}>B</Text>
+                        </View>
+                        <Text style={[styles.stepLabel, { color: '#AEAEB2' }]}>Generate Passport</Text>
+                    </View>
+                </View>
+
                 <View style={styles.securityBadge}>
                     <Ionicons name="shield-checkmark" size={16} color={COLORS.purple} />
                     <Text style={styles.securityText}>
-                        Gemini AI OCR · Field-Level Encryption · SHA-256 Integrity
+                        Gemini AI OCR · Field-Level AES-256 · SHA-256 Integrity
                     </Text>
                 </View>
 
@@ -153,12 +170,12 @@ export default function DocumentUploadScreen() {
                         {loading ? (
                             <>
                                 <ActivityIndicator color="white" />
-                                <Text style={styles.buttonTextPrimary}>Analyzing & Classifying...</Text>
+                                <Text style={styles.buttonTextPrimary}>Extracting and Securing Document...</Text>
                             </>
                         ) : (
                             <>
                                 <Ionicons name="scan-circle-outline" size={24} color="white" />
-                                <Text style={styles.buttonTextPrimary}>Analyze & Classify</Text>
+                                <Text style={styles.buttonTextPrimary}>Extract &amp; Secure Document</Text>
                             </>
                         )}
                     </TouchableOpacity>
@@ -168,8 +185,10 @@ export default function DocumentUploadScreen() {
                 <View style={styles.infoStrip}>
                     <Ionicons name="information-circle-outline" size={16} color={COLORS.sub} />
                     <Text style={styles.infoText}>
-                        Confidential fields (price, totals, bank) are encrypted with random AES-256 keys.
-                        Non-confidential fields remain readable in the Digital Product Passport.
+                        <Text style={{ fontWeight: '700' }}>Step A</Text>
+                        {' — Gemini AI extracts fields, classifies each one, and AES-256 encrypts confidential values before any data reaches MongoDB.\n'}
+                        <Text style={{ fontWeight: '700' }}>Step B</Text>
+                        {' — You review and approve before the privacy-preserving Digital Product Passport is minted.'}
                     </Text>
                 </View>
             </ScrollView>
@@ -245,6 +264,22 @@ const styles = StyleSheet.create({
         alignSelf: 'stretch',
     },
     infoText: { flex: 1, fontSize: 12, color: COLORS.sub, lineHeight: 18 },
+    // Pipeline step strip
+    pipelineStrip: {
+        flexDirection: 'row', alignItems: 'center',
+        alignSelf: 'stretch', marginBottom: 16, paddingHorizontal: 4,
+    },
+    pipelineStep: { alignItems: 'center', gap: 5 },
+    pipelineConnector: { flex: 1, height: 2, backgroundColor: COLORS.purple, marginHorizontal: 8, marginBottom: 14 },
+    stepDot: {
+        width: 28, height: 28, borderRadius: 14,
+        backgroundColor: '#E5E5EA',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    stepDotActive: { backgroundColor: COLORS.purple },
+    stepDotText: { color: 'white', fontSize: 12, fontWeight: '800' },
+    stepDotTextInactive: { color: '#8E8E93', fontSize: 12, fontWeight: '800' },
+    stepLabel: { fontSize: 11, fontWeight: '700', color: COLORS.purple },
     formatsStrip: {
         flexDirection: 'row', alignItems: 'center', gap: 6,
         marginBottom: 14, flexWrap: 'wrap', alignSelf: 'stretch',

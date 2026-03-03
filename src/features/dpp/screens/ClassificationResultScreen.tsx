@@ -37,6 +37,8 @@ export default function ClassificationResultScreen() {
     const { classification, dppId, fields, fieldsExtracted, supportedFormats } = result;
     const isConfidential = classification.classification === 'CONFIDENTIAL';
     const themeColor = isConfidential ? COLORS.red : COLORS.green;
+
+    // Pipeline step A is already complete — user is now at the review gate before Step B
     const confidentialFields = fields.filter(f => f.isConfidential);
     const publicFields = fields.filter(f => !f.isConfidential);
     const geminiCount   = classification.geminiExtractedCount ?? fieldsExtracted;
@@ -60,6 +62,25 @@ export default function ClassificationResultScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.inner}>
+            {/* ── Pipeline Progress ── */}
+            <View style={styles.pipelineBar}>
+                <View style={styles.pipelineStep}>
+                    <View style={[styles.stepDot, styles.stepDone]}>
+                        <Ionicons name="checkmark" size={14} color="white" />
+                    </View>
+                    <Text style={styles.stepLabelDone}>Step A Complete</Text>
+                    <Text style={styles.stepSubDone}>Extracted · Classified · Encrypted</Text>
+                </View>
+                <View style={styles.pipelineConnector} />
+                <View style={styles.pipelineStep}>
+                    <View style={[styles.stepDot, styles.stepPending]}>
+                        <Text style={styles.stepDotTextPending}>B</Text>
+                    </View>
+                    <Text style={styles.stepLabelPending}>Step B — Awaiting Your Approval</Text>
+                    <Text style={styles.stepSubPending}>Review below, then approve</Text>
+                </View>
+            </View>
+
             {/* Status Header */}
             <View style={[styles.header, { backgroundColor: themeColor }]}>
                 <View style={styles.headerIconRing}>
@@ -274,6 +295,37 @@ export default function ClassificationResultScreen() {
                 <Text style={styles.idValue} numberOfLines={1}>{dppId}</Text>
             </View>
 
+            {/* ── Glass Box Review Panel ── */}
+            <View style={styles.reviewPanel}>
+                <View style={styles.reviewPanelHeader}>
+                    <Ionicons name="eye" size={18} color={COLORS.purple} />
+                    <Text style={styles.reviewPanelTitle}>Glass Box Review — Step B</Text>
+                </View>
+                <Text style={styles.reviewPanelBody}>
+                    You have reviewed the field-level classification above. Encrypted fields (red) contain your
+                    commercial secrets and will <Text style={{ fontWeight: '800' }}>never</Text> appear in the
+                    Digital Product Passport. Public fields (green) will form the passport.
+                </Text>
+                <View style={styles.reviewSummaryRow}>
+                    <View style={[styles.reviewSummaryChip, { backgroundColor: '#F0FFF4' }]}>
+                        <Ionicons name="eye-outline" size={13} color={COLORS.green} />
+                        <Text style={[styles.reviewSummaryChipText, { color: COLORS.green }]}>
+                            {publicFields.length} fields → Passport
+                        </Text>
+                    </View>
+                    <View style={[styles.reviewSummaryChip, { backgroundColor: '#FFF0F0' }]}>
+                        <Ionicons name="lock-closed" size={13} color={COLORS.red} />
+                        <Text style={[styles.reviewSummaryChipText, { color: COLORS.red }]}>
+                            {confidentialFields.length} fields → AES-256 vault
+                        </Text>
+                    </View>
+                </View>
+                <Text style={styles.reviewPanelNote}>
+                    Tapping "Approve" triggers POST /{dppId.substring(0, 8)}…/generate-passport (Step B). The server
+                    applies a Where(!IsConfidential) filter and seals the result with SHA-256.
+                </Text>
+            </View>
+
             {/* Actions */}
             <TouchableOpacity
                 style={[styles.primaryBtn, { backgroundColor: COLORS.purple }, generating && styles.disabled]}
@@ -281,13 +333,16 @@ export default function ClassificationResultScreen() {
                 disabled={generating}
             >
                 {generating ? (
-                    <ActivityIndicator color="white" />
+                    <>
+                        <ActivityIndicator color="white" />
+                        <Text style={styles.primaryBtnText}>Generating Passport...</Text>
+                    </>
                 ) : (
-                    <Ionicons name="document-lock-outline" size={22} color="white" />
+                    <>
+                        <Ionicons name="checkmark-circle" size={22} color="white" />
+                        <Text style={styles.primaryBtnText}>Approve &amp; Generate Passport</Text>
+                    </>
                 )}
-                <Text style={styles.primaryBtnText}>
-                    {generating ? 'Generating...' : 'Generate Digital Product Passport'}
-                </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -374,6 +429,47 @@ const styles = StyleSheet.create({
         borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: COLORS.white,
     },
     secondaryBtnText: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
+    // ── Pipeline progress bar ──
+    pipelineBar: {
+        flexDirection: 'row', alignItems: 'center',
+        marginHorizontal: 16, marginBottom: 4, marginTop: 16,
+    },
+    pipelineStep: { alignItems: 'center', flex: 1 },
+    pipelineConnector: { height: 2, width: 32, backgroundColor: COLORS.green, marginHorizontal: 4, marginBottom: 20 },
+    stepDot: {
+        width: 30, height: 30, borderRadius: 15,
+        justifyContent: 'center', alignItems: 'center', marginBottom: 4,
+    },
+    stepDone: { backgroundColor: COLORS.green },
+    stepPending: { backgroundColor: COLORS.purple },
+    stepDotTextPending: { color: 'white', fontSize: 13, fontWeight: '800' },
+    stepLabelDone: { fontSize: 12, fontWeight: '800', color: COLORS.green },
+    stepSubDone: { fontSize: 10, color: COLORS.green, opacity: 0.8 },
+    stepLabelPending: { fontSize: 12, fontWeight: '800', color: COLORS.purple },
+    stepSubPending: { fontSize: 10, color: COLORS.purple, opacity: 0.8 },
+    // ── Glass Box Review Panel ──
+    reviewPanel: {
+        marginHorizontal: 16, marginBottom: 16,
+        backgroundColor: '#EEF0FF',
+        borderRadius: 16, padding: 18,
+        borderWidth: 1.5, borderColor: COLORS.purple,
+    },
+    reviewPanelHeader: {
+        flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10,
+    },
+    reviewPanelTitle: { fontSize: 14, fontWeight: '800', color: COLORS.purple },
+    reviewPanelBody: { fontSize: 13, color: '#3A3A4A', lineHeight: 20, marginBottom: 12 },
+    reviewSummaryRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+    reviewSummaryChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+    },
+    reviewSummaryChipText: { fontSize: 12, fontWeight: '700' },
+    reviewPanelNote: {
+        fontSize: 11, color: '#5856A0', lineHeight: 16,
+        backgroundColor: 'rgba(88,86,210,0.08)',
+        padding: 10, borderRadius: 8, fontFamily: 'monospace',
+    },
     // ── Gemini extraction card ──
     sectionHeaderRow: {
         flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12,

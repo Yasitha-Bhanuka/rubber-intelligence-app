@@ -128,6 +128,23 @@ export default function OrderReceiptScreen() {
 
 
 
+            {/* Secure Lot Messaging */}
+            <TouchableOpacity
+                style={[styles.dppBtn, { backgroundColor: '#007AFF' }]}
+                onPress={() => navigation.navigate('LotMessaging', {
+                    lotId: transaction.id,
+                    receiverId: transaction.buyerId,
+                    lotLabel: `Order ${transaction.id.substring(0, 8)}`
+                })}
+            >
+                <Ionicons name="chatbubbles" size={24} color="white" />
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.dppBtnTitle}>Secure Messaging</Text>
+                    <Text style={styles.dppBtnSub}>Chat with the buyer about this lot.</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="white" />
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.homeBtn} onPress={() => navigation.navigate('Marketplace')}>
                 <Text style={styles.homeBtnText}>Continue Shopping</Text>
             </TouchableOpacity>
