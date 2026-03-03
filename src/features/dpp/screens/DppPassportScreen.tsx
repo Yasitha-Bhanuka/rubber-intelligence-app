@@ -101,8 +101,9 @@ export default function DppPassportScreen() {
         return (
             <View style={styles.centered}>
                 <Ionicons name="document-lock-outline" size={56} color={COLORS.purple} />
-                <Text style={styles.loadingTitle}>Assembling Passport...</Text>
-                <Text style={styles.loadingSubtitle}>Excluding confidential fields · Computing SHA-256</Text>
+                <Text style={styles.loadingTitle}>Generating Passport...</Text>
+                <Text style={styles.loadingSubtitle}>Filtering non-confidential fields only</Text>
+                <Text style={[styles.loadingSubtitle, { marginTop: 4, color: COLORS.purple }]}>Applying Where(!IsConfidential) · Computing SHA-256</Text>
                 <ActivityIndicator size="large" color={COLORS.purple} style={{ marginTop: 24 }} />
             </View>
         );
@@ -116,6 +117,20 @@ export default function DppPassportScreen() {
         <ScrollView style={styles.container} contentContainerStyle={styles.inner}>
             {/* Header */}
             <View style={styles.header}>
+                {/* Pipeline Complete Banner */}
+                <View style={styles.pipelineCompleteBanner}>
+                    <View style={styles.pipelineCompleteStep}>
+                        <Ionicons name="checkmark-circle" size={16} color={COLORS.green} />
+                        <Text style={styles.pipelineCompleteStepText}>Step A</Text>
+                    </View>
+                    <View style={styles.pipelineCompleteLine} />
+                    <View style={styles.pipelineCompleteStep}>
+                        <Ionicons name="checkmark-circle" size={16} color={COLORS.green} />
+                        <Text style={styles.pipelineCompleteStepText}>Step B</Text>
+                    </View>
+                    <Text style={styles.pipelineCompleteLabel}>  Pipeline Complete</Text>
+                </View>
+
                 <View style={styles.passportBadge}>
                     <Ionicons name="document-lock" size={28} color={COLORS.purple} />
                 </View>
@@ -276,4 +291,15 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.white,
     },
     backBtnText: { color: COLORS.primary, fontSize: 15, fontWeight: '700' },
+    // ── Pipeline complete banner ──
+    pipelineCompleteBanner: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#F0FFF4',
+        paddingHorizontal: 16, paddingVertical: 8,
+        borderRadius: 20, marginBottom: 16,
+    },
+    pipelineCompleteStep: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    pipelineCompleteStepText: { fontSize: 12, fontWeight: '800', color: COLORS.green },
+    pipelineCompleteLine: { width: 24, height: 2, backgroundColor: COLORS.green, marginHorizontal: 6 },
+    pipelineCompleteLabel: { fontSize: 12, fontWeight: '800', color: COLORS.green },
 });

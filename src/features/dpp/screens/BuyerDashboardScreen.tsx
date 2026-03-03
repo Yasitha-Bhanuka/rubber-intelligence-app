@@ -1,5 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator, Alert } from 'react-native';
+import {
+    View, Text, StyleSheet, ScrollView, TouchableOpacity,
+    Modal, ActivityIndicator, Alert, RefreshControl
+} from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -7,7 +10,56 @@ import * as DocumentPicker from 'expo-document-picker';
 import { getBuyerDocuments } from '../services/dppService';
 import { getMyTransactions, uploadInvoice } from '../services/marketplaceService';
 import { DppDocument, MarketplaceTransaction } from '../types';
-//ddd 
+
+/* ─── Constants ─────────────────────────────────────────────────────── */
+const C = {
+    bg: '#F2F2F7',
+    card: '#FFFFFF',
+    accent: '#5856D6',
+    accentLight: '#EDEDFC',
+    blue: '#007AFF',
+    green: '#34C759',
+    orange: '#FF9500',
+    red: '#FF3B30',
+    text: '#1C1C1E',
+    sub: '#8E8E93',
+    border: '#E5E5EA',
+};
+
+/* ─── Reusable Section Card ─────────────────────────────────────────── */
+function SectionCard({ children, style }: { children: React.ReactNode; style?: object }) {
+    return <View style={[s.sectionCard, style]}>{children}</View>;
+}
+
+/* ─── Workflow Step Row ─────────────────────────────────────────────── */
+function StepRow({
+    step, label, sublabel, icon, iconBg, onPress, trailing,
+}: {
+    step: string; label: string; sublabel: string;
+    icon: keyof typeof Ionicons.glyphMap; iconBg: string;
+    onPress?: () => void; trailing?: React.ReactNode;
+}) {
+    const inner = (
+        <View style={s.stepRow}>
+            <View style={[s.stepIcon, { backgroundColor: iconBg }]}>
+                <Ionicons name={icon} size={20} color="#FFF" />
+            </View>
+            <View style={s.stepContent}>
+                <Text style={s.stepLabel}>{label}</Text>
+                <Text style={s.stepSub}>{sublabel}</Text>
+            </View>
+            {trailing ?? <Ionicons name="chevron-forward" size={18} color={C.sub} />}
+        </View>
+    );
+    return onPress ? <TouchableOpacity onPress={onPress} activeOpacity={0.65}>{inner}</TouchableOpacity> : inner;
+}
+
+/* ─── Divider ───────────────────────────────────────────────────────── */
+const Divider = () => <View style={s.divider} />;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BuyerDashboardScreen
+   ═══════════════════════════════════════════════════════════════════════ */
 export default function BuyerDashboardScreen() {
     const navigation = useNavigation<any>();
     const [selectedQr, setSelectedQr] = useState<string | null>(null);
@@ -15,13 +67,11 @@ export default function BuyerDashboardScreen() {
     const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
     const [loading, setLoading] = useState(false);
 
+    /* ── Data fetch ─────────────────────── */
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [docs, trans] = await Promise.all([
-                getBuyerDocuments(),
-                getMyTransactions()
-            ]);
+            const [docs, trans] = await Promise.all([getBuyerDocuments(), getMyTransactions()]);
             setDocuments(docs);
             setTransactions(trans);
         } finally {
@@ -29,10 +79,8 @@ export default function BuyerDashboardScreen() {
         }
     }, []);
 
-    // Cache guard: prevent redundant refetches on rapid tab switches
     const lastFetchRef = useRef(0);
     const CACHE_TTL = 30000;
-
     useFocusEffect(
         useCallback(() => {
             if (Date.now() - lastFetchRef.current > CACHE_TTL) {
@@ -42,172 +90,301 @@ export default function BuyerDashboardScreen() {
         }, [loadData])
     );
 
+    /* ── Invoice upload ─────────────────── */
     const handleUploadInvoice = async (transactionId: string) => {
         try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: '*/*', // Allow all for now, or restrict to pdf/images
-                copyToCacheDirectory: true
-            });
-
+            const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
             if (result.canceled) return;
-
             const file = result.assets[0];
             setLoading(true);
-            await uploadInvoice(transactionId, {
-                uri: file.uri,
-                name: file.name,
-                mimeType: file.mimeType
-            });
+            await uploadInvoice(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
             Alert.alert('Success', 'Invoice uploaded securely!');
-            loadData(); // Refresh to update status
-        } catch (error) {
+            loadData();
+        } catch {
             Alert.alert('Error', 'Failed to upload invoice');
-            console.error(error);
         } finally {
             setLoading(false);
         }
     };
 
-    const renderItem = ({ item }: { item: DppDocument }) => (
-        <View style={styles.card}>
-            <View style={styles.cardInfo}>
-                <Text style={styles.fileName}>{item.originalFileName}</Text>
-                <Text style={styles.date}>{new Date(item.uploadedAt).toLocaleDateString()}</Text>
-                <View style={[
-                    styles.tag,
-                    { backgroundColor: item.classification === 'CONFIDENTIAL' ? '#FFE5E5' : '#E5FFE5' }
-                ]}>
-                    <Text style={{
-                        color: item.classification === 'CONFIDENTIAL' ? '#D00' : '#008000',
-                        fontSize: 10,
-                        fontWeight: 'bold'
-                    }}>
-                        {item.classification}
-                    </Text>
-                </View>
-            </View>
-            <TouchableOpacity
-                style={styles.qrButton}
-                onPress={() => setSelectedQr(item.id)}
-            >
-                <Ionicons name="qr-code-outline" size={24} color="#007AFF" />
-            </TouchableOpacity>
-        </View>
-    );
+    /* ── Helpers ─────────────────────────── */
+    const statusColor = (status: string) =>
+        status === 'Completed' ? C.green : status === 'InvoiceUploaded' ? C.blue : C.orange;
 
+    const statusLabel = (status: string) =>
+        status === 'Completed' ? 'Payment Completed'
+            : status === 'PendingInvoice' ? 'Pending Invoice' : 'Invoice Uploaded';
+
+    /* ════════════════════════════════════════════════════════════════════ */
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Buyer Dashboard</Text>
-            </View>
-
-            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+        <View style={s.root}>
+            {/* ── Top bar ───────────────────────────────────── */}
+            <View style={s.topBar}>
+                <View>
+                    <Text style={s.greeting}>Buyer Dashboard</Text>
+                    <Text style={s.greetingSub}>Privacy-Preserving DPP Pipeline</Text>
+                </View>
                 <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => navigation.navigate('CreateSellingPost')}
+                    style={s.profileBtn}
+                    onPress={() => navigation.navigate('PendingRequests')}
                 >
-                    <Ionicons name="pricetag" size={20} color="white" />
-                    <Text style={styles.actionBtnText}>Create Selling Post</Text>
+                    <Ionicons name="notifications-outline" size={22} color={C.text} />
                 </TouchableOpacity>
             </View>
 
-            {/* Sales Section */}
-            {transactions.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Recent Sales</Text>
-                    {transactions.map(t => (
-                        <View key={t.id} style={styles.reqCardContainer}>
+            <ScrollView
+                style={s.scroll}
+                contentContainerStyle={s.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={loading} onRefresh={loadData} tintColor={C.accent} />}
+            >
+                {/* ═══ 1. Quick Actions ═══════════════════════════ */}
+                <Text style={s.sectionTitle}>Quick Actions</Text>
+                <View style={s.quickRow}>
+                    <TouchableOpacity
+                        style={s.quickCard}
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('CreateSellingPost')}
+                    >
+                        <View style={[s.quickIcon, { backgroundColor: C.blue }]}>
+                            <Ionicons name="pricetag" size={22} color="#FFF" />
+                        </View>
+                        <Text style={s.quickLabel}>Create{'\n'}Rubber Lot</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={s.quickCard}
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('DocumentUpload')}
+                    >
+                        <View style={[s.quickIcon, { backgroundColor: C.accent }]}>
+                            <Ionicons name="cloud-upload" size={22} color="#FFF" />
+                        </View>
+                        <Text style={s.quickLabel}>Upload{'\n'}Document</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={s.quickCard}
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('PendingRequests')}
+                    >
+                        <View style={[s.quickIcon, { backgroundColor: C.green }]}>
+                            <Ionicons name="shield-checkmark" size={22} color="#FFF" />
+                        </View>
+                        <Text style={s.quickLabel}>Access{'\n'}Requests</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* ═══ 2. Buyer Workflow Card ═════════════════════ */}
+                <Text style={s.sectionTitle}>DPP Pipeline Workflow</Text>
+                <SectionCard>
+                    <StepRow
+                        step="1"
+                        icon="pricetag-outline"
+                        iconBg={C.blue}
+                        label="Create Rubber Lot"
+                        sublabel="Post grade, quantity & asking price"
+                        onPress={() => navigation.navigate('CreateSellingPost')}
+                    />
+                    <Divider />
+                    <StepRow
+                        step="2"
+                        icon="document-text-outline"
+                        iconBg={C.accent}
+                        label="Upload & Secure Document"
+                        sublabel="Step A — Gemini extracts, classifies & encrypts"
+                        onPress={() => navigation.navigate('DocumentUpload')}
+                    />
+                    <Divider />
+                    <StepRow
+                        step="3"
+                        icon="eye-outline"
+                        iconBg="#FF9F0A"
+                        label="Review Classification"
+                        sublabel="Verify confidential (red) vs public (green) fields"
+                    />
+                    <Divider />
+                    <StepRow
+                        step="4"
+                        icon="shield-checkmark-outline"
+                        iconBg={C.green}
+                        label="Generate DPP Passport"
+                        sublabel="Step B — Strips financials, mints SHA-256 hash"
+                    />
+                    <Divider />
+                    <StepRow
+                        step="5"
+                        icon="reader-outline"
+                        iconBg="#AF52DE"
+                        label="View Digital Passport"
+                        sublabel="Privacy-preserving DPP with integrity hash"
+                    />
+                    <Divider />
+                    <StepRow
+                        step="6"
+                        icon="chatbubbles-outline"
+                        iconBg="#FF375F"
+                        label="Secure Lot Messaging"
+                        sublabel="AES-256 encrypted confidential messages"
+                    />
+                </SectionCard>
+
+                {/* ═══ 3. Recent Sales / Transactions ═════════════ */}
+                {transactions.length > 0 && (
+                    <>
+                        <Text style={s.sectionTitle}>
+                            Recent Sales
+                            <Text style={s.sectionBadge}> {transactions.length}</Text>
+                        </Text>
+
+                        {transactions.map(t => (
+                            <SectionCard key={t.id} style={{ marginBottom: 12 }}>
+                                {/* Transaction header */}
+                                <TouchableOpacity
+                                    style={s.txHeader}
+                                    activeOpacity={0.7}
+                                    onPress={() => navigation.navigate('OrderReceipt', { transactionId: t.id })}
+                                >
+                                    <View style={s.txLeft}>
+                                        <Text style={s.txPrice}>LKR {t.offerPrice.toLocaleString()}</Text>
+                                        <Text style={s.txExporter}>{t.exporterName || 'Exporter'}</Text>
+                                    </View>
+                                    <View style={[s.txBadge, { backgroundColor: statusColor(t.status) + '18' }]}>
+                                        <View style={[s.txDot, { backgroundColor: statusColor(t.status) }]} />
+                                        <Text style={[s.txBadgeText, { color: statusColor(t.status) }]}>
+                                            {statusLabel(t.status)}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                <Divider />
+
+                                {/* Action buttons */}
+                                <View style={s.txActions}>
+                                    {t.status === 'PendingInvoice' && (
+                                        <TouchableOpacity
+                                            style={[s.txBtn, { backgroundColor: C.orange }]}
+                                            onPress={() => handleUploadInvoice(t.id)}
+                                        >
+                                            <Ionicons name="cloud-upload" size={14} color="#FFF" />
+                                            <Text style={s.txBtnText}>Upload Invoice</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {!t.dppDocumentId && (
+                                        <TouchableOpacity
+                                            style={[s.txBtn, { backgroundColor: C.accent }]}
+                                            onPress={() => navigation.navigate('DocumentUpload', { transactionId: t.id })}
+                                        >
+                                            <Ionicons name="document-attach" size={14} color="#FFF" />
+                                            <Text style={s.txBtnText}>Link DPP</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    <TouchableOpacity
+                                        style={[s.txBtn, { backgroundColor: '#FF375F' }]}
+                                        onPress={() => navigation.navigate('LotMessaging', {
+                                            lotId: t.id,
+                                            receiverId: t.exporterId,
+                                            lotLabel: `Order ${t.id.substring(0, 8)} · ${t.exporterName}`
+                                        })}
+                                    >
+                                        <Ionicons name="chatbubbles" size={14} color="#FFF" />
+                                        <Text style={s.txBtnText}>Message</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[s.txBtn, { backgroundColor: C.sub }]}
+                                        onPress={() => navigation.navigate('OrderReceipt', { transactionId: t.id })}
+                                    >
+                                        <Ionicons name="receipt-outline" size={14} color="#FFF" />
+                                        <Text style={s.txBtnText}>Receipt</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </SectionCard>
+                        ))}
+                    </>
+                )}
+
+                {/* ═══ 4. My Documents ════════════════════════════ */}
+                <Text style={s.sectionTitle}>
+                    My Documents
+                    {documents.length > 0 && <Text style={s.sectionBadge}> {documents.length}</Text>}
+                </Text>
+
+                {loading && documents.length === 0 ? (
+                    <View style={s.emptyWrap}>
+                        <ActivityIndicator size="large" color={C.accent} />
+                    </View>
+                ) : documents.length === 0 ? (
+                    <SectionCard>
+                        <View style={s.emptyWrap}>
+                            <Ionicons name="document-outline" size={40} color={C.sub} />
+                            <Text style={s.emptyTitle}>No documents yet</Text>
+                            <Text style={s.emptySub}>Upload a rubber lot document to begin the DPP pipeline.</Text>
                             <TouchableOpacity
-                                style={styles.reqCard}
-                                onPress={() => navigation.navigate('OrderReceipt', { transactionId: t.id })}
+                                style={s.emptyBtn}
+                                onPress={() => navigation.navigate('DocumentUpload')}
                             >
-                                <View>
-                                    <Text style={styles.reqTitle}>Sold for LKR {t.offerPrice}</Text>
-                                    <Text style={[
-                                        styles.reqStatus,
-                                        { color: t.status === 'Completed' ? '#34C759' : '#FF9500' }
-                                    ]}>
-                                        {t.status === 'Completed' ? 'Payment Completed' : (t.status === 'PendingInvoice' ? 'Pending Invoice' : 'Invoice Uploaded')}
+                                <Ionicons name="add" size={18} color="#FFF" />
+                                <Text style={s.emptyBtnText}>Upload Document</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </SectionCard>
+                ) : (
+                    documents.map(doc => (
+                        <SectionCard key={doc.id} style={{ marginBottom: 10 }}>
+                            <View style={s.docRow}>
+                                <View style={s.docIconWrap}>
+                                    <Ionicons
+                                        name={doc.classification === 'CONFIDENTIAL' ? 'lock-closed' : 'document-text'}
+                                        size={22}
+                                        color={doc.classification === 'CONFIDENTIAL' ? C.red : C.green}
+                                    />
+                                </View>
+                                <View style={s.docInfo}>
+                                    <Text style={s.docName} numberOfLines={1}>{doc.originalFileName}</Text>
+                                    <Text style={s.docDate}>{new Date(doc.uploadedAt).toLocaleDateString()}</Text>
+                                </View>
+                                <View style={[
+                                    s.docTag,
+                                    { backgroundColor: doc.classification === 'CONFIDENTIAL' ? '#FFE5E5' : '#E5FFE5' }
+                                ]}>
+                                    <Text style={{
+                                        color: doc.classification === 'CONFIDENTIAL' ? C.red : '#008000',
+                                        fontSize: 10, fontWeight: '700',
+                                    }}>
+                                        {doc.classification}
                                     </Text>
                                 </View>
-                                <Ionicons
-                                    name={t.status === 'Completed' ? "checkmark-circle" : "time-outline"}
-                                    size={24}
-                                    color={t.status === 'Completed' ? "#34C759" : "#FF9500"}
-                                />
-                            </TouchableOpacity>
-
-                            {/* Upload Action for PendingInvoice */}
-                            {t.status === 'PendingInvoice' && (
                                 <TouchableOpacity
-                                    style={styles.uploadBtn}
-                                    onPress={() => handleUploadInvoice(t.id)}
+                                    style={s.qrBtn}
+                                    onPress={() => setSelectedQr(doc.id)}
                                 >
-                                    <Ionicons name="cloud-upload" size={16} color="white" />
-                                    <Text style={styles.uploadBtnText}>Secure Upload Invoice</Text>
+                                    <Ionicons name="qr-code-outline" size={20} color={C.blue} />
                                 </TouchableOpacity>
-                            )}
+                            </View>
+                        </SectionCard>
+                    ))
+                )}
 
-                            {/* Link DPP Action */}
-                            {!t.dppDocumentId && (
-                                <TouchableOpacity
-                                    style={[styles.uploadBtn, { backgroundColor: '#5856D6', marginTop: 8 }]}
-                                    onPress={() => navigation.navigate('DocumentUpload', { transactionId: t.id })}
-                                >
-                                    <Ionicons name="document-attach" size={16} color="white" />
-                                    <Text style={styles.uploadBtnText}>Link DPP Document</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    ))}
-                </View>
-            )}
+                <View style={{ height: 40 }} />
+            </ScrollView>
 
-            <Text style={[styles.sectionTitle, { marginHorizontal: 20, marginTop: 10 }]}>My Documents</Text>
-
-            {loading && documents.length === 0 ? (
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#007AFF" />
-                </View>
-            ) : (
-                <FlatList
-                    data={documents}
-                    renderItem={renderItem}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={styles.list}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No documents uploaded yet.</Text>
-                            <Text style={styles.emptySubText}>Tap + to upload a rubber lot document.</Text>
-                        </View>
-                    }
-                    refreshing={loading}
-                    onRefresh={loadData}
-                />
-            )}
-
+            {/* ── QR Modal ──────────────────────────────────── */}
             <Modal visible={!!selectedQr} transparent animationType="fade">
-                <View style={styles.modalBg}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>DPP QR Code</Text>
-                        <Text style={styles.modalSubtitle}>Scan to access document</Text>
-
+                <View style={s.modalBg}>
+                    <View style={s.modalCard}>
+                        <Text style={s.modalTitle}>DPP QR Code</Text>
+                        <Text style={s.modalSub}>Scan with exporter device to access passport</Text>
                         {selectedQr && (
-                            <View style={styles.qrContainer}>
-                                <QRCode
-                                    value={selectedQr}
-                                    size={200}
-                                />
+                            <View style={s.qrWrap}>
+                                <QRCode value={selectedQr} size={200} />
                             </View>
                         )}
-
-                        <Text style={styles.idText}>ID: {selectedQr}</Text>
-
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={() => setSelectedQr(null)}
-                        >
-                            <Text style={styles.closeText}>Close</Text>
+                        <Text style={s.qrId}>ID: {selectedQr}</Text>
+                        <TouchableOpacity style={s.modalClose} onPress={() => setSelectedQr(null)}>
+                            <Text style={s.modalCloseText}>Close</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -216,119 +393,108 @@ export default function BuyerDashboardScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F2F2F7', paddingTop: 60 },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        marginBottom: 20
+/* ═══════════════════════════════════════════════════════════════════════
+   Styles
+   ═══════════════════════════════════════════════════════════════════════ */
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: 20, paddingBottom: 20 },
+
+    /* ── Top bar ────── */
+    topBar: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingTop: 58, paddingBottom: 12, paddingHorizontal: 20,
+        backgroundColor: C.card,
+        borderBottomWidth: 1, borderBottomColor: C.border,
     },
-    title: { fontSize: 28, fontWeight: '800' },
-    list: { padding: 20 },
-    card: {
-        backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,//margin bottom
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2
+    greeting: { fontSize: 24, fontWeight: '800', color: C.text },
+    greetingSub: { fontSize: 13, color: C.sub, marginTop: 2 },
+    profileBtn: {
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center',
     },
-    cardInfo: { flex: 1 },
-    fileName: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-    date: { fontSize: 12, color: '#888', marginBottom: 8 },
-    tag: {
-        alignSelf: 'flex-start',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8
+
+    /* ── Section titles ────── */
+    sectionTitle: { fontSize: 17, fontWeight: '700', color: C.text, marginTop: 22, marginBottom: 10 },
+    sectionBadge: { fontSize: 15, fontWeight: '600', color: C.sub },
+
+    /* ── Section card ────── */
+    sectionCard: {
+        backgroundColor: C.card, borderRadius: 16, padding: 16,
+        shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
     },
-    qrButton: {
-        padding: 10,
-        backgroundColor: '#F0F8FF',
-        borderRadius: 12
+
+    /* ── Quick actions ────── */
+    quickRow: { flexDirection: 'row', gap: 12 },
+    quickCard: {
+        flex: 1, backgroundColor: C.card, borderRadius: 16, padding: 14, alignItems: 'center',
+        shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
     },
-    modalBg: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center'
+    quickIcon: {
+        width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 8,
     },
-    modalContent: {
-        backgroundColor: 'white',
-        width: '80%',
-        padding: 24,
-        borderRadius: 24,
-        alignItems: 'center'
+    quickLabel: { fontSize: 12, fontWeight: '600', color: C.text, textAlign: 'center', lineHeight: 16 },
+
+    /* ── Step rows (workflow) ────── */
+    stepRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 12 },
+    stepIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+    stepContent: { flex: 1 },
+    stepLabel: { fontSize: 15, fontWeight: '600', color: C.text },
+    stepSub: { fontSize: 12, color: C.sub, marginTop: 1 },
+
+    /* ── Divider ────── */
+    divider: { height: 1, backgroundColor: C.border, marginVertical: 2 },
+
+    /* ── Transaction cards ────── */
+    txHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 10 },
+    txLeft: {},
+    txPrice: { fontSize: 18, fontWeight: '700', color: C.text },
+    txExporter: { fontSize: 13, color: C.sub, marginTop: 2 },
+    txBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+    txDot: { width: 7, height: 7, borderRadius: 4 },
+    txBadgeText: { fontSize: 12, fontWeight: '600' },
+    txActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 10 },
+    txBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
     },
-    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
-    modalSubtitle: { fontSize: 14, color: '#666', marginBottom: 24 },
-    qrContainer: {
-        padding: 16,
-        backgroundColor: 'white',
-        borderRadius: 12,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-        marginBottom: 20
+    txBtnText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
+
+    /* ── Document rows ────── */
+    docRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    docIconWrap: {
+        width: 40, height: 40, borderRadius: 12, backgroundColor: C.bg,
+        justifyContent: 'center', alignItems: 'center',
     },
-    idText: { fontFamily: 'monospace', color: '#888', marginBottom: 20 },
-    closeButton: {
-        paddingVertical: 12,
-        paddingHorizontal: 32,
-        backgroundColor: '#007AFF',
-        borderRadius: 12
+    docInfo: { flex: 1 },
+    docName: { fontSize: 14, fontWeight: '600', color: C.text },
+    docDate: { fontSize: 11, color: C.sub, marginTop: 2 },
+    docTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    qrBtn: { padding: 8, backgroundColor: '#F0F8FF', borderRadius: 10 },
+
+    /* ── Empty state ────── */
+    emptyWrap: { alignItems: 'center', paddingVertical: 28, gap: 8 },
+    emptyTitle: { fontSize: 16, fontWeight: '600', color: C.text },
+    emptySub: { fontSize: 13, color: C.sub, textAlign: 'center', paddingHorizontal: 20 },
+    emptyBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: C.accent, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, marginTop: 8,
     },
-    closeText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-    emptyContainer: { alignItems: 'center', marginTop: 40 },
-    emptyText: { fontSize: 18, fontWeight: '600', color: '#555' },
-    emptySubText: { fontSize: 14, color: '#999', marginTop: 8 },
-    actionBtn: {
-        backgroundColor: '#007AFF',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        padding: 12,
-        borderRadius: 12
+    emptyBtnText: { color: '#FFF', fontWeight: '600', fontSize: 14 },
+
+    /* ── QR Modal ────── */
+    modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
+    modalCard: { backgroundColor: C.card, width: '82%', padding: 28, borderRadius: 24, alignItems: 'center' },
+    modalTitle: { fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 4 },
+    modalSub: { fontSize: 13, color: C.sub, marginBottom: 20 },
+    qrWrap: {
+        padding: 16, borderRadius: 16, backgroundColor: C.card,
+        shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, elevation: 4, marginBottom: 16,
     },
-    actionBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-    section: { paddingHorizontal: 20, marginBottom: 10 },
-    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
-    reqCard: {
-        backgroundColor: 'white',
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 8,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2
-    },
-    reqTitle: { fontSize: 16, fontWeight: 'bold', color: '#007AFF' },
-    reqStatus: { fontSize: 13, color: '#666', marginTop: 2 },
-    reqCardContainer: { marginBottom: 12 },
-    uploadBtn: {
-        backgroundColor: '#FF9500',
-        padding: 10,
-        borderRadius: 8,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        marginTop: -4,
-        marginHorizontal: 4
-    },
-    uploadBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 }
+    qrId: { fontFamily: 'monospace', fontSize: 11, color: C.sub, marginBottom: 16 },
+    modalClose: { paddingVertical: 12, paddingHorizontal: 36, backgroundColor: C.blue, borderRadius: 12 },
+    modalCloseText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
 });
