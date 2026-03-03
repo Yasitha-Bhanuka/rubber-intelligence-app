@@ -42,7 +42,19 @@ export interface DppClassification {
   publicFieldCount: number;
   confidentialFieldCount: number;
 }
-
+/**
+ * Returned by GET /api/Marketplace/transactions/{id}/invoice-fields.
+ * Confidential fields carry their AES-256-CBC decrypted plaintext value;
+ * non-confidential fields carry the value stored directly in the database.
+ */
+export interface InvoiceDecryptedField {
+  /** Machine-friendly field key, e.g. "invoiceNumber", "totalAmount" */
+  fieldName: string;
+  /** Decrypted plaintext value; null if field had no value or decryption failed */
+  value: string | null;
+  /** True when the field was classified as commercially sensitive at upload time */
+  isConfidential: boolean;
+}
 // ── Digital Product Passport (GET /api/dpp/passport/{dppId}) ─────────
 export interface DigitalProductPassport {
   id: string;
