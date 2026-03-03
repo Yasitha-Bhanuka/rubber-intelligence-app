@@ -79,8 +79,12 @@ export const MainTabNavigator = () => {
                     <>
                         <Tab.Screen name="Grading" component={GradingNavigator} />
                         <Tab.Screen name="Disease" component={DiseaseNavigator} />
-                        <Tab.Screen name="Price" component={PriceForecastingNavigator} options={{ headerShown: false }} />
                     </>
+                )}
+
+                {/* Price & Bidding (Farmers, Buyers, and Exporters) */}
+                {(role === 'farmer' || role === 'buyer' || role === 'exporter') && (
+                    <Tab.Screen name="Price" component={PriceForecastingNavigator} options={{ headerShown: false }} />
                 )}
 
                 {/* Admin / Researcher / DPP Roles */}

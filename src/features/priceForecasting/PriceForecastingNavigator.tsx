@@ -9,6 +9,7 @@ import { PlaceBidConfirmScreen } from './screens/PlaceBidConfirmScreen';
 import { CreateLotScreen } from './screens/CreateLotScreen';
 import { TraceabilityScreen } from './screens/TraceabilityScreen';
 import { MyAuctionsScreen } from './screens/MyAuctionsScreen';
+import { AuctionHistoryScreen } from './screens/AuctionHistoryScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,6 +24,7 @@ export const PriceForecastingNavigator = () => {
             <Stack.Screen name="CreateLot" component={CreateLotScreen} />
             <Stack.Screen name="Traceability" component={TraceabilityScreen} />
             <Stack.Screen name="MyAuctions" component={MyAuctionsScreen} />
+            <Stack.Screen name="AuctionHistory" component={AuctionHistoryScreen} />
         </Stack.Navigator>
     );
 };

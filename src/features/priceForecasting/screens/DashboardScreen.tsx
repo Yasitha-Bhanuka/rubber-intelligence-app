@@ -282,6 +282,20 @@ export const DashboardScreen = () => {
                     </View>
                     <Ionicons name="chevron-forward" size={20} color="#7B1FA2" />
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.portalActionCard, { backgroundColor: '#E8EAF6' }]}
+                    onPress={() => navigation.navigate('AuctionHistory')}
+                >
+                    <View style={[styles.iconCircle, { backgroundColor: '#3F51B5', marginBottom: 0, marginRight: 15 }]}>
+                        <Ionicons name="time" size={24} color="#FFF" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.portalActionLabel, { color: '#1A237E' }]}>Auction History</Text>
+                        <Text style={[styles.portalActionSub, { color: '#3F51B5' }]}>View past auctions and statistics</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#3F51B5" />
+                </TouchableOpacity>
             </View>
 
             {/* Recent Activity List */}
