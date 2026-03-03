@@ -6,6 +6,7 @@ import { File, Paths } from 'expo-file-system/next';
 import * as Sharing from 'expo-sharing';
 import { getMyTransactions, getInvoice } from '../services/marketplaceService';
 import { MarketplaceTransaction } from '../types';
+import { useStore } from '../../../store';
 //add
 export default function OrderReceiptScreen() {
     const route = useRoute<any>();
@@ -14,6 +15,7 @@ export default function OrderReceiptScreen() {
 
     const [transaction, setTransaction] = useState<MarketplaceTransaction | null>(null);
     const [loading, setLoading] = useState(true);
+    const { user } = useStore();
 
     useEffect(() => {
         loadTransaction();
@@ -127,6 +129,21 @@ export default function OrderReceiptScreen() {
                         <Text style={styles.dppBtnSub}>Decrypted securely on your device.</Text>
                     </View>
                     <Ionicons name="download-outline" size={24} color="white" />
+                </TouchableOpacity>
+            )}
+
+            {/* Buyer: view the Gemini-extracted metadata fields decrypted on demand */}
+            {transaction.status === 'InvoiceUploaded' && user?.role === 'buyer' && (
+                <TouchableOpacity
+                    style={[styles.dppBtn, { backgroundColor: '#00BCD4' }]}
+                    onPress={() => navigation.navigate('InvoiceExtractedFields', { transactionId: transaction.id })}
+                >
+                    <Ionicons name="analytics" size={24} color="white" />
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.dppBtnTitle}>View Extracted Fields</Text>
+                        <Text style={styles.dppBtnSub}>See your invoice data — decrypted on demand.</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={24} color="white" />
                 </TouchableOpacity>
             )}
 

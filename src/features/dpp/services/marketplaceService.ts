@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse } from '../types';
+import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField } from '../types';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -97,4 +97,21 @@ export const getInvoice = async (transactionId: string): Promise<string> => {
         console.error('Get Invoice Error:', error);
         throw error;
     }
+};
+
+// ── INVOICE EXTRACTED FIELDS ──────────────────────────────────────────────────
+
+/**
+ * GET /api/Marketplace/transactions/{transactionId}/invoice-fields
+ * Decrypts and returns all extracted invoice fields for the authenticated Buyer.
+ * Confidential fields carry their AES-256-CBC decrypted plaintext values.
+ * Only the Buyer who owns the transaction may call this endpoint.
+ */
+export const getInvoiceExtractedFields = async (
+    transactionId: string
+): Promise<InvoiceDecryptedField[]> => {
+    const response = await apiClient.get<InvoiceDecryptedField[]>(
+        `/Marketplace/transactions/${transactionId}/invoice-fields`
+    );
+    return response.data;
 };

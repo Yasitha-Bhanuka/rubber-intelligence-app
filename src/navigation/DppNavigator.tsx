@@ -12,6 +12,7 @@ import OrderReceiptScreen from '../features/dpp/screens/OrderReceiptScreen';
 import PendingRequestsScreen from '../features/dpp/screens/PendingRequestsScreen';
 import ConfidentialAccessScreen from '../features/dpp/screens/ConfidentialAccessScreen';
 import LotMessagingScreen from '../features/dpp/screens/LotMessagingScreen';
+import InvoiceExtractedFieldsScreen from '../features/dpp/screens/InvoiceExtractedFieldsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -45,6 +46,9 @@ export default function DppNavigator() {
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
             <Stack.Screen name="CreateSellingPost" component={CreateSellingPostScreen} />
             <Stack.Screen name="OrderReceipt" component={OrderReceiptScreen} />
+
+            {/* Buyer: on-demand decryption of extracted invoice fields */}
+            <Stack.Screen name="InvoiceExtractedFields" component={InvoiceExtractedFieldsScreen} />
 
             {/* Secure Lot-Linked Messaging */}
             <Stack.Screen name="LotMessaging" component={LotMessagingScreen} />
