@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    Modal, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform
+    Modal, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Animated
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -101,6 +102,22 @@ export default function BuyerDashboardScreen() {
     const [pendingCount, setPendingCount] = useState(0);
     const [showAllSales, setShowAllSales] = useState(false);
     const [showAllDocs, setShowAllDocs] = useState(false);
+    const [purchaseNotifs, setPurchaseNotifs] = useState<MarketplaceTransaction[]>([]);
+    const notifAnim = useRef(new Animated.Value(0)).current;
+
+    /* ── Show / dismiss purchase notification ── */
+    const showNextNotif = useCallback((queue: MarketplaceTransaction[]) => {
+        if (queue.length === 0) return;
+        setPurchaseNotifs(queue);
+        notifAnim.setValue(0);
+        Animated.spring(notifAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }).start();
+    }, [notifAnim]);
+
+    const dismissNotif = useCallback(() => {
+        Animated.timing(notifAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
+            setPurchaseNotifs([])
+        );
+    }, [notifAnim]);
 
     /* ── Derived stats ──────────────────── */
     const stats = useMemo(() => {
@@ -122,10 +139,24 @@ export default function BuyerDashboardScreen() {
             setDocuments(docs);
             setTransactions(trans);
             setPendingCount(pending.length);
+
+            /* ── Detect new purchase requests ── */
+            const NOTIF_KEY = 'buyer_notified_purchase_ids';
+            const raw = await AsyncStorage.getItem(NOTIF_KEY);
+            const notifiedIds: string[] = raw ? JSON.parse(raw) : [];
+            const newPurchases = trans.filter(
+                (t: MarketplaceTransaction) =>
+                    t.status === 'PendingInvoice' && !notifiedIds.includes(t.id)
+            );
+            if (newPurchases.length > 0) {
+                const updatedIds = [...notifiedIds, ...newPurchases.map((t: MarketplaceTransaction) => t.id)];
+                await AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(updatedIds));
+                showNextNotif(newPurchases);
+            }
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [showNextNotif]);
 
     const lastFetchRef = useRef(0);
     const CACHE_TTL = 30000;
@@ -567,6 +598,89 @@ export default function BuyerDashboardScreen() {
                 <View style={{ height: 40 }} />
             </ScrollView>
 
+            {/* ── Purchase Notification Modal ─────────────── */}
+            <Modal
+                visible={purchaseNotifs.length > 0}
+                transparent
+                animationType="none"
+                statusBarTranslucent
+                onRequestClose={dismissNotif}
+            >
+                <View style={s.notifOverlay}>
+                    <Animated.View style={[
+                        s.notifCard,
+                        {
+                            opacity: notifAnim,
+                            transform: [{ scale: notifAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }],
+                        },
+                    ]}>
+                        <LinearGradient
+                            colors={[C.primaryDark, C.primary]}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            style={s.notifAccentBar}
+                        />
+                        <View style={s.notifIconWrap}>
+                            <LinearGradient colors={[C.primaryLight, C.primaryDark]} style={s.notifIconCircle}>
+                                <Ionicons name="bag-check" size={32} color="#fff" />
+                            </LinearGradient>
+                        </View>
+                        <Text style={s.notifTitle}>Purchase Request!</Text>
+                        <Text style={s.notifSubtitle}>
+                            {purchaseNotifs.length === 1
+                                ? `${purchaseNotifs[0].exporterName || 'An exporter'} wants to buy your rubber lot.`
+                                : `${purchaseNotifs.length} exporters have requested to buy your lots.`}
+                        </Text>
+                        {purchaseNotifs.length === 1 && (
+                            <View style={s.notifDetails}>
+                                <View style={s.notifDetailRow}>
+                                    <View style={s.notifDetailIcon}><Ionicons name="person" size={14} color={C.primary} /></View>
+                                    <Text style={s.notifDetailLabel}>Exporter</Text>
+                                    <Text style={s.notifDetailVal}>{purchaseNotifs[0].exporterName || 'Unknown'}</Text>
+                                </View>
+                                <View style={s.notifDetailRow}>
+                                    <View style={s.notifDetailIcon}><Ionicons name="cash" size={14} color={C.green} /></View>
+                                    <Text style={s.notifDetailLabel}>Offer Price</Text>
+                                    <Text style={[s.notifDetailVal, { color: C.green, fontWeight: '700' }]}>
+                                        LKR {purchaseNotifs[0].offerPrice.toLocaleString()}
+                                    </Text>
+                                </View>
+                                <View style={s.notifDetailRow}>
+                                    <View style={s.notifDetailIcon}><Ionicons name="time" size={14} color={C.orange} /></View>
+                                    <Text style={s.notifDetailLabel}>Action needed</Text>
+                                    <Text style={[s.notifDetailVal, { color: C.orange }]}>Upload Invoice</Text>
+                                </View>
+                            </View>
+                        )}
+                        <View style={s.notifActions}>
+                            <TouchableOpacity style={s.notifDismissBtn} onPress={dismissNotif} activeOpacity={0.7}>
+                                <Text style={s.notifDismissText}>Later</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={s.notifViewBtn}
+                                activeOpacity={0.85}
+                                onPress={() => {
+                                    dismissNotif();
+                                    if (purchaseNotifs.length === 1) {
+                                        navigation.navigate('OrderReceipt', { transactionId: purchaseNotifs[0].id });
+                                    } else {
+                                        scrollRef.current?.scrollTo({ y: 0, animated: true });
+                                    }
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={[C.primary, C.primaryDark]}
+                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                    style={s.notifViewBtnInner}
+                                >
+                                    <Ionicons name="eye" size={16} color="#fff" />
+                                    <Text style={s.notifViewText}>View Order</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+                </View>
+            </Modal>
+
             {/* ── QR Modal ──────────────────────────────────── */}
             <Modal visible={!!selectedQr} transparent animationType="fade">
                 <View style={s.modalBg}>
@@ -772,6 +886,59 @@ const s = StyleSheet.create({
         backgroundColor: C.accent, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, marginTop: 8,
     },
     emptyBtnText: { color: '#FFF', fontWeight: '600', fontSize: 14 },
+
+    /* ── Purchase Notification Modal ────── */
+    notifOverlay: {
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+        justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24,
+    },
+    notifCard: {
+        backgroundColor: '#fff', borderRadius: 24, width: '100%',
+        overflow: 'hidden',
+        shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 0, height: 8 },
+        elevation: 12,
+    },
+    notifAccentBar: { height: 5, width: '100%' },
+    notifIconWrap: { alignItems: 'center', marginTop: 28, marginBottom: 12 },
+    notifIconCircle: {
+        width: 72, height: 72, borderRadius: 36,
+        justifyContent: 'center', alignItems: 'center',
+    },
+    notifTitle: {
+        fontSize: 22, fontWeight: '800', color: C.text,
+        textAlign: 'center', marginBottom: 6, paddingHorizontal: 20,
+    },
+    notifSubtitle: {
+        fontSize: 14, color: C.sub, textAlign: 'center',
+        lineHeight: 20, paddingHorizontal: 24, marginBottom: 20,
+    },
+    notifDetails: {
+        marginHorizontal: 20, backgroundColor: C.primaryPale,
+        borderRadius: 14, padding: 14, marginBottom: 20, gap: 10,
+    },
+    notifDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    notifDetailIcon: {
+        width: 26, height: 26, borderRadius: 8, backgroundColor: '#fff',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    notifDetailLabel: { flex: 1, fontSize: 13, color: C.sub, fontWeight: '500' },
+    notifDetailVal: { fontSize: 13, color: C.text, fontWeight: '600' },
+    notifActions: {
+        flexDirection: 'row', gap: 10,
+        paddingHorizontal: 20, paddingBottom: 24,
+    },
+    notifDismissBtn: {
+        flex: 1, paddingVertical: 14, borderRadius: 14,
+        backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: C.border,
+    },
+    notifDismissText: { fontSize: 15, fontWeight: '600', color: C.sub },
+    notifViewBtn: { flex: 2, borderRadius: 14, overflow: 'hidden' },
+    notifViewBtnInner: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 6, paddingVertical: 14,
+    },
+    notifViewText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
     /* ── QR Modal ────── */
     modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
