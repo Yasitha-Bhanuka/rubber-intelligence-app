@@ -280,8 +280,9 @@ const LatexQualityResultScreen = () => {
                                         "Report Saved",
                                         "PDF report has been generated successfully.",
                                         [
+                                            { text: "View Reports", onPress: () => navigation.navigate("LatexQualityReports") },
                                             { text: "Share", onPress: () => ReportService.sharePDF(uri) },
-                                            { text: "OK" }
+                                            { text: "OK", style: "cancel" }
                                         ]
                                     );
                                 }
@@ -314,6 +315,22 @@ const LatexQualityResultScreen = () => {
                         >
                             <MaterialCommunityIcons name="plus-circle" size={24} color="white" />
                             <Text style={styles.primaryButtonText}>New Test</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.primaryButton, { marginBottom: 12 }]}
+                        onPress={() => navigation.navigate("LatexQualityReports")}
+                        activeOpacity={0.9}
+                    >
+                        <LinearGradient
+                            colors={["#0EA5E9", "#0284C7"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.primaryButtonGradient}
+                        >
+                            <MaterialCommunityIcons name="format-list-bulleted" size={24} color="white" />
+                            <Text style={styles.primaryButtonText}>View Quality Reports</Text>
                         </LinearGradient>
                     </TouchableOpacity>
 
