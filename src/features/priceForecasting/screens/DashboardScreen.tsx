@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
@@ -7,21 +6,50 @@ import { colors } from '../../../shared/styles/colors';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { PriceForecastingService } from '../services/priceForecastingService';
+import { BiddingService, BiddingAuction } from '../services/biddingService';
+import { useStore } from '../../../store';
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export const DashboardScreen = () => {
     const navigation = useNavigation<any>();
+    const { user } = useStore();
+    const role = user?.role || 'buyer'; // default fallback
     const [priceHistory, setPriceHistory] = useState<any[]>([]);
+    const [auctions, setAuctions] = useState<BiddingAuction[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [trend, setTrend] = useState({ value: 0, isPositive: true });
+    const [tick, setTick] = useState(0); // For live countdowns
+
+    // UI Tick for countdowns
+    useEffect(() => {
+        const interval = setInterval(() => setTick(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Polling loop for active auctions
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            try {
+                const data = await BiddingService.getActiveAuctions();
+                setAuctions(data);
+            } catch (error) {
+                // fail silently in background poll
+            }
+        }, 10000);
+        return () => clearInterval(interval);
+    }, []);
 
     const loadData = useCallback(async () => {
         try {
-            const data = await PriceForecastingService.getPriceHistory();
-            setPriceHistory(data);
-            calculateTrend(data);
+            const [historyData, auctionData] = await Promise.all([
+                PriceForecastingService.getPriceHistory(),
+                BiddingService.getActiveAuctions()
+            ]);
+            setPriceHistory(historyData);
+            setAuctions(auctionData);
+            calculateTrend(historyData);
         } catch (error) {
             console.error("Failed to fetch dashboard data", error);
         } finally {
@@ -170,77 +198,76 @@ export const DashboardScreen = () => {
                 </View>
 
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
-                    {/* Auction Card 1 */}
-                    <View style={styles.auctionCard}>
-                        <View style={styles.auctionHeader}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.auctionTitle}>Premium RSS1 Rubber - Kalutara District</Text>
-                                <Text style={styles.auctionSubtitle}>Ribbed Smoked Sheet Grade 1 - Premium Quality</Text>
-                            </View>
-                            <View style={styles.activeBadge}>
-                                <Text style={styles.activeBadgeText}>Active</Text>
-                            </View>
-                        </View>
+                    {loading ? (
+                        <ActivityIndicator size="small" color={colors.primary} style={{ margin: 20 }} />
+                    ) : auctions.length === 0 ? (
+                        <Text style={{ margin: 20, color: '#666' }}>No active auctions at the moment.</Text>
+                    ) : auctions.map((auction) => {
+                        let timeBlock = 'Ended';
+                        if (auction.endTime && auction.status !== 'Closed') {
+                            // Safely extract just the YYYY-MM-DDTHH:mm:ss part to avoid Hermes NaN issues with fractional seconds
+                            const cleanStr = auction.endTime.substring(0, 19);
+                            let diffS = Math.max(0, Math.floor((new Date(cleanStr + "Z").getTime() - new Date().getTime()) / 1000));
+                            if (diffS > 0) {
+                                let m = Math.floor(diffS / 60);
+                                let s = diffS % 60;
+                                timeBlock = `${m}min ${s < 10 ? '0' : ''}${s}s`;
+                            } else {
+                                timeBlock = 'Closed';
+                            }
+                        } else if (auction.status === 'Closed') {
+                            timeBlock = 'Closed';
+                        }
 
-                        <View style={styles.auctionDetails}>
-                            <View>
-                                <Text style={styles.detailLabel}>Current Price</Text>
-                                <Text style={styles.detailValuePrice}>LKR 485/kg</Text>
-                            </View>
-                            <View>
-                                <Text style={styles.detailLabel}>Quantity</Text>
-                                <Text style={styles.detailValue}>2,500 kg</Text>
-                            </View>
-                        </View>
+                        return (
+                            <View key={auction.id} style={styles.auctionCard}>
+                                <View style={styles.auctionHeader}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.auctionTitle}>{auction.title}</Text>
+                                        <Text style={styles.auctionSubtitle}>{auction.subtitle}</Text>
+                                    </View>
+                                    <View style={[styles.activeBadge, timeBlock === 'Ended' && { backgroundColor: '#FFCDD2' }]}>
+                                        <Text style={[styles.activeBadgeText, timeBlock === 'Ended' && { color: '#B71C1C' }]}>
+                                            {timeBlock}
+                                        </Text>
+                                    </View>
+                                </View>
 
-                        <View style={styles.bidderSection}>
-                            <Text style={styles.detailLabel}>Highest Bidder</Text>
-                            <Text style={styles.detailValue}>Export Lanka Ltd</Text>
-                        </View>
+                                <View style={styles.auctionDetails}>
+                                    <View>
+                                        <Text style={styles.detailLabel}>Current Price</Text>
+                                        <Text style={styles.detailValuePrice}>LKR {auction.currentPrice}/kg</Text>
+                                    </View>
+                                    <View>
+                                        <Text style={styles.detailLabel}>Quantity</Text>
+                                        <Text style={styles.detailValue}>{auction.quantity}</Text>
+                                    </View>
+                                </View>
 
-                        <TouchableOpacity
-                            style={styles.placeBidBtn}
-                            onPress={() => navigation.navigate('AuctionBidding', { id: '1' })}
-                        >
-                            <Text style={styles.placeBidText}>Place Bid</Text>
-                        </TouchableOpacity>
-                    </View>
+                                <View style={styles.bidderSection}>
+                                    <Text style={styles.detailLabel}>Highest Bidder</Text>
+                                    <Text style={styles.detailValue}>{auction.highestBidder}</Text>
+                                </View>
 
-                    {/* Auction Card 2 */}
-                    <View style={styles.auctionCard}>
-                        <View style={styles.auctionHeader}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.auctionTitle}>RSS3 Standard Grade - Ratnapura</Text>
-                                <Text style={styles.auctionSubtitle}>Ribbed Smoked Sheet Grade 3 - Standard Quality</Text>
+                                {role !== 'farmer' && (
+                                    <TouchableOpacity
+                                        style={styles.placeBidBtn}
+                                        onPress={() => navigation.navigate('AuctionBidding', { id: auction.id })}
+                                    >
+                                        <Text style={styles.placeBidText}>Place Bid</Text>
+                                    </TouchableOpacity>
+                                )}
+                                {role === 'farmer' && (
+                                    <TouchableOpacity
+                                        style={[styles.placeBidBtn, { backgroundColor: '#E0E0E0' }]}
+                                        onPress={() => navigation.navigate('AuctionBidding', { id: auction.id })}
+                                    >
+                                        <Text style={[styles.placeBidText, { color: '#666' }]}>View Auction</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
-                            <View style={styles.activeBadge}>
-                                <Text style={styles.activeBadgeText}>Active</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.auctionDetails}>
-                            <View>
-                                <Text style={styles.detailLabel}>Current Price</Text>
-                                <Text style={styles.detailValuePrice}>LKR 410/kg</Text>
-                            </View>
-                            <View>
-                                <Text style={styles.detailLabel}>Quantity</Text>
-                                <Text style={styles.detailValue}>1,800 kg</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.bidderSection}>
-                            <Text style={styles.detailLabel}>Highest Bidder</Text>
-                            <Text style={styles.detailValue}>Rubber Tech Manufacturing</Text>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.placeBidBtn}
-                            onPress={() => navigation.navigate('AuctionBidding', { id: '2' })}
-                        >
-                            <Text style={styles.placeBidText}>Place Bid</Text>
-                        </TouchableOpacity>
-                    </View>
+                        )
+                    })}
                 </ScrollView>
             </View>
 
@@ -268,6 +295,36 @@ export const DashboardScreen = () => {
                         <Text style={styles.actionLabel}>View Reports</Text>
                     </TouchableOpacity>
                 </View>
+
+                {role === 'farmer' && (
+                    <TouchableOpacity
+                        style={styles.portalActionCard}
+                        onPress={() => navigation.navigate('MyAuctions')}
+                    >
+                        <View style={[styles.iconCircle, { backgroundColor: '#7B1FA2', marginBottom: 0, marginRight: 15 }]}>
+                            <Ionicons name="business" size={24} color="#FFF" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.portalActionLabel}>Farmer Portal</Text>
+                            <Text style={styles.portalActionSub}>Manage NFT Bidding & Lots</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#7B1FA2" />
+                    </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                    style={[styles.portalActionCard, { backgroundColor: '#E8EAF6' }]}
+                    onPress={() => navigation.navigate('AuctionHistory')}
+                >
+                    <View style={[styles.iconCircle, { backgroundColor: '#3F51B5', marginBottom: 0, marginRight: 15 }]}>
+                        <Ionicons name="time" size={24} color="#FFF" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.portalActionLabel, { color: '#1A237E' }]}>Auction History</Text>
+                        <Text style={[styles.portalActionSub, { color: '#3F51B5' }]}>View past auctions and statistics</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#3F51B5" />
+                </TouchableOpacity>
             </View>
 
             {/* Recent Activity List */}
@@ -290,7 +347,7 @@ export const DashboardScreen = () => {
                     ))
                 )}
             </View>
-        </ScrollView>
+        </ScrollView >
     );
 };
 
@@ -317,6 +374,22 @@ const styles = StyleSheet.create({
     actionCard: { width: '48%', padding: 20, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     iconCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
     actionLabel: { fontSize: 15, fontWeight: '600', color: '#333' },
+
+    portalActionCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3E5F5',
+        padding: 20,
+        borderRadius: 20,
+        marginTop: 15,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4
+    },
+    portalActionLabel: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    portalActionSub: { fontSize: 12, color: '#7B1FA2', marginTop: 2 },
 
     historyItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 15, borderRadius: 16, marginBottom: 10, elevation: 1 },
     historyIcon: { width: 40, height: 40, backgroundColor: '#F5F5F5', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15 },

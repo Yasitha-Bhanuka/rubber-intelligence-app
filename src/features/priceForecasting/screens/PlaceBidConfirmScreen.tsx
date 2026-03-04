@@ -1,32 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors } from '../../../shared/styles/colors';
+import { BiddingService } from '../services/biddingService';
 
 export const PlaceBidConfirmScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { title, currentPrice, quantityKg } = route.params || {
+    const { id, title, currentPrice, quantityKg, prefilledAmount } = route.params || {
+        id: '1',
         title: "Premium RSS1 Rubber - Kalutara District",
         currentPrice: 595,
-        quantityKg: 2500
+        quantityKg: 2500,
+        prefilledAmount: "1000"
     };
 
-    const [bidAmount, setBidAmount] = useState('1000');
+    const [bidAmount, setBidAmount] = useState(prefilledAmount || '1000');
     const [totalAmount, setTotalAmount] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         const bid = parseFloat(bidAmount) || 0;
         setTotalAmount(bid * quantityKg);
     }, [bidAmount]);
 
-    const handleConfirm = () => {
-        Alert.alert(
-            "Bid Submitted",
-            "Your bid successfully placed!",
-            [{ text: "OK", onPress: () => navigation.goBack() }]
-        );
+    const handleConfirm = async () => {
+        setIsLoading(true);
+        try {
+            await BiddingService.submitBid(id, parseFloat(bidAmount));
+            if (parseFloat(bidAmount) > currentPrice) {
+                Alert.alert(
+                    "Bid Submitted",
+                    "Your bid was successfully placed!",
+                    [{ text: "OK", onPress: () => navigation.goBack() }]
+                );
+            } else {
+                Alert.alert("Invalid Bid", "Bid must be greater than current price.");
+            }
+        } catch (error) {
+            console.error(error);
+            Alert.alert("Error", "Failed to connect to the bidding server.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -105,12 +122,12 @@ export const PlaceBidConfirmScreen = () => {
 
                 {/* Footer Buttons */}
                 <View style={styles.footer}>
-                    <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()} disabled={isLoading}>
                         <Text style={styles.cancelText}>Cancel</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
+                    <TouchableOpacity style={[styles.confirmBtn, isLoading && { opacity: 0.7 }]} onPress={handleConfirm} disabled={isLoading}>
                         <Ionicons name="cash-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                        <Text style={styles.confirmText}>Confirm Bid</Text>
+                        <Text style={styles.confirmText}>{isLoading ? "Processing..." : "Confirm Bid"}</Text>
                     </TouchableOpacity>
                 </View>
             </View>

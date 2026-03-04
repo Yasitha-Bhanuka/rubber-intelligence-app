@@ -1,42 +1,132 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useStore } from '../../../store';
 import { colors } from '../../../shared/styles/colors';
+import { BiddingService, BiddingAuction } from '../services/biddingService';
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export const AuctionBiddingScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { id } = route.params || { id: '1' };
+    const { id } = route.params || {};
+    const { user } = useStore();
+    const role = user?.role || 'buyer'; // default to buyer for testing if null
 
-    // Mock data based on provided image
-    const auctionData = id === '1' ? {
-        title: "Premium RSS1 Rubber - Kalutara District",
-        subtitle: "Ribbed Smoked Sheet Grade 1 - Premium Quality",
-        grade: "RSS1",
-        currentPrice: 485,
-        quantity: "2,500 kg",
-        seller: "Kamal Perera (via Broker: Silva & Co)",
-        highestBidder: "Export Lanka Ltd",
-        totalBids: 12,
-        minIncrement: 5,
-        timeRemaining: "23m 18s",
-        progress: 0.6
-    } : {
-        title: "RSS3 Standard Grade - Ratnapura",
-        subtitle: "Ribbed Smoked Sheet Grade 3 - Standard Quality",
-        grade: "RSS3",
-        currentPrice: 410,
-        quantity: "1,800 kg",
-        seller: "Nimal Fernando",
-        highestBidder: "Rubber Tech Manufacturing",
-        totalBids: 8,
-        minIncrement: 5,
-        timeRemaining: "38m 18s",
-        progress: 0.4
+    const [auctionData, setAuctionData] = useState<BiddingAuction | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [timeLeftSeconds, setTimeLeftSeconds] = useState(0);
+
+    const loadAuction = async (isSilent = false) => {
+        if (!id || id === '1') {
+            setLoading(false);
+            return;
+        }
+        try {
+            if (!isSilent) setLoading(true);
+            const data = await BiddingService.getAuctionById(id);
+            setAuctionData(data);
+
+            // Calculate time left from data.endTime
+            if (data.endTime) {
+                // Safely extract just the YYYY-MM-DDTHH:mm:ss part to avoid Hermes NaN issues with fractional seconds
+                const cleanStr = data.endTime.substring(0, 19);
+                // Ensure it parses as local time if no Z is present, though we can just attach Z if assuming UTC
+                const end = new Date(cleanStr + "Z").getTime();
+                const now = new Date().getTime();
+                const diffSeconds = Math.max(0, Math.floor((end - now) / 1000));
+                setTimeLeftSeconds(diffSeconds);
+            }
+        } catch (error) {
+            console.error("Failed to load auction", error);
+        } finally {
+            if (!isSilent) setLoading(false);
+        }
     };
+
+    useFocusEffect(
+        React.useCallback(() => {
+            loadAuction();
+        }, [id])
+    );
+
+    // Polling active auctions every 5 seconds for real-time bid updates
+    useEffect(() => {
+        const pollInterval = setInterval(() => {
+            loadAuction(true);
+        }, 5000);
+
+        return () => clearInterval(pollInterval);
+    }, [id]);
+
+    // Derived state for easy rendering
+    const isLive = timeLeftSeconds > 0 && auctionData?.status !== 'Closed';
+
+    const formatTime = (totalSeconds: number) => {
+        if (totalSeconds <= 0 || auctionData?.status === 'Closed') return "Auction Closed";
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+
+        return `${minutes}min ${seconds < 10 ? '0' : ''}${seconds}s`;
+    };
+
+    useEffect(() => {
+        if (!isLive) return;
+
+        const interval = setInterval(() => {
+            setTimeLeftSeconds(prev => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [isLive]);
+
+    const timeLeftStr = formatTime(timeLeftSeconds);
+
+    if (loading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+        );
+    }
+
+    if (!id || id === '1') {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="alert-circle-outline" size={48} color="#CCC" />
+                <Text style={{ marginTop: 10, color: '#666' }}>Invalid Auction ID.</Text>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
+                    <Text style={{ color: colors.primary }}>Go Back</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    if (!auctionData) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+                <Ionicons name="warning-outline" size={64} color="#CCC" style={{ marginBottom: 15 }} />
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Auction Not Found</Text>
+                <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', marginTop: 10, marginBottom: 20 }}>
+                    We couldn't load the details for this auction. It might have been removed or the ID is invalid.
+                </Text>
+                <TouchableOpacity
+                    style={{ paddingHorizontal: 20, paddingVertical: 10, backgroundColor: colors.primary, borderRadius: 8 }}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Go Back</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     return (
         <ScrollView style={styles.container}>
@@ -51,13 +141,19 @@ export const AuctionBiddingScreen = () => {
             {/* Auction Info Card */}
             <View style={styles.mainCard}>
                 <View style={styles.tagSection}>
-                    <View style={styles.liveBadge}>
-                        <View style={styles.liveDot} />
-                        <Text style={styles.liveText}>Live</Text>
+                    <View style={[styles.liveBadge, !isLive && { backgroundColor: '#FFEBEE' }]}>
+                        <View style={[styles.liveDot, !isLive && { backgroundColor: '#F44336' }]} />
+                        <Text style={[styles.liveText, !isLive && { color: '#F44336' }]}>{isLive ? 'Live' : 'Closed'}</Text>
                     </View>
                     <View style={styles.gradeBadge}>
                         <Text style={styles.gradeText}>{auctionData.grade}</Text>
                     </View>
+                    {role === 'farmer' && (
+                        <View style={styles.nftBadge}>
+                            <Ionicons name="shield-checkmark" size={12} color="#2E7D32" />
+                            <Text style={styles.nftBadgeText}>NFT Secured</Text>
+                        </View>
+                    )}
                 </View>
 
                 <Text style={styles.title}>{auctionData.title}</Text>
@@ -68,8 +164,8 @@ export const AuctionBiddingScreen = () => {
                     <View style={styles.timerHeader}>
                         <Text style={styles.timerLabel}>Time Remaining</Text>
                         <View style={styles.timerValueRow}>
-                            <Ionicons name="time-outline" size={16} color="#FF6D00" />
-                            <Text style={styles.timerValue}>{auctionData.timeRemaining}</Text>
+                            <Ionicons name="time-outline" size={16} color={isLive ? "#FF6D00" : "#F44336"} />
+                            <Text style={[styles.timerValue, !isLive && { color: '#F44336' }]}>{timeLeftStr}</Text>
                         </View>
                     </View>
                     <View style={styles.progressBarBg}>
@@ -103,7 +199,7 @@ export const AuctionBiddingScreen = () => {
                         <Text style={styles.infoLabel}>Total Bids:</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <Text style={styles.infoValue}>{auctionData.totalBids} </Text>
-                            <TouchableOpacity>
+                            <TouchableOpacity onPress={() => navigation.navigate('AuctionHistory')}>
                                 <Text style={styles.viewHistoryText}>View History</Text>
                             </TouchableOpacity>
                         </View>
@@ -114,35 +210,81 @@ export const AuctionBiddingScreen = () => {
                     </View>
                 </View>
 
-                {/* Bid Actions */}
-                <View style={styles.bidActions}>
-                    <View style={styles.incrementRow}>
-                        <TouchableOpacity style={styles.incrementBtn}>
-                            <Ionicons name="flash-outline" size={18} color="#333" />
-                            <Text style={styles.incrementText}>+5</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.incrementBtn}>
-                            <Ionicons name="flash-outline" size={18} color="#333" />
-                            <Text style={styles.incrementText}>+10</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.incrementBtn}>
-                            <Ionicons name="flash-outline" size={18} color="#333" />
-                            <Text style={styles.incrementText}>+25</Text>
-                        </TouchableOpacity>
+                {/* NFT Passport Section (Farmer Only) */}
+                {role === 'farmer' && (
+                    <View style={styles.nftSection}>
+                        <Text style={styles.nftTitle}>Digital Passport (NFT)</Text>
+                        <View style={styles.nftRow}>
+                            <Ionicons name="cube-outline" size={32} color="#333" />
+                            <View style={styles.nftDetails}>
+                                <Text style={styles.nftLabel}>Token ID</Text>
+                                <Text style={styles.nftValue}>0x7b...82a</Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.traceBtn}
+                                onPress={() => navigation.navigate('Traceability', { lotId: id })}
+                            >
+                                <Text style={styles.traceBtnText}>Traceability</Text>
+                                <Ionicons name="chevron-forward" size={16} color="#2962FF" />
+                            </TouchableOpacity>
+                        </View>
                     </View>
+                )}
 
-                    <TouchableOpacity
-                        style={styles.placeBidBtn}
-                        onPress={() => navigation.navigate('PlaceBid', {
-                            title: auctionData.title,
-                            currentPrice: auctionData.currentPrice,
-                            quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, ''))
-                        })}
-                    >
-                        <Ionicons name="hammer-outline" size={20} color="#FFF" />
-                        <Text style={styles.placeBidText}>Place Custom Bid</Text>
-                    </TouchableOpacity>
-                </View>
+                {/* Bid Actions */}
+                {role === 'farmer' ? (
+                    <View style={styles.bidActions}>
+                        <View style={styles.restrictedWarning}>
+                            <Ionicons name="information-circle-outline" size={20} color="#FF9800" />
+                            <Text style={styles.restrictedText}>Farmers cannot place bids on lots.</Text>
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.bidActions}>
+                        {isLive ? (
+                            <>
+                                <View style={styles.incrementRow}>
+                                    <TouchableOpacity style={styles.incrementBtn} onPress={() => navigation.navigate('PlaceBid', {
+                                        id: auctionData.id, title: auctionData.title, currentPrice: auctionData.currentPrice, quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, '')), prefilledAmount: String(auctionData.currentPrice + 5)
+                                    })}>
+                                        <Ionicons name="flash-outline" size={18} color="#333" />
+                                        <Text style={styles.incrementText}>+5</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.incrementBtn} onPress={() => navigation.navigate('PlaceBid', {
+                                        id: auctionData.id, title: auctionData.title, currentPrice: auctionData.currentPrice, quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, '')), prefilledAmount: String(auctionData.currentPrice + 10)
+                                    })}>
+                                        <Ionicons name="flash-outline" size={18} color="#333" />
+                                        <Text style={styles.incrementText}>+10</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.incrementBtn} onPress={() => navigation.navigate('PlaceBid', {
+                                        id: auctionData.id, title: auctionData.title, currentPrice: auctionData.currentPrice, quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, '')), prefilledAmount: String(auctionData.currentPrice + 25)
+                                    })}>
+                                        <Ionicons name="flash-outline" size={18} color="#333" />
+                                        <Text style={styles.incrementText}>+25</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <TouchableOpacity
+                                    style={styles.placeBidBtn}
+                                    onPress={() => navigation.navigate('PlaceBid', {
+                                        id: auctionData.id,
+                                        title: auctionData.title,
+                                        currentPrice: auctionData.currentPrice,
+                                        quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, ''))
+                                    })}
+                                >
+                                    <Ionicons name="hammer-outline" size={20} color="#FFF" />
+                                    <Text style={styles.placeBidText}>Place Custom Bid</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <View style={styles.restrictedWarning}>
+                                <Ionicons name="lock-closed-outline" size={20} color="#F44336" />
+                                <Text style={[styles.restrictedText, { color: '#F44336' }]}>Auction is closed. Bidding has ended.</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
             </View>
         </ScrollView>
     );
@@ -159,8 +301,10 @@ const styles = StyleSheet.create({
     liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginRight: 8 },
     liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50', marginRight: 6 },
     liveText: { color: '#4CAF50', fontSize: 12, fontWeight: 'bold' },
-    gradeBadge: { backgroundColor: '#F5F5F5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+    gradeBadge: { backgroundColor: '#F5F5F5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginRight: 8 },
     gradeText: { color: '#666', fontSize: 12, fontWeight: 'bold' },
+    nftBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+    nftBadgeText: { color: '#2E7D32', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
 
     title: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 8 },
     subtitle: { fontSize: 14, color: '#666', marginBottom: 25 },
@@ -185,10 +329,21 @@ const styles = StyleSheet.create({
     infoValue: { color: '#333', fontSize: 14, fontWeight: '500' },
     viewHistoryText: { color: '#2962FF', fontSize: 12, fontWeight: 'bold' },
 
+    nftSection: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 15, marginBottom: 25, borderLeftWidth: 4, borderLeftColor: '#2E7D32' },
+    nftTitle: { fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 12 },
+    nftRow: { flexDirection: 'row', alignItems: 'center' },
+    nftDetails: { flex: 1, marginLeft: 12 },
+    nftLabel: { fontSize: 11, color: '#888' },
+    nftValue: { fontSize: 13, color: '#333', fontWeight: 'bold' },
+    traceBtn: { flexDirection: 'row', alignItems: 'center' },
+    traceBtnText: { color: '#2962FF', fontWeight: 'bold', fontSize: 13, marginRight: 4 },
+
     bidActions: { borderTopWidth: 1, borderTopColor: '#EEE', paddingTop: 20 },
     incrementRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
     incrementBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEE', paddingVertical: 10, borderRadius: 8, marginHorizontal: 4 },
     incrementText: { marginLeft: 4, fontWeight: 'bold', color: '#333' },
     placeBidBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2962FF', paddingVertical: 15, borderRadius: 12 },
-    placeBidText: { color: '#FFF', fontWeight: 'bold', fontSize: 16, marginLeft: 8 }
+    placeBidText: { color: '#FFF', fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
+    restrictedWarning: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF3E0', padding: 15, borderRadius: 12 },
+    restrictedText: { color: '#E65100', fontWeight: '500', marginLeft: 8 }
 });
