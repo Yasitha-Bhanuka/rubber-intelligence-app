@@ -61,7 +61,7 @@ function StatCard({
 
 /* ─── Workflow Step Row ─────────────────────────────────────────────── */
 function StepRow({
-    label, sublabel, icon, iconBg, onPress, trailing,
+    step, label, sublabel, icon, iconBg, onPress, trailing,
 }: {
     step?: string; label: string; sublabel: string;
     icon: keyof typeof Ionicons.glyphMap; iconBg: string;
@@ -146,6 +146,7 @@ export default function BuyerDashboardScreen() {
             setLoading(true);
             const response = await uploadInvoice(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
             loadData();
+            // Navigate to ClassificationResultScreen with isInvoice=true to show invoice-specific UI
             navigation.navigate('ClassificationResult', { result: response, isInvoice: true });
         } catch {
             Alert.alert('Error', 'Failed to upload invoice');
@@ -545,180 +546,40 @@ export default function BuyerDashboardScreen() {
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
     scroll: { flex: 1 },
-    scrollContent: { paddingHorizontal: 16, paddingBottom: 20 },
+    scrollContent: { paddingHorizontal: 20, paddingBottom: 20 },
 
-    /* ── Header ────── */
-    header: {
-        paddingTop: 50,
-        paddingBottom: 14,
-        paddingHorizontal: 16,
-        backgroundColor: C.primary,
-        borderBottomLeftRadius: 20,
-        borderBottomRightRadius: 20,
-        shadowColor: C.primaryDark,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        elevation: 8,
-        overflow: 'visible',
+    /* ── Top bar ────── */
+    topBar: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingTop: 58, paddingBottom: 12, paddingHorizontal: 20,
+        backgroundColor: C.card,
+        borderBottomWidth: 1, borderBottomColor: C.border,
     },
-    headerTop: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    notifBtnWrap: {
-        padding: 4,
-    },
-    notifBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    notifBadge: {
-        position: 'absolute', top: -4, right: -4,
-        backgroundColor: C.red, borderRadius: 9,
-        minWidth: 18, height: 18,
-        justifyContent: 'center', alignItems: 'center',
-        paddingHorizontal: 3,
-        borderWidth: 2, borderColor: C.primary,
-    },
-    notifBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '800' },
-
-    /* ── Profile Section ────── */
-    profileSection: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#fff',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    avatarText: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: C.primary,
-    },
-    onlineDot: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 11,
-        height: 11,
-        borderRadius: 6,
-        backgroundColor: '#4ADE80',
-        borderWidth: 2,
-        borderColor: C.primary,
-    },
-    avatarWrap: {
+    greeting: { fontSize: 24, fontWeight: '800', color: C.text },
+    greetingSub: { fontSize: 13, color: C.sub, marginTop: 2 },
+    profileBtn: {
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center',
         position: 'relative',
     },
-    profileInfo: {
-        flex: 1,
+    notifBadge: {
+        position: 'absolute', top: 0, right: 0,
+        backgroundColor: C.red, borderRadius: 10,
+        minWidth: 18, height: 18,
+        justifyContent: 'center', alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 1.5, borderColor: C.card,
     },
-    profileGreeting: {
-        fontSize: 11,
-        color: 'rgba(255,255,255,0.6)',
-        fontWeight: '500',
-    },
-    profileName: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#fff',
-    },
-    roleBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 3,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        alignSelf: 'flex-start',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 8,
-        marginTop: 2,
-    },
-    roleText: {
-        fontSize: 9,
-        fontWeight: '700',
-        color: '#fff',
-    },
-
-    /* ── Stats Row ────── */
-    statsRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginTop: 14,
-        marginBottom: 6,
-        paddingHorizontal: 2,
-    },
-    statCard: {
-        flex: 1,
-        backgroundColor: C.card,
-        borderRadius: 14,
-        paddingVertical: 14,
-        paddingHorizontal: 8,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 3,
-    },
-    statIconWrap: {
-        width: 34,
-        height: 34,
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 6,
-    },
-    statValue: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: C.text,
-    },
-    statLabel: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: C.sub,
-        marginTop: 2,
-        textAlign: 'center',
-    },
+    notifBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '800' },
 
     /* ── Section titles ────── */
-    sectionTitle: { fontSize: 17, fontWeight: '700', color: C.primaryDark, marginTop: 22, marginBottom: 10 },
-    sectionTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginTop: 22,
-        marginBottom: 10,
-    },
-    countBadge: {
-        backgroundColor: C.primaryPale,
-        paddingHorizontal: 10,
-        paddingVertical: 3,
-        borderRadius: 12,
-    },
-    countBadgeText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: C.primary,
-    },
+    sectionTitle: { fontSize: 17, fontWeight: '700', color: C.text, marginTop: 22, marginBottom: 10 },
+    sectionBadge: { fontSize: 15, fontWeight: '600', color: C.sub },
 
     /* ── Section card ────── */
     sectionCard: {
         backgroundColor: C.card, borderRadius: 16, padding: 16,
-        shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+        shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
         elevation: 2,
     },
 
@@ -726,11 +587,11 @@ const s = StyleSheet.create({
     quickRow: { flexDirection: 'row', gap: 12 },
     quickCard: {
         flex: 1, backgroundColor: C.card, borderRadius: 16, padding: 14, alignItems: 'center',
-        shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
-        elevation: 2, borderWidth: 1, borderColor: C.border,
+        shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
     },
     quickIcon: {
-        width: 46, height: 46, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 8,
+        width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 8,
     },
     quickLabel: { fontSize: 12, fontWeight: '600', color: C.text, textAlign: 'center', lineHeight: 16 },
 
@@ -762,29 +623,14 @@ const s = StyleSheet.create({
     /* ── Document rows ────── */
     docRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     docIconWrap: {
-        width: 42, height: 42, borderRadius: 12,
+        width: 40, height: 40, borderRadius: 12, backgroundColor: C.bg,
         justifyContent: 'center', alignItems: 'center',
     },
     docInfo: { flex: 1 },
     docName: { fontSize: 14, fontWeight: '600', color: C.text },
     docDate: { fontSize: 11, color: C.sub, marginTop: 2 },
-    docTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-    qrBtn: { padding: 8, backgroundColor: C.primaryPale, borderRadius: 10 },
-
-    /* ── See More ────── */
-    seeMoreBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        paddingVertical: 10,
-        marginBottom: 4,
-    },
-    seeMoreText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: C.primary,
-    },
+    docTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    qrBtn: { padding: 8, backgroundColor: '#F0F8FF', borderRadius: 10 },
 
     /* ── Empty state ────── */
     emptyWrap: { alignItems: 'center', paddingVertical: 28, gap: 8 },
@@ -792,24 +638,20 @@ const s = StyleSheet.create({
     emptySub: { fontSize: 13, color: C.sub, textAlign: 'center', paddingHorizontal: 20 },
     emptyBtn: {
         flexDirection: 'row', alignItems: 'center', gap: 6,
-        backgroundColor: C.primary, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, marginTop: 8,
+        backgroundColor: C.accent, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, marginTop: 8,
     },
     emptyBtnText: { color: '#FFF', fontWeight: '600', fontSize: 14 },
 
     /* ── QR Modal ────── */
     modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
     modalCard: { backgroundColor: C.card, width: '82%', padding: 28, borderRadius: 24, alignItems: 'center' },
-    modalHandle: {
-        width: 40, height: 4, borderRadius: 2,
-        backgroundColor: '#ddd', alignSelf: 'center', marginBottom: 16,
-    },
-    modalTitle: { fontSize: 20, fontWeight: '700', color: C.primaryDark, marginBottom: 4 },
+    modalTitle: { fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 4 },
     modalSub: { fontSize: 13, color: C.sub, marginBottom: 20 },
     qrWrap: {
         padding: 16, borderRadius: 16, backgroundColor: C.card,
         shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, elevation: 4, marginBottom: 16,
     },
     qrId: { fontFamily: 'monospace', fontSize: 11, color: C.sub, marginBottom: 16 },
-    modalClose: { paddingVertical: 12, paddingHorizontal: 36, backgroundColor: C.primary, borderRadius: 12 },
+    modalClose: { paddingVertical: 12, paddingHorizontal: 36, backgroundColor: C.blue, borderRadius: 12 },
     modalCloseText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
 });
