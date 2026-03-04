@@ -159,6 +159,23 @@ export const AuctionBiddingScreen = () => {
                 <Text style={styles.title}>{auctionData.title}</Text>
                 <Text style={styles.subtitle}>{auctionData.subtitle}</Text>
 
+                {/* Winner Banner for Closed Auctions */}
+                {auctionData.status === 'Closed' && (
+                    <View style={styles.winnerBanner}>
+                        <Ionicons name={auctionData.highestBidder === 'No Winner' ? "close-circle-outline" : "trophy"} size={24} color={auctionData.highestBidder === 'No Winner' ? "#F44336" : "#FFC107"} style={{ marginRight: 10 }} />
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.winnerBannerText}>
+                                {auctionData.highestBidder === 'No Winner' ? "Auction Ended With No Winner" : "Auction Winner!"}
+                            </Text>
+                            {auctionData.highestBidder !== 'No Winner' && (
+                                <Text style={styles.winnerBannerSubtext}>
+                                    {auctionData.highestBidder} won with a bid of LKR {auctionData.currentPrice}/kg
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+                )}
+
                 {/* Timer Section */}
                 <View style={styles.timerSection}>
                     <View style={styles.timerHeader}>
@@ -345,5 +362,8 @@ const styles = StyleSheet.create({
     placeBidBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2962FF', paddingVertical: 15, borderRadius: 12 },
     placeBidText: { color: '#FFF', fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
     restrictedWarning: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF3E0', padding: 15, borderRadius: 12 },
-    restrictedText: { color: '#E65100', fontWeight: '500', marginLeft: 8 }
+    restrictedText: { color: '#E65100', fontWeight: '500', marginLeft: 8 },
+    winnerBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFDF0', padding: 15, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#FFE082' },
+    winnerBannerText: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    winnerBannerSubtext: { fontSize: 13, color: '#666', marginTop: 2 }
 });
