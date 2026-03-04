@@ -116,7 +116,7 @@ export default function ClassificationResultScreen() {
             <View style={styles.card}>
                 <View style={styles.sectionHeaderRow}>
                     <Ionicons name="sparkles" size={16} color="#FF9F0A" />
-                    <Text style={[styles.cardLabel, { color: '#FF9F0A', marginBottom: 0 }]}>Gemini AI · Extracted Content</Text>
+                    <Text style={[styles.cardLabel, { color: '#FF9F0A', marginBottom: 0 }]}>OCR · Extracted Content</Text>
                 </View>
 
                 {/* Stats row */}

@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    Modal, ActivityIndicator, Alert, RefreshControl, StatusBar
+    Modal, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
@@ -184,43 +185,92 @@ export default function BuyerDashboardScreen() {
             <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
 
             {/* ── Header ───────────────────────────────────── */}
-            <View style={s.header}>
+            <LinearGradient
+                colors={[C.primaryDark, C.primary, '#43A047']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={s.header}
+            >
+                {/* Decorative circles for depth */}
+                <View style={s.headerCircle1} />
+                <View style={s.headerCircle2} />
+
                 <View style={s.headerTop}>
+                    {/* ── Left: Avatar + Greeting ── */}
                     <TouchableOpacity
                         style={s.profileSection}
-                        activeOpacity={0.8}
+                        activeOpacity={0.85}
                         onPress={() => navigation.navigate('Profile')}
                     >
                         <View style={s.avatarWrap}>
-                            <View style={s.avatar}>
-                                <Text style={s.avatarText}>{getInitials(user?.name)}</Text>
-                            </View>
+                            <LinearGradient
+                                colors={['#A5D6A7', '#ffffff30']}
+                                style={s.avatarRing}
+                            >
+                                <View style={s.avatar}>
+                                    <Text style={s.avatarText}>{getInitials(user?.name)}</Text>
+                                </View>
+                            </LinearGradient>
                             <View style={s.onlineDot} />
                         </View>
+
                         <View style={s.profileInfo}>
-                            <Text style={s.profileGreeting}>{getGreeting()}</Text>
-                            <Text style={s.profileName}>{user?.name || 'Buyer'}</Text>
+                            <Text style={s.profileGreeting}>{getGreeting()} 👋</Text>
+                            <Text style={s.profileName} numberOfLines={1}>
+                                {user?.name || 'Buyer'}
+                            </Text>
                             <View style={s.roleBadge}>
-                                <Ionicons name="shield-checkmark" size={10} color="#fff" />
-                                <Text style={s.roleText}>{user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Buyer'}</Text>
+                                <Ionicons name="shield-checkmark" size={11} color={C.primaryLight} />
+                                <Text style={s.roleText}>
+                                    {user?.role
+                                        ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+                                        : 'Buyer'}
+                                </Text>
                             </View>
                         </View>
                     </TouchableOpacity>
-                    <View style={s.notifBtnWrap}>
-                        <TouchableOpacity
-                            style={s.notifBtn}
-                            onPress={() => navigation.navigate('PendingRequests')}
-                        >
-                            <Ionicons name="notifications-outline" size={22} color="#fff" />
+
+                    {/* ── Right: Notification Bell ── */}
+                    <TouchableOpacity
+                        style={s.notifBtn}
+                        activeOpacity={0.8}
+                        onPress={() => navigation.navigate('PendingRequests')}
+                    >
+                        <View style={s.notifInner}>
+                            <Ionicons
+                                name={pendingCount > 0 ? 'notifications' : 'notifications-outline'}
+                                size={24}
+                                color="#fff"
+                            />
                             {pendingCount > 0 && (
                                 <View style={s.notifBadge}>
-                                    <Text style={s.notifBadgeText}>{pendingCount > 9 ? '9+' : pendingCount}</Text>
+                                    <Text style={s.notifBadgeText}>
+                                        {pendingCount > 9 ? '9+' : pendingCount}
+                                    </Text>
                                 </View>
                             )}
-                        </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </View>
+
+                {/* ── Bottom summary strip ── */}
+                <View style={s.headerFooter}>
+                    <View style={s.headerStat}>
+                        <Text style={s.headerStatVal}>{documents.length}</Text>
+                        <Text style={s.headerStatLabel}>Documents</Text>
+                    </View>
+                    <View style={s.headerStatDivider} />
+                    <View style={s.headerStat}>
+                        <Text style={s.headerStatVal}>{transactions.length}</Text>
+                        <Text style={s.headerStatLabel}>Transactions</Text>
+                    </View>
+                    <View style={s.headerStatDivider} />
+                    <View style={s.headerStat}>
+                        <Text style={s.headerStatVal}>{stats.completedCount}</Text>
+                        <Text style={s.headerStatLabel}>Completed</Text>
                     </View>
                 </View>
-            </View>
+            </LinearGradient>
 
             <ScrollView
                 ref={scrollRef}
@@ -548,33 +598,97 @@ const s = StyleSheet.create({
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: 20, paddingBottom: 20 },
 
-    /* ── Top bar ────── */
-    topBar: {
+    /* ── Header ────── */
+    header: {
+        paddingTop: Platform.OS === 'ios' ? 54 : 44,
+        paddingBottom: 0,
+        paddingHorizontal: 20,
+        overflow: 'hidden',
+    },
+    headerCircle1: {
+        position: 'absolute', width: 200, height: 200, borderRadius: 100,
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        top: -70, right: -50,
+    },
+    headerCircle2: {
+        position: 'absolute', width: 140, height: 140, borderRadius: 70,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        bottom: 30, left: -40,
+    },
+    headerTop: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        paddingTop: 58, paddingBottom: 12, paddingHorizontal: 20,
-        backgroundColor: C.card,
-        borderBottomWidth: 1, borderBottomColor: C.border,
+        marginBottom: 20,
     },
-    greeting: { fontSize: 24, fontWeight: '800', color: C.text },
-    greetingSub: { fontSize: 13, color: C.sub, marginTop: 2 },
-    profileBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center',
-        position: 'relative',
+    profileSection: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 },
+    avatarWrap: { position: 'relative', marginRight: 14 },
+    avatarRing: {
+        width: 58, height: 58, borderRadius: 29,
+        padding: 2.5,
+        justifyContent: 'center', alignItems: 'center',
     },
+    avatar: {
+        width: 52, height: 52, borderRadius: 26,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    avatarText: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+    onlineDot: {
+        position: 'absolute', bottom: 2, right: 2,
+        width: 13, height: 13, borderRadius: 7,
+        backgroundColor: '#69F0AE',
+        borderWidth: 2, borderColor: C.primaryDark,
+    },
+    profileInfo: { flex: 1 },
+    profileGreeting: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500', letterSpacing: 0.2 },
+    profileName: { fontSize: 20, fontWeight: '800', color: '#fff', marginTop: 1, letterSpacing: 0.2 },
+    roleBadge: {
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        marginTop: 5,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
+    },
+    roleText: { color: 'rgba(255,255,255,0.9)', fontSize: 11, fontWeight: '600' },
+    notifBtn: {
+        width: 46, height: 46, borderRadius: 23,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        justifyContent: 'center', alignItems: 'center',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+    },
+    notifInner: { position: 'relative', justifyContent: 'center', alignItems: 'center' },
     notifBadge: {
-        position: 'absolute', top: 0, right: 0,
-        backgroundColor: C.red, borderRadius: 10,
-        minWidth: 18, height: 18,
+        position: 'absolute', top: -6, right: -8,
+        backgroundColor: C.red,
+        borderRadius: 10, minWidth: 18, height: 18,
         justifyContent: 'center', alignItems: 'center',
         paddingHorizontal: 4,
-        borderWidth: 1.5, borderColor: C.card,
+        borderWidth: 2, borderColor: C.primary,
     },
     notifBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '800' },
+    headerFooter: {
+        flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.15)',
+        borderRadius: 16, paddingVertical: 12, marginBottom: 18,
+    },
+    headerStat: { alignItems: 'center', flex: 1 },
+    headerStatVal: { fontSize: 20, fontWeight: '800', color: '#fff' },
+    headerStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2, fontWeight: '500' },
+    headerStatDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.2)' },
 
     /* ── Section titles ────── */
     sectionTitle: { fontSize: 17, fontWeight: '700', color: C.text, marginTop: 22, marginBottom: 10 },
     sectionBadge: { fontSize: 15, fontWeight: '600', color: C.sub },
+    sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 22, marginBottom: 10 },
+    countBadge: {
+        backgroundColor: C.primaryPale, borderRadius: 12,
+        paddingHorizontal: 8, paddingVertical: 2,
+    },
+    countBadgeText: { fontSize: 12, fontWeight: '700', color: C.primary },
+    seeMoreBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 4, paddingVertical: 10, marginBottom: 4,
+    },
+    seeMoreText: { fontSize: 14, fontWeight: '600', color: C.primary },
 
     /* ── Section card ────── */
     sectionCard: {
@@ -582,6 +696,23 @@ const s = StyleSheet.create({
         shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
         elevation: 2,
     },
+
+    /* ── Stat indicators ────── */
+    statsRow: {
+        flexDirection: 'row', gap: 10, marginTop: 16,
+    },
+    statCard: {
+        flex: 1, backgroundColor: C.card, borderRadius: 14, padding: 12,
+        alignItems: 'center',
+        shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
+    },
+    statIconWrap: {
+        width: 36, height: 36, borderRadius: 10,
+        justifyContent: 'center', alignItems: 'center', marginBottom: 6,
+    },
+    statValue: { fontSize: 18, fontWeight: '800', color: C.text },
+    statLabel: { fontSize: 11, fontWeight: '500', color: C.sub, marginTop: 2, textAlign: 'center' },
 
     /* ── Quick actions ────── */
     quickRow: { flexDirection: 'row', gap: 12 },
@@ -645,6 +776,7 @@ const s = StyleSheet.create({
     /* ── QR Modal ────── */
     modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
     modalCard: { backgroundColor: C.card, width: '82%', padding: 28, borderRadius: 24, alignItems: 'center' },
+    modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.border, marginBottom: 16 },
     modalTitle: { fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 4 },
     modalSub: { fontSize: 13, color: C.sub, marginBottom: 20 },
     qrWrap: {
