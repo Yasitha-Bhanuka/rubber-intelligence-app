@@ -31,7 +31,7 @@ export const CreateLotScreen = () => {
 
             // Generate a real Auction in the backend
             const endDate = new Date();
-            endDate.setMinutes(endDate.getMinutes() + 30); // Auction runs for exactly 30 minutes
+            endDate.setMinutes(endDate.getMinutes() + 60); // Auction runs for exactly 1 hour
 
             // Assume default standard starting price based on grade for now
             let startingPrice = 400;

@@ -211,7 +211,7 @@ export const DashboardScreen = () => {
                             if (diffS > 0) {
                                 let m = Math.floor(diffS / 60);
                                 let s = diffS % 60;
-                                timeBlock = `${m} min ${s < 10 ? '0' : ''}${s} sec`;
+                                timeBlock = `${m}min ${s < 10 ? '0' : ''}${s}s`;
                             } else {
                                 timeBlock = 'Closed';
                             }

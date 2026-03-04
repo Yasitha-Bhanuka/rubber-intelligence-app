@@ -59,14 +59,14 @@ export const TraceabilityScreen = () => {
     const generatedHistory = [
         {
             event: 'Lot Registered',
-            timestamp: lot?.endTime ? new Date(new Date(lot.endTime).getTime() - 30 * 60000).toISOString().substring(0, 16).replace('T', ' ') : 'Just Now',
+            timestamp: lot?.endTime ? new Date(new Date(lot.endTime).getTime() - 60 * 60000).toISOString().substring(0, 16).replace('T', ' ') : 'Just Now',
             actor: `Farmer: ${lot?.seller}`,
             details: `Added ${lot?.quantity} ${lot?.grade}`,
             txHash: `0x${Math.random().toString(16).slice(2, 10)}...`
         },
         {
             event: 'NFT Passport Minted',
-            timestamp: lot?.endTime ? new Date(new Date(lot.endTime).getTime() - 29 * 60000).toISOString().substring(0, 16).replace('T', ' ') : 'Just Now',
+            timestamp: lot?.endTime ? new Date(new Date(lot.endTime).getTime() - 59 * 60000).toISOString().substring(0, 16).replace('T', ' ') : 'Just Now',
             actor: 'Ethereum Network',
             details: `Token ID: ${lot?.nftTokenId || 'Pending'}`,
             txHash: `0x${Math.random().toString(16).slice(2, 10)}...`

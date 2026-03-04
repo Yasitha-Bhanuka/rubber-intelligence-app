@@ -66,16 +66,10 @@ export const AuctionBiddingScreen = () => {
 
     const formatTime = (totalSeconds: number) => {
         if (totalSeconds <= 0 || auctionData?.status === 'Closed') return "Auction Closed";
-        const days = Math.floor(totalSeconds / 86400);
-        const hours = Math.floor((totalSeconds % 86400) / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
 
-        let timeString = '';
-        if (days > 0) timeString += `${days} days `;
-        if (hours > 0) timeString += `${hours} hr `;
-        timeString += `${minutes} min ${seconds} sec`;
-        return timeString.trim();
+        return `${minutes}min ${seconds < 10 ? '0' : ''}${seconds}s`;
     };
 
     useEffect(() => {
