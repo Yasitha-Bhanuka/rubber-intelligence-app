@@ -9,7 +9,7 @@ import {
   SafeAreaView,
   Alert,
   TextInput,
-  Dimensions,
+  Dimensions
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,6 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { latexQualityService, LatexQualityRequest } from "../../../core/services/latexQualityService";
 
+const ESP32_IP = "http://10.148.43.34"; // Replace with your ESP32 IP
 const { width } = Dimensions.get("window");
 
 // Define types for sensor data
@@ -29,6 +30,16 @@ interface SensorData {
   temperature: number | string;
   turbidity: number | string;
   pH: number | string;
+  airTemperature?: number | string;
+  humidity?: number | string;
+}
+
+interface LiveSensorData {
+  temperature: number;
+  turbidity: number;
+  ph: number;
+  airTemperature: number;
+  humidity: number;
 }
 
 // Helper function to get numeric value for status calculations
@@ -40,95 +51,13 @@ const getNumericValue = (value: number | string): number => {
   return value;
 };
 
-const getTemperatureStatus = (temp: number | string) => {
-  const tempNum = getNumericValue(temp);
-  if (tempNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
-  if (tempNum >= 27 && tempNum <= 32) return { status: "Optimal", color: "#10B981", icon: "check-circle" };
-  if (tempNum >= 25 && tempNum < 27) return { status: "Low", color: "#F59E0B", icon: "alert-circle" };
-  if (tempNum > 32 && tempNum <= 35) return { status: "High", color: "#F59E0B", icon: "alert-circle" };
-  return { status: "Critical", color: "#EF4444", icon: "close-circle" };
-};
-
-const getTurbidityStatus = (turb: number | string) => {
-  const turbNum = getNumericValue(turb);
-  if (turbNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
-  if (turbNum <= -3500) return { status: "Clear", color: "#10B981", icon: "check-circle" };
-  if (turbNum >= -3500 && turbNum <= 0) return { status: "Moderate", color: "#F59E0B", icon: "alert-circle" };
-  return { status: "Critical", color: "#EF4444", icon: "close-circle" };
-};
-
-const getpHStatus = (ph: number | string) => {
-  const phNum = getNumericValue(ph);
-  if (phNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
-  if (phNum >= 6.5 && phNum <= 7.2) return { status: "Optimal", color: "#10B981", icon: "check-circle" };
-  if (phNum >= 6.0 && phNum < 6.5) return { status: "Low", color: "#F59E0B", icon: "alert-circle" };
-  if (phNum > 7.2 && phNum <= 7.5) return { status: "High", color: "#F59E0B", icon: "alert-circle" };
-  return { status: "Critical", color: "#EF4444", icon: "close-circle" };
-};
-
-const InputField = ({
-  label,
-  value,
-  onChangeText,
-  icon,
-  unit,
-  status,
-  optimalRange,
-  placeholder,
-  editable = true,
-  isSubmitting = false,
-}: any) => (
-  <Animated.View entering={FadeInDown.duration(500)} style={styles.inputFieldContainer}>
-    <View style={styles.inputHeader}>
-      <View style={styles.inputIconContainer}>
-        <MaterialCommunityIcons name={icon} size={24} color={colors.primary} />
-      </View>
-      <View style={styles.inputLabelContainer}>
-        <Text style={styles.inputLabel}>{label}</Text>
-        <Text style={styles.optimalRange}>{optimalRange}</Text>
-      </View>
-      {status && (
-        <View style={[styles.statusBadge, { backgroundColor: `${status.color}15` }]}>
-          <MaterialCommunityIcons name={status.icon as any} size={16} color={status.color} />
-          <Text style={[styles.statusText, { color: status.color }]}>
-            {status.status}
-          </Text>
-        </View>
-      )}
-    </View>
-
-    <View style={styles.inputWrapper}>
-      <TextInput
-        style={[styles.input, !value && styles.placeholderInput]}
-        value={value.toString()}
-        onChangeText={onChangeText}
-        keyboardType="decimal-pad"
-        placeholder={placeholder}
-        placeholderTextColor="#94A3B8"
-        editable={editable && !isSubmitting}
-        selectTextOnFocus={editable}
-      />
-      <Text style={styles.unitText}>{unit}</Text>
-    </View>
-  </Animated.View>
-);
-
-const InfoCard = ({ icon, title, value, color }: any) => (
-  <Animated.View entering={ZoomIn.duration(500)}>
-    <View style={styles.infoCard}>
-      <View style={[styles.infoCardIconContainer, { backgroundColor: `${color}15` }]}>
-        <MaterialCommunityIcons name={icon} size={20} color={color} />
-      </View>
-      <View style={styles.infoCardContent}>
-        <Text style={styles.infoCardTitle}>{title}</Text>
-        <Text style={styles.infoCardValue}>{value}</Text>
-      </View>
-    </View>
-  </Animated.View>
-);
-
-const NewTestScreen = () => {
+const LiveSensorScreen = () => {
   const navigation = useNavigation<any>();
+  const [liveSensorData, setLiveSensorData] = useState<LiveSensorData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string>("");
+
   const [testDate] = useState<string>(() => {
     return new Date().toLocaleDateString("en-US", {
       year: "numeric",
@@ -148,12 +77,13 @@ const NewTestScreen = () => {
 
   const [testId, setTestId] = useState<string>("");
   const testerName = "Rubber Latex Collector";
-  // Initial values are now placeholders (empty strings)
+
   const [sensorData, setSensorData] = useState<SensorData>({
     temperature: "",
     turbidity: "",
     pH: "",
   });
+
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Sample values for placeholders
@@ -163,9 +93,64 @@ const NewTestScreen = () => {
     pH: "6.8"
   };
 
+  // Fetch live data from ESP32 - only for sensor measurements
+  const fetchSensorData = async () => {
+    try {
+      setLoading(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      const response = await fetch(`${ESP32_IP}/data`, {
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      const newData = {
+        temperature: Number(data.temp ?? 0),
+        turbidity: Number(data.ntu ?? 0),
+        ph: Number(data.ph ?? 0),
+        airTemperature: Number(data.airtemp ?? 0),
+        humidity: Number(data.hum ?? 0),
+      };
+
+      setLiveSensorData(newData);
+      setConnectionError(false);
+      setLastUpdated(new Date().toLocaleTimeString());
+
+      // Auto-fill sensor data from live readings
+      setSensorData({
+        temperature: newData.temperature.toString(),
+        turbidity: newData.turbidity.toString(),
+        pH: newData.ph.toString(),
+      });
+
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        console.warn("Fetch timed out. ESP32 might be slow or offline.");
+      } else {
+        console.error("Error fetching sensor data:", err);
+      }
+      setConnectionError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Generate test ID on component mount
   useEffect(() => {
     generateTestId();
+    fetchSensorData();
+
+    // Set up interval to refresh ONLY sensor data
+    const interval = setInterval(() => {
+      fetchSensorData();
+    }, 5000); // update every 5s
+
+    return () => clearInterval(interval);
   }, []);
 
   const generateTestId = () => {
@@ -174,6 +159,32 @@ const NewTestScreen = () => {
     const randomNum = Math.floor(Math.random() * 900) + 100;
     const newTestId = `Test-${year}-${randomNum}`;
     setTestId(newTestId);
+  };
+
+  const getTemperatureStatus = (temp: number | string) => {
+    const tempNum = getNumericValue(temp);
+    if (tempNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
+    if (tempNum >= 27 && tempNum <= 32) return { status: "Optimal", color: "#10B981", icon: "check-circle" };
+    if (tempNum >= 25 && tempNum < 27) return { status: "Low", color: "#F59E0B", icon: "alert-circle" };
+    if (tempNum > 32 && tempNum <= 35) return { status: "High", color: "#F59E0B", icon: "alert-circle" };
+    return { status: "Critical", color: "#EF4444", icon: "close-circle" };
+  };
+
+  const getTurbidityStatus = (turb: number | string) => {
+    const turbNum = getNumericValue(turb);
+    if (turbNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
+    if (turbNum <= -3500) return { status: "Clear", color: "#10B981", icon: "check-circle" };
+    if (turbNum >= -3500 && turbNum <= 0) return { status: "Moderate", color: "#F59E0B", icon: "alert-circle" };
+    return { status: "Critical", color: "#EF4444", icon: "close-circle" };
+  };
+
+  const getpHStatus = (ph: number | string) => {
+    const phNum = getNumericValue(ph);
+    if (phNum === 0) return { status: "Not Set", color: "#6B7280", icon: "help-circle" };
+    if (phNum >= 6.5 && phNum <= 7.2) return { status: "Optimal", color: "#10B981", icon: "check-circle" };
+    if (phNum >= 6.0 && phNum < 6.5) return { status: "Low", color: "#F59E0B", icon: "alert-circle" };
+    if (phNum > 7.2 && phNum <= 7.5) return { status: "High", color: "#F59E0B", icon: "alert-circle" };
+    return { status: "Critical", color: "#EF4444", icon: "close-circle" };
   };
 
   const handleSubmitTest = async () => {
@@ -270,18 +281,15 @@ const NewTestScreen = () => {
           >
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-
           <View style={styles.headerCenter}>
             <View style={styles.headerIconContainer}>
               <MaterialCommunityIcons name="test-tube" size={28} color="white" />
             </View>
-
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>Rubber Latex Quality Test</Text>
               <Text style={styles.headerSubtitle}>Real - Time Sensor Measurements</Text>
             </View>
           </View>
-
           <View style={styles.headerRightPlaceholder} />
         </View>
       </LinearGradient>
@@ -291,13 +299,59 @@ const NewTestScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Test Information Section */}
+        {/* Live Data Connection Status */}
+        {connectionError && (
+          <Animated.View entering={FadeInUp.duration(500)} style={styles.errorContainer}>
+            <MaterialCommunityIcons name="wifi-off" size={24} color="#EF4444" />
+            <Text style={styles.errorText}>
+              Cannot connect to ESP32. Using manual input mode.
+            </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={fetchSensorData}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        {liveSensorData && !connectionError && (
+          <Animated.View entering={FadeInUp.duration(500)} style={styles.liveDataContainer}>
+            <View style={styles.liveDataHeader}>
+              <MaterialCommunityIcons name="access-point" size={20} color="#10B981" />
+              <Text style={styles.liveDataTitle}>Live Sensor Readings</Text>
+              {lastUpdated ? (
+                <Text style={styles.lastUpdated}>Updated: {lastUpdated}</Text>
+              ) : null}
+            </View>
+            <View style={styles.liveDataGrid}>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>Temperature</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.temperature.toFixed(1)}°C</Text>
+              </View>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>Turbidity</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.turbidity.toFixed(0)} NTU</Text>
+              </View>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>pH Level</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.ph.toFixed(1)}</Text>
+              </View>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>Air Temp</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.airTemperature.toFixed(1)}°C</Text>
+              </View>
+              <View style={styles.liveDataItem}>
+                <Text style={styles.liveDataLabel}>Humidity</Text>
+                <Text style={styles.liveDataValue}>{liveSensorData.humidity.toFixed(0)}%</Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Test Information Section - STATIC (no refresh) */}
         <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.section}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="clipboard-text" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>Test Information</Text>
           </View>
-
           <View style={styles.infoGrid}>
             <InfoCard
               icon="calendar"
@@ -314,13 +368,12 @@ const NewTestScreen = () => {
           </View>
         </Animated.View>
 
-        {/* Tester Information Section */}
+        {/* Tester Information Section - STATIC (no refresh) */}
         <Animated.View entering={FadeInUp.delay(400).duration(500)} style={styles.section}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="account-circle" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>Tester Information</Text>
           </View>
-
           <View style={styles.infoGrid}>
             <InfoCard
               icon="identifier"
@@ -328,7 +381,6 @@ const NewTestScreen = () => {
               value={testId || "Generating..."}
               color="#10B981"
             />
-
             <InfoCard
               icon="account-circle"
               title="Tester Name"
@@ -336,7 +388,6 @@ const NewTestScreen = () => {
               color="#3B82F6"
             />
           </View>
-
           <TouchableOpacity
             style={styles.regenerateButton}
             onPress={generateTestId}
@@ -347,28 +398,31 @@ const NewTestScreen = () => {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Sensor Inputs Section */}
+        {/* Sensor Inputs Section - REFRESHES EVERY 5 SECONDS */}
         <Animated.View entering={FadeInUp.delay(600).duration(500)} style={styles.section}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="chip" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>Sensor Measurements</Text>
+            {!connectionError && liveSensorData && (
+              <View style={styles.liveIndicator}>
+                <MaterialCommunityIcons name="sync" size={16} color="#10B981" />
+                <Text style={styles.liveIndicatorText}>Live</Text>
+              </View>
+            )}
           </View>
 
           <View style={[styles.sensorContainer, styles.leftBorderContainer]}>
             <View style={styles.borderAccent} />
 
-            {/* Temperature Input - SIMPLIFIED */}
+            {/* Temperature Input */}
             <InputField
               label="Temperature"
               value={sensorData.temperature}
               onChangeText={(text: string) => {
-                // Allow empty string
                 if (text === "") {
                   setSensorData(prev => ({ ...prev, temperature: "" }));
                   return;
                 }
-
-                // Allow only numbers and one decimal point
                 const decimalRegex = /^\d*\.?\d*$/;
                 if (decimalRegex.test(text)) {
                   setSensorData(prev => ({ ...prev, temperature: text }));
@@ -382,18 +436,16 @@ const NewTestScreen = () => {
               editable={!isSubmitting}
               isSubmitting={isSubmitting}
             />
-            {/* Turbidity Input - SIMPLIFIED */}
+
+            {/* Turbidity Input */}
             <InputField
               label="Turbidity"
               value={sensorData.turbidity}
               onChangeText={(text: string) => {
-                // Allow empty string
                 if (text === "") {
                   setSensorData(prev => ({ ...prev, turbidity: "" }));
                   return;
                 }
-
-                // Allow only numbers and one decimal point (allow negative for turbidity)
                 const decimalRegex = /^-?\d*\.?\d*$/;
                 if (decimalRegex.test(text)) {
                   setSensorData(prev => ({ ...prev, turbidity: text }));
@@ -402,7 +454,7 @@ const NewTestScreen = () => {
               icon="water-opacity"
               unit="NTU"
               status={getTurbidityStatus(sensorData.turbidity)}
-              optimalRange="Optimal Range:≤(-3500)NTU"
+              optimalRange="Optimal Range: ≤(-3500)NTU"
               placeholder={`e.g., ${sampleValues.turbidity}`}
               editable={!isSubmitting}
               isSubmitting={isSubmitting}
@@ -413,13 +465,10 @@ const NewTestScreen = () => {
               label="pH Level"
               value={sensorData.pH}
               onChangeText={(text: string) => {
-                // Allow empty string
                 if (text === "") {
                   setSensorData(prev => ({ ...prev, pH: "" }));
                   return;
                 }
-
-                // Allow only numbers and one decimal point
                 const decimalRegex = /^\d*\.?\d*$/;
                 if (decimalRegex.test(text)) {
                   setSensorData(prev => ({ ...prev, pH: text }));
@@ -438,12 +487,10 @@ const NewTestScreen = () => {
           {/* Quality Assessment Summary */}
           <View style={[styles.assessmentCard, styles.leftBorderContainer]}>
             <View style={styles.borderAccent} />
-
             <View style={styles.assessmentHeader}>
               <MaterialCommunityIcons name="chart-line" size={24} color="#1E293B" />
               <Text style={styles.assessmentTitle}>Quality Assessment</Text>
             </View>
-
             <View style={styles.assessmentGrid}>
               <View style={styles.assessmentItem}>
                 <MaterialCommunityIcons
@@ -452,12 +499,16 @@ const NewTestScreen = () => {
                   color={getTemperatureStatus(sensorData.temperature).color}
                 />
                 <Text style={styles.assessmentLabel}>Temperature</Text>
-                <Text style={styles.assessmentLabel}>(27-32)°C</Text>
-                <Text style={[styles.assessmentValue, { color: getTemperatureStatus(sensorData.temperature).color }]}>
+                <Text style={styles.assessmentRange}>(27-32)°C</Text>
+                <Text
+                  style={[
+                    styles.assessmentValue,
+                    { color: getTemperatureStatus(sensorData.temperature).color }
+                  ]}
+                >
                   {getTemperatureStatus(sensorData.temperature).status}
                 </Text>
               </View>
-
               <View style={styles.assessmentItem}>
                 <MaterialCommunityIcons
                   name={getTurbidityStatus(sensorData.turbidity).icon as any}
@@ -465,12 +516,16 @@ const NewTestScreen = () => {
                   color={getTurbidityStatus(sensorData.turbidity).color}
                 />
                 <Text style={styles.assessmentLabel}>Turbidity</Text>
-                <Text style={styles.assessmentLabel}>≤(-3500)NTU</Text>
-                <Text style={[styles.assessmentValue, { color: getTurbidityStatus(sensorData.turbidity).color }]}>
+                <Text style={styles.assessmentRange}>≤(-3500)NTU</Text>
+                <Text
+                  style={[
+                    styles.assessmentValue,
+                    { color: getTurbidityStatus(sensorData.turbidity).color }
+                  ]}
+                >
                   {getTurbidityStatus(sensorData.turbidity).status}
                 </Text>
               </View>
-
               <View style={styles.assessmentItem}>
                 <MaterialCommunityIcons
                   name={getpHStatus(sensorData.pH).icon as any}
@@ -478,8 +533,13 @@ const NewTestScreen = () => {
                   color={getpHStatus(sensorData.pH).color}
                 />
                 <Text style={styles.assessmentLabel}>pH Level</Text>
-                <Text style={styles.assessmentLabel}>(6.5-7.2)pH</Text>
-                <Text style={[styles.assessmentValue, { color: getpHStatus(sensorData.pH).color }]}>
+                <Text style={styles.assessmentRange}>(6.5-7.2)pH</Text>
+                <Text
+                  style={[
+                    styles.assessmentValue,
+                    { color: getpHStatus(sensorData.pH).color }
+                  ]}
+                >
                   {getpHStatus(sensorData.pH).status}
                 </Text>
               </View>
@@ -530,6 +590,64 @@ const NewTestScreen = () => {
     </SafeAreaView>
   );
 };
+
+const InputField = ({
+  label,
+  value,
+  onChangeText,
+  icon,
+  unit,
+  status,
+  optimalRange,
+  placeholder,
+  editable = true,
+  isSubmitting = false,
+}: any) => (
+  <Animated.View entering={FadeInDown.duration(500)} style={styles.inputFieldContainer}>
+    <View style={styles.inputHeader}>
+      <View style={styles.inputIconContainer}>
+        <MaterialCommunityIcons name={icon} size={24} color={colors.primary} />
+      </View>
+      <View style={styles.inputLabelContainer}>
+        <Text style={styles.inputLabel}>{label}</Text>
+        <Text style={styles.optimalRange}>{optimalRange}</Text>
+      </View>
+      {status && (
+        <View style={[styles.statusBadge, { backgroundColor: `${status.color}15` }]}>
+          <MaterialCommunityIcons name={status.icon as any} size={16} color={status.color} />
+          <Text style={[styles.statusText, { color: status.color }]}>
+            {status.status}
+          </Text>
+        </View>
+      )}
+    </View>
+    <View style={styles.inputWrapper}>
+      <TextInput
+        style={[styles.input, !value && styles.placeholderInput]}
+        value={value ? value.toString() : ""}
+        onChangeText={onChangeText}
+        keyboardType="decimal-pad"
+        placeholder={placeholder}
+        placeholderTextColor="#94A3B8"
+        editable={editable && !isSubmitting}
+        selectTextOnFocus={editable}
+      />
+      <Text style={styles.unitText}>{unit}</Text>
+    </View>
+  </Animated.View>
+);
+
+const InfoCard = ({ icon, title, value, color }: any) => (
+  <Animated.View entering={ZoomIn.duration(500)} style={styles.infoCard}>
+    <View style={[styles.infoCardIconContainer, { backgroundColor: `${color}15` }]}>
+      <MaterialCommunityIcons name={icon} size={20} color={color} />
+    </View>
+    <View style={styles.infoCardContent}>
+      <Text style={styles.infoCardTitle}>{title}</Text>
+      <Text style={styles.infoCardValue}>{value}</Text>
+    </View>
+  </Animated.View>
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -604,6 +722,89 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
   },
+  errorContainer: {
+    backgroundColor: "#FEF2F2",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  errorText: {
+    flex: 1,
+    marginLeft: 12,
+    color: "#991B1B",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  retryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#EF4444",
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  liveDataContainer: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  liveDataHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    flexWrap: "wrap",
+  },
+  liveDataTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginLeft: 8,
+    marginRight: 12,
+  },
+  lastUpdated: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  liveDataGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  liveDataItem: {
+    flex: 1,
+    minWidth: (width - 72) / 3,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+  },
+  liveDataLabel: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  liveDataValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
   section: {
     marginBottom: 28,
   },
@@ -617,6 +818,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1E293B",
     marginLeft: 12,
+  },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 12,
+  },
+  liveIndicatorText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#065F46",
+    marginLeft: 4,
   },
   infoGrid: {
     flexDirection: "row",
@@ -766,9 +982,6 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
     fontWeight: "500",
   },
-  disabledInput: {
-    color: "#94A3B8",
-  },
   unitText: {
     fontSize: 16,
     fontWeight: "700",
@@ -804,9 +1017,8 @@ const styles = StyleSheet.create({
   assessmentGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 8,
-    width: 300,
-    marginLeft: -12,
+    gap: 6,
+    width: 285
   },
   assessmentItem: {
     flex: 1,
@@ -822,6 +1034,12 @@ const styles = StyleSheet.create({
     color: "#64748B",
     fontWeight: "600",
     marginTop: 8,
+    marginBottom: 4,
+  },
+  assessmentRange: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "500",
     marginBottom: 4,
   },
   assessmentValue: {
@@ -875,4 +1093,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NewTestScreen;
+export default LiveSensorScreen;

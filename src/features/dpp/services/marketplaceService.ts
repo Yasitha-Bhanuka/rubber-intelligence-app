@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { SellingPost, MarketplaceTransaction } from '../types';
+import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField } from '../types';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -42,7 +42,7 @@ export const getMyTransactions = async (): Promise<MarketplaceTransaction[]> => 
     }
 };
 
-export const uploadInvoice = async (transactionId: string, file: any): Promise<any> => {
+export const uploadInvoice = async (transactionId: string, file: any): Promise<InvoiceUploadResponse> => {
     try {
         const formData = new FormData();
         formData.append('file', {
@@ -51,10 +51,9 @@ export const uploadInvoice = async (transactionId: string, file: any): Promise<a
             type: file.mimeType || 'application/pdf'
         } as any);
 
-        const response = await apiClient.post(`/Marketplace/transactions/${transactionId}/invoice`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
+        const response = await apiClient.post<InvoiceUploadResponse>(
+            `/Marketplace/transactions/${transactionId}/invoice`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
         });
         return response.data;
     } catch (error) {
@@ -71,6 +70,14 @@ export const linkDppToTransaction = async (transactionId: string, dppId: string)
         console.error('Link DPP Error:', error);
         throw error;
     }
+};
+
+// ── BUYER HISTORY ─────────────────────────────────────────────────────
+
+// GET /api/marketplace/buyer-history/{buyerId} (Exporter only)
+export const getBuyerHistory = async (buyerId: string): Promise<BuyerHistory> => {
+    const response = await apiClient.get<BuyerHistory>(`/Marketplace/buyer-history/${buyerId}`);
+    return response.data;
 };
 
 export const getInvoice = async (transactionId: string): Promise<string> => {
@@ -90,4 +97,21 @@ export const getInvoice = async (transactionId: string): Promise<string> => {
         console.error('Get Invoice Error:', error);
         throw error;
     }
+};
+
+// ── INVOICE EXTRACTED FIELDS ──────────────────────────────────────────────────
+
+/**
+ * GET /api/Marketplace/transactions/{transactionId}/invoice-fields
+ * Decrypts and returns all extracted invoice fields for the authenticated Buyer.
+ * Confidential fields carry their AES-256-CBC decrypted plaintext values.
+ * Only the Buyer who owns the transaction may call this endpoint.
+ */
+export const getInvoiceExtractedFields = async (
+    transactionId: string
+): Promise<InvoiceDecryptedField[]> => {
+    const response = await apiClient.get<InvoiceDecryptedField[]>(
+        `/Marketplace/transactions/${transactionId}/invoice-fields`
+    );
+    return response.data;
 };

@@ -28,7 +28,7 @@ export const ValidationAlert = ({ visible, message, onClose }: ValidationAlertPr
                         <Ionicons name="warning" size={40} color="#FFF" />
                     </View>
 
-                    <Text style={styles.title}>Invalid Image</Text>
+                    <Text style={styles.title}>Validation Error</Text>
 
                     <Text style={styles.message}>
                         {message}

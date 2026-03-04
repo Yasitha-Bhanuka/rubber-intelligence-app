@@ -62,21 +62,29 @@ export const ImageValidator = {
 
                 // --- Color Analysis ---
                 // RSS Rubber is Amber/Brown/Yellow.
-                // Hue: 5 (Red-Orange) to 65 (Yellow).
-                // Saturation: Must be > 20 to avoid gray/white walls.
-                // Value: Must be > 20 to avoid pitch black.
+                // Smoked sheets are usually more saturated and towards the red-orange side.
+                // Refined Hue: 10 (Red-Orange) to 48 (Golden Yellow).
+                // Saturation: RSS is quite rich in color (> 25).
+                // Value: RSS is rarely extremely bright (> 20 and < 95).
                 const { h, s, v } = rgbToHsv(r, g, b);
 
-                const isRubberHue = (h >= 5 && h <= 65);
-                const isSaturated = (s > 20);
-                const isNotBlack = (v > 20);
+                const isRubberHue = (h >= 10 && h <= 48);
+                const isSaturated = (s > 25);
+                const isValidValue = (v > 15 && v < 95);
 
-                if (isRubberHue && isSaturated && isNotBlack) {
+                if (isRubberHue && isSaturated && isValidValue) {
                     validHueCount++;
                 }
 
+                // Check for "Contaminant" colors (e.g., bright blue, neon green, etc.)
+                // These are very unlikely to be on a pure rubber sheet.
+                const isContaminant = (h > 150 && h < 270 && s > 40); // Cyan to Blue
+                if (isContaminant) {
+                    // Penalize ratio if contaminants found
+                    validHueCount = Math.max(0, validHueCount - 2);
+                }
+
                 // --- Blur/Focus Analysis ---
-                // Simple gradient variance check
                 const gray = (r + g + b) / 3;
                 totalBrightness += gray;
                 varianceSum += Math.abs(gray - prevGray);
@@ -89,24 +97,25 @@ export const ImageValidator = {
             const avgVariance = varianceSum / totalPixels;
 
             // Check 1: Content (Rubber Sheet Colors)
-            if (rubberContentRatio < 0.30) {
+            // Increased to 40% to ensure the sheet is the primary subject.
+            if (rubberContentRatio < 0.40) {
                 return {
                     isValid: false,
-                    reason: `Subject not recognized as a Rubber Sheet.\nmatch: ${(rubberContentRatio * 100).toFixed(0)}%\n\nTip: Ensure the brown/amber sheet fills the frame.`
+                    reason: "Subject not recognized as an RSS Rubber Sheet.\n\nTip: Place the sheet clearly in the frame with good lighting."
                 };
             }
 
             // Check 2: Brightness
-            if (avgBrightness < 30) {
-                return { isValid: false, reason: "Image is too dark.\nPlease ensure good lighting." };
+            if (avgBrightness < 35) {
+                return { isValid: false, reason: "Image is too dark.\nPlease ensure proper lighting to see the texture." };
             }
-            if (avgBrightness > 220) {
-                return { isValid: false, reason: "Image is overexposed.\nToo much white glare." };
+            if (avgBrightness > 215) {
+                return { isValid: false, reason: "Image is overexposed.\nToo much glare makes it difficult to grade." };
             }
 
             // Check 3: Blur (Low Variance)
-            if (avgVariance < 2.0) {
-                return { isValid: false, reason: "Image is blurry.\nPlease tap to focus." };
+            if (avgVariance < 2.5) {
+                return { isValid: false, reason: "Image is blurry or lacks texture.\nPlease ensure the sheet is in focus." };
             }
 
             return { isValid: true };

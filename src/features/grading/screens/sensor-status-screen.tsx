@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
         backgroundColor: "white",
         borderRadius: 24,
         padding: 24,
-        paddingLeft: 30, // Extra padding for left border
+        paddingLeft: 30, 
         shadowColor: "#64748B",
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.1,
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
         backgroundColor: "white",
         borderRadius: 24,
         padding: 24,
-        paddingLeft: 30, // Extra padding for left border
+        paddingLeft: 30, 
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,
@@ -675,7 +675,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#F1F5F9",
         borderLeftWidth: 4,
-        minHeight: 160, // Uniform height
+        minHeight: 160, 
         justifyContent: "space-between",
     },
     qualityFactorIconContainer: {
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
         backgroundColor: "white",
         borderRadius: 24,
         padding: 24,
-        paddingLeft: 30, // Extra padding for left border
+        paddingLeft: 30, 
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,

@@ -1,9 +1,10 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system/legacy';
-import { Alert, Platform } from 'react-native';
+import { Directory, File, Paths } from 'expo-file-system/next';
+import { Alert } from 'react-native';
 
-const REPORT_DIR = (FileSystem.documentDirectory || FileSystem.cacheDirectory || '') + 'TestReports/';
+// Reports directory inside the app's document storage
+const getReportDir = () => new Directory(Paths.document, 'TestReports');
 
 export interface SavedReportInfo {
     uri: string;
@@ -14,36 +15,37 @@ export interface SavedReportInfo {
 }
 
 export const ReportService = {
-    async ensureDirExists() {
-        const dirInfo = await FileSystem.getInfoAsync(REPORT_DIR);
-        if (!dirInfo.exists) {
-            await FileSystem.makeDirectoryAsync(REPORT_DIR, { intermediates: true });
+    ensureDirExists() {
+        const dir = getReportDir();
+        if (!dir.exists) {
+            dir.create();
         }
+        return dir;
     },
 
     async generatePDF(html: string, filename: string): Promise<string | null> {
         try {
             console.log("Generating PDF for:", filename);
-            await this.ensureDirExists();
+            const reportDir = this.ensureDirExists();
 
-            const { uri } = await Print.printToFileAsync({ html });
-            console.log("Temp PDF URI:", uri);
+            // Print to a temp file
+            const { uri: tempUri } = await Print.printToFileAsync({ html });
+            console.log("Temp PDF URI:", tempUri);
 
-            // Move file to our directory
-            const targetUri = REPORT_DIR + filename;
+            // Build destination File
+            const destFile = new File(reportDir, filename);
 
-            // Check if file already exists, delete if so to overwrite
-            const check = await FileSystem.getInfoAsync(targetUri);
-            if (check.exists) {
-                await FileSystem.deleteAsync(targetUri);
+            // Delete existing file at destination if it exists
+            if (destFile.exists) {
+                destFile.delete();
             }
 
-            await FileSystem.moveAsync({
-                from: uri,
-                to: targetUri
-            });
-            console.log("Saved PDF to:", targetUri);
-            return targetUri;
+            // Move temp file to our reports directory
+            const tempFile = new File(tempUri);
+            tempFile.move(reportDir);
+
+            console.log("Saved PDF to:", destFile.uri);
+            return destFile.uri;
         } catch (error) {
             console.error("Error generating/saving PDF:", error);
             Alert.alert("Error", "Failed to generate report PDF.");
@@ -60,37 +62,38 @@ export const ReportService = {
         }
     },
 
-    async listSavedReports(): Promise<SavedReportInfo[]> {
+    listSavedReports(): SavedReportInfo[] {
         try {
-            await this.ensureDirExists();
-            const files = await FileSystem.readDirectoryAsync(REPORT_DIR);
+            const reportDir = this.ensureDirExists();
+            const contents = reportDir.list();
 
             const reports: SavedReportInfo[] = [];
-            for (const file of files) {
-                if (file.endsWith('.pdf')) {
-                    const uri = REPORT_DIR + file;
-                    const info = await FileSystem.getInfoAsync(uri, { size: true } as any);
-                    if (info.exists) {
-                        reports.push({
-                            uri,
-                            name: file,
-                            isDirectory: info.isDirectory,
-                            sizeInBytes: info.size,
-                            modified: new Date(info.modificationTime! * 1000).toLocaleDateString()
-                        });
-                    }
+            for (const item of contents) {
+                if (item instanceof File && item.name.endsWith('.pdf')) {
+                    reports.push({
+                        uri: item.uri,
+                        name: item.name,
+                        isDirectory: false,
+                        sizeInBytes: item.size,
+                        modified: item.modificationTime
+                            ? new Date(item.modificationTime).toLocaleDateString()
+                            : undefined
+                    });
                 }
             }
-            return reports.sort((a, b) => (b.modified && a.modified ? b.modified.localeCompare(a.modified) : 0));
+            return reports.sort((a, b) =>
+                b.modified && a.modified ? b.modified.localeCompare(a.modified) : 0
+            );
         } catch (error) {
             console.error("Error listing reports:", error);
             return [];
         }
     },
 
-    async deleteReport(uri: string): Promise<boolean> {
+    deleteReport(uri: string): boolean {
         try {
-            await FileSystem.deleteAsync(uri);
+            const file = new File(uri);
+            if (file.exists) file.delete();
             return true;
         } catch (error) {
             console.error("Error deleting report:", error);
