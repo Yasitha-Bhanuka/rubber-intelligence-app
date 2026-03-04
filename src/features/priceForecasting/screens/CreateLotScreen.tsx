@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlockchainService } from '../services/blockchainService';
+import { BiddingService } from '../services/biddingService';
 
 export const CreateLotScreen = () => {
     const navigation = useNavigation<any>();
@@ -28,13 +29,34 @@ export const CreateLotScreen = () => {
             const txHash = await BlockchainService.mintLotNFT(formData);
             const ipfsHash = await BlockchainService.uploadToIPFS({ ...formData, type: 'LotMetadata' });
 
+            // Generate a real Auction in the backend
+            const endDate = new Date();
+            endDate.setMinutes(endDate.getMinutes() + 30); // Auction runs for exactly 30 minutes
+
+            // Assume default standard starting price based on grade for now
+            let startingPrice = 400;
+            if (formData.grade === 'RSS1') startingPrice = 450;
+            else if (formData.grade === 'RSS2') startingPrice = 430;
+
+            await BiddingService.createAuction({
+                title: `${formData.grade} Quality Rubber - ${formData.location}`,
+                subtitle: `NFT Verified - Moisture: ${formData.moisture}, Cleanliness: ${formData.cleanliness}`,
+                grade: formData.grade,
+                startingPrice: startingPrice,
+                minIncrement: 5,
+                quantityKg: parseInt(formData.weight.replace(/[^0-9]/g, '')) || 0,
+                endTime: endDate.toISOString(),
+                lotId: txHash // using txHash as rough LotId for NFT linkage mock
+            });
+
             Alert.alert(
                 "Success",
-                `Lot NFT Passport Minted!\n\nTX: ${txHash.slice(0, 10)}...\nIPFS: ${ipfsHash.slice(0, 10)}...`,
+                `Lot NFT Passport Minted & Auction Created!\n\nTX: ${txHash.slice(0, 10)}...\nIPFS: ${ipfsHash.slice(0, 10)}...`,
                 [{ text: "OK", onPress: () => navigation.goBack() }]
             );
         } catch (error) {
-            Alert.alert("Error", "Failed to mint NFT. Please try again.");
+            Alert.alert("Error", "Failed to mint NFT or create Auction. Please try again.");
+            console.error(error);
         } finally {
             setLoading(false);
         }

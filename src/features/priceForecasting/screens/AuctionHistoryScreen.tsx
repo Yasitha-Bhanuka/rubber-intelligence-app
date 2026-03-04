@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../../shared/styles/colors';
+import { useStore } from '../../../store';
+import { BiddingService, BiddingAuction } from '../services/biddingService';
 
 // Helper component for Stat Cards
 const StatCard = ({ title, value, subtitle, icon, iconColor }: any) => (
@@ -21,51 +23,51 @@ const StatCard = ({ title, value, subtitle, icon, iconColor }: any) => (
 export const AuctionHistoryScreen = () => {
     const navigation = useNavigation<any>();
     const [searchQuery, setSearchQuery] = useState('');
+    const [historyData, setHistoryData] = useState<BiddingAuction[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const historyData = [
-        {
-            id: '1',
-            title: 'TSR20 Technical Grade Rubber',
-            seller: 'Central Rubber Estates',
-            grade: 'TSR20',
-            date: '03/03/2026',
-            finalPrice: 435,
-            priceIncrement: '+35',
-            quantity: '5,000 kg',
-            totalValue: '2,175,000',
-            winner: 'Global Rubber Exports',
-            bids: 24,
-            statusColor: '#48BB78'
-        },
-        {
-            id: '2',
-            title: 'RSS1 Premium Quality - Galle District',
-            seller: 'Perera Rubber Estates',
-            grade: 'RSS1',
-            date: '07/11/2025',
-            finalPrice: 478,
-            priceIncrement: '+33',
-            quantity: '3,500 kg',
-            totalValue: '1,673,000',
-            winner: 'Rubber Tech Manufacturing',
-            bids: 18,
-            statusColor: '#48BB78'
-        },
-        {
-            id: '3',
-            title: 'RSS2 High Quality Rubber',
-            seller: 'Silva & Sons Plantation',
-            grade: 'RSS2',
-            date: '06/11/2025',
-            finalPrice: 442,
-            priceIncrement: '+27',
-            quantity: '2,800 kg',
-            totalValue: '1,237,600',
-            winner: 'Export Lanka Ltd',
-            bids: 15,
-            statusColor: '#48BB78'
+    const { user } = useStore();
+    const role = user?.role || 'buyer';
+
+    useFocusEffect(
+        React.useCallback(() => {
+            const loadData = async () => {
+                try {
+                    setLoading(true);
+                    const data = await BiddingService.getClosedAuctions();
+                    setHistoryData(data);
+                } catch (error) {
+                    console.error(error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadData();
+        }, [])
+    );
+
+    const renderData = historyData.filter(item => {
+        // filter by search query
+        if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase()) && !item.seller.toLowerCase().includes(searchQuery.toLowerCase())) {
+            return false;
         }
-    ];
+
+        if (role === 'farmer') return item.seller === user?.name;
+        return item.highestBidder === user?.name || item.highestBidder?.includes('Winner');
+    }).map(item => ({
+        id: item.id,
+        title: item.title,
+        seller: item.seller,
+        grade: item.grade,
+        date: 'Recently Closed', // Mocking for now as EndTime is not directly returned uniformly
+        finalPrice: item.currentPrice,
+        priceIncrement: item.currentPrice > 0 ? `+${item.currentPrice}` : '0',
+        quantity: item.quantity,
+        totalValue: (item.currentPrice * parseInt(item.quantity.replace(/[^0-9]/g, '') || '0')).toLocaleString(),
+        winner: item.highestBidder,
+        bids: item.totalBids,
+        statusColor: '#48BB78'
+    }));
 
     return (
         <ScrollView style={styles.container}>
@@ -118,74 +120,77 @@ export const AuctionHistoryScreen = () => {
                     </View>
                 </View>
 
-                {/* Table Header Wrapper (Simulated) */}
-                <View style={styles.tableHeader}>
-                    <Text style={[styles.thText, { flex: 2 }]}>Auction Details</Text>
-                    <Text style={[styles.thText, { flex: 0.8 }]}>Grade</Text>
-                    <Text style={[styles.thText, { flex: 1 }]}>Date</Text>
-                    <Text style={[styles.thText, { flex: 1.2 }]}>Final Price</Text>
-                    <Text style={[styles.thText, { flex: 1.2 }]}>Quantity</Text>
-                    <Text style={[styles.thText, { flex: 1.5 }]}>Winner</Text>
-                    <Text style={[styles.thText, { flex: 0.8, textAlign: 'center' }]}>Bids</Text>
-                    <Text style={[styles.thText, { flex: 1, textAlign: 'center' }]}>Actions</Text>
-                </View>
-
-                {/* List Items */}
-                {historyData.map((item) => (
-                    <View key={item.id} style={styles.tableRow}>
-                        {/* Details */}
-                        <View style={{ flex: 2, paddingRight: 10 }}>
-                            <Text style={styles.itemTitle}>{item.title}</Text>
-                            <Text style={styles.itemSeller}>{item.seller}</Text>
+                {/* Table Header Wrapper */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={true} style={{ marginTop: 15 }}>
+                    <View>
+                        <View style={styles.tableHeader}>
+                            <Text style={[styles.thText, { width: 180 }]}>Auction Details</Text>
+                            <Text style={[styles.thText, { width: 80 }]}>Grade</Text>
+                            <Text style={[styles.thText, { width: 100 }]}>Date</Text>
+                            <Text style={[styles.thText, { width: 120 }]}>Final Price</Text>
+                            <Text style={[styles.thText, { width: 110 }]}>Quantity</Text>
+                            <Text style={[styles.thText, { width: 140 }]}>Winner</Text>
+                            <Text style={[styles.thText, { width: 60, textAlign: 'center' }]}>Bids</Text>
+                            <Text style={[styles.thText, { width: 90, textAlign: 'center' }]}>Actions</Text>
                         </View>
 
-                        {/* Grade */}
-                        <View style={{ flex: 0.8 }}>
-                            <View style={styles.gradeBadge}>
-                                <Text style={styles.gradeText}>{item.grade}</Text>
+                        {/* List Items */}
+                        {renderData.map((item) => (
+                            <View key={item.id} style={styles.tableRow}>
+                                {/* Details */}
+                                <View style={{ width: 180, paddingRight: 10 }}>
+                                    <Text style={styles.itemTitle}>{item.title}</Text>
+                                    <Text style={styles.itemSeller}>{item.seller}</Text>
+                                </View>
+
+                                {/* Grade */}
+                                <View style={{ width: 80 }}>
+                                    <View style={styles.gradeBadge}>
+                                        <Text style={styles.gradeText}>{item.grade}</Text>
+                                    </View>
+                                </View>
+
+                                {/* Date */}
+                                <View style={{ width: 100, flexDirection: 'row', alignItems: 'center' }}>
+                                    <Ionicons name="calendar-outline" size={14} color="#888" style={{ marginRight: 4 }} />
+                                    <Text style={styles.tdText}>{item.date}</Text>
+                                </View>
+
+                                {/* Price */}
+                                <View style={{ width: 120 }}>
+                                    <Text style={[styles.itemPrice, { color: item.statusColor }]}>LKR {item.finalPrice}/kg</Text>
+                                    <Text style={styles.itemIncrement}>{item.priceIncrement} from start</Text>
+                                </View>
+
+                                {/* Quantity */}
+                                <View style={{ width: 110 }}>
+                                    <Text style={styles.itemQuantity}>{item.quantity}</Text>
+                                    <Text style={styles.itemTotalVal}>LKR {item.totalValue}</Text>
+                                </View>
+
+                                {/* Winner */}
+                                <View style={{ width: 140 }}>
+                                    <Text style={styles.itemWinner}>{item.winner}</Text>
+                                </View>
+
+                                {/* Bids */}
+                                <View style={{ width: 60, alignItems: 'center' }}>
+                                    <View style={styles.bidBadge}>
+                                        <Text style={styles.bidText}>{item.bids}</Text>
+                                    </View>
+                                </View>
+
+                                {/* Actions */}
+                                <View style={{ width: 90, alignItems: 'center' }}>
+                                    <TouchableOpacity style={styles.actionBtn}>
+                                        <Ionicons name="download-outline" size={16} color="#333" />
+                                        <Text style={styles.actionText}>Report</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                        </View>
-
-                        {/* Date */}
-                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                            <Ionicons name="calendar-outline" size={14} color="#888" style={{ marginRight: 4 }} />
-                            <Text style={styles.tdText}>{item.date}</Text>
-                        </View>
-
-                        {/* Price */}
-                        <View style={{ flex: 1.2 }}>
-                            <Text style={[styles.itemPrice, { color: item.statusColor }]}>LKR {item.finalPrice}/kg</Text>
-                            <Text style={styles.itemIncrement}>{item.priceIncrement} from start</Text>
-                        </View>
-
-                        {/* Quantity */}
-                        <View style={{ flex: 1.2 }}>
-                            <Text style={styles.itemQuantity}>{item.quantity}</Text>
-                            <Text style={styles.itemTotalVal}>LKR {item.totalValue}</Text>
-                        </View>
-
-                        {/* Winner */}
-                        <View style={{ flex: 1.5 }}>
-                            <Text style={styles.itemWinner}>{item.winner}</Text>
-                        </View>
-
-                        {/* Bids */}
-                        <View style={{ flex: 0.8, alignItems: 'center' }}>
-                            <View style={styles.bidBadge}>
-                                <Text style={styles.bidText}>{item.bids}</Text>
-                            </View>
-                        </View>
-
-                        {/* Actions */}
-                        <View style={{ flex: 1, alignItems: 'center' }}>
-                            <TouchableOpacity style={styles.actionBtn}>
-                                <Ionicons name="download-outline" size={16} color="#333" />
-                                <Text style={styles.actionText}>Report</Text>
-                            </TouchableOpacity>
-                        </View>
+                        ))}
                     </View>
-                ))}
-
+                </ScrollView>
             </View>
 
             {/* Bottom Export Section */}

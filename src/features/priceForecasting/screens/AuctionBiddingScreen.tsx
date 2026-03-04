@@ -1,61 +1,80 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useStore } from '../../../store';
 import { colors } from '../../../shared/styles/colors';
+import { BiddingService, BiddingAuction } from '../services/biddingService';
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export const AuctionBiddingScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { id } = route.params || { id: '1' };
+    const { id } = route.params || {};
     const { user } = useStore();
     const role = user?.role || 'buyer'; // default to buyer for testing if null
 
-    // Mock data based on provided image
-    const auctionData = id === '1' ? {
-        title: "Premium RSS1 Rubber - Kalutara District",
-        subtitle: "Ribbed Smoked Sheet Grade 1 - Premium Quality",
-        grade: "RSS1",
-        currentPrice: 485,
-        quantity: "2,500 kg",
-        seller: "Kamal Perera (via Broker: Silva & Co)",
-        highestBidder: "Export Lanka Ltd",
-        totalBids: 12,
-        minIncrement: 5,
-        progress: 0.6
-    } : {
-        title: "RSS3 Standard Grade - Ratnapura",
-        subtitle: "Ribbed Smoked Sheet Grade 3 - Standard Quality",
-        grade: "RSS3",
-        currentPrice: 410,
-        quantity: "1,800 kg",
-        seller: "Nimal Fernando",
-        highestBidder: "Rubber Tech Manufacturing",
-        totalBids: 8,
-        minIncrement: 5,
-        progress: 0.4
+    const [auctionData, setAuctionData] = useState<BiddingAuction | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [timeLeftSeconds, setTimeLeftSeconds] = useState(0);
+
+    const loadAuction = async (isSilent = false) => {
+        if (!id || id === '1') {
+            setLoading(false);
+            return;
+        }
+        try {
+            if (!isSilent) setLoading(true);
+            const data = await BiddingService.getAuctionById(id);
+            setAuctionData(data);
+
+            // Calculate time left from data.endTime
+            if (data.endTime) {
+                // Safely extract just the YYYY-MM-DDTHH:mm:ss part to avoid Hermes NaN issues with fractional seconds
+                const cleanStr = data.endTime.substring(0, 19);
+                // Ensure it parses as local time if no Z is present, though we can just attach Z if assuming UTC
+                const end = new Date(cleanStr + "Z").getTime();
+                const now = new Date().getTime();
+                const diffSeconds = Math.max(0, Math.floor((end - now) / 1000));
+                setTimeLeftSeconds(diffSeconds);
+            }
+        } catch (error) {
+            console.error("Failed to load auction", error);
+        } finally {
+            if (!isSilent) setLoading(false);
+        }
     };
 
-    // 23.3 minutes = 1398 seconds, 38.3 minutes = 2298 seconds
-    const [timeLeftSeconds, setTimeLeftSeconds] = useState(id === '1' ? 1398 : 2298);
+    useFocusEffect(
+        React.useCallback(() => {
+            loadAuction();
+        }, [id])
+    );
+
+    // Polling active auctions every 5 seconds for real-time bid updates
+    useEffect(() => {
+        const pollInterval = setInterval(() => {
+            loadAuction(true);
+        }, 5000);
+
+        return () => clearInterval(pollInterval);
+    }, [id]);
 
     // Derived state for easy rendering
-    const isLive = timeLeftSeconds > 0;
+    const isLive = timeLeftSeconds > 0 && auctionData?.status !== 'Closed';
 
     const formatTime = (totalSeconds: number) => {
-        if (totalSeconds <= 0) return "Ended";
+        if (totalSeconds <= 0 || auctionData?.status === 'Closed') return "Auction Closed";
         const days = Math.floor(totalSeconds / 86400);
         const hours = Math.floor((totalSeconds % 86400) / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
         const seconds = totalSeconds % 60;
 
         let timeString = '';
-        if (days > 0) timeString += `${days}d `;
-        if (hours > 0) timeString += `${hours}h `;
-        timeString += `${minutes}m ${seconds}s`;
+        if (days > 0) timeString += `${days} days `;
+        if (hours > 0) timeString += `${hours} hr `;
+        timeString += `${minutes} min ${seconds} sec`;
         return timeString.trim();
     };
 
@@ -76,6 +95,44 @@ export const AuctionBiddingScreen = () => {
     }, [isLive]);
 
     const timeLeftStr = formatTime(timeLeftSeconds);
+
+    if (loading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+        );
+    }
+
+    if (!id || id === '1') {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="alert-circle-outline" size={48} color="#CCC" />
+                <Text style={{ marginTop: 10, color: '#666' }}>Invalid Auction ID.</Text>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
+                    <Text style={{ color: colors.primary }}>Go Back</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    if (!auctionData) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+                <Ionicons name="warning-outline" size={64} color="#CCC" style={{ marginBottom: 15 }} />
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Auction Not Found</Text>
+                <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', marginTop: 10, marginBottom: 20 }}>
+                    We couldn't load the details for this auction. It might have been removed or the ID is invalid.
+                </Text>
+                <TouchableOpacity
+                    style={{ paddingHorizontal: 20, paddingVertical: 10, backgroundColor: colors.primary, borderRadius: 8 }}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Go Back</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     return (
         <ScrollView style={styles.container}>
@@ -194,19 +251,19 @@ export const AuctionBiddingScreen = () => {
                             <>
                                 <View style={styles.incrementRow}>
                                     <TouchableOpacity style={styles.incrementBtn} onPress={() => navigation.navigate('PlaceBid', {
-                                        title: auctionData.title, currentPrice: auctionData.currentPrice, quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, '')), prefilledAmount: String(auctionData.currentPrice + 5)
+                                        id: auctionData.id, title: auctionData.title, currentPrice: auctionData.currentPrice, quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, '')), prefilledAmount: String(auctionData.currentPrice + 5)
                                     })}>
                                         <Ionicons name="flash-outline" size={18} color="#333" />
                                         <Text style={styles.incrementText}>+5</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.incrementBtn} onPress={() => navigation.navigate('PlaceBid', {
-                                        title: auctionData.title, currentPrice: auctionData.currentPrice, quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, '')), prefilledAmount: String(auctionData.currentPrice + 10)
+                                        id: auctionData.id, title: auctionData.title, currentPrice: auctionData.currentPrice, quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, '')), prefilledAmount: String(auctionData.currentPrice + 10)
                                     })}>
                                         <Ionicons name="flash-outline" size={18} color="#333" />
                                         <Text style={styles.incrementText}>+10</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.incrementBtn} onPress={() => navigation.navigate('PlaceBid', {
-                                        title: auctionData.title, currentPrice: auctionData.currentPrice, quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, '')), prefilledAmount: String(auctionData.currentPrice + 25)
+                                        id: auctionData.id, title: auctionData.title, currentPrice: auctionData.currentPrice, quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, '')), prefilledAmount: String(auctionData.currentPrice + 25)
                                     })}>
                                         <Ionicons name="flash-outline" size={18} color="#333" />
                                         <Text style={styles.incrementText}>+25</Text>
@@ -216,6 +273,7 @@ export const AuctionBiddingScreen = () => {
                                 <TouchableOpacity
                                     style={styles.placeBidBtn}
                                     onPress={() => navigation.navigate('PlaceBid', {
+                                        id: auctionData.id,
                                         title: auctionData.title,
                                         currentPrice: auctionData.currentPrice,
                                         quantityKg: parseInt(auctionData.quantity.replace(/[^0-9]/g, ''))

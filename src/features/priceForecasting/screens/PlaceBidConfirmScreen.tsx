@@ -3,11 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView,
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors } from '../../../shared/styles/colors';
+import { BiddingService } from '../services/biddingService';
 
 export const PlaceBidConfirmScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { title, currentPrice, quantityKg, prefilledAmount } = route.params || {
+    const { id, title, currentPrice, quantityKg, prefilledAmount } = route.params || {
+        id: '1',
         title: "Premium RSS1 Rubber - Kalutara District",
         currentPrice: 595,
         quantityKg: 2500,
@@ -26,25 +28,7 @@ export const PlaceBidConfirmScreen = () => {
     const handleConfirm = async () => {
         setIsLoading(true);
         try {
-            // Using a dummy auction ID "1" since backend is wired via string IDs now
-            // Physical devices require developer's LAN IP, rather than localhost or Android Emulator loophole 10.0.2.2.
-            // Using the user's documented LAN IP from environment.ts to ensure iOS/Android physical phones can connect.
-            const API_BASE_URL = 'http://192.168.43.241:5247';
-
-            const response = await fetch(`${API_BASE_URL}/api/bidding/auctions/1/bid`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // Assuming no auth token required for the mock test run, if it was it would go here
-                },
-                body: JSON.stringify({ amount: parseFloat(bidAmount) })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            // For now, regardless of a 401 error since auth isn't wired perfectly in Expo, simulate success visually based on validation
+            await BiddingService.submitBid(id, parseFloat(bidAmount));
             if (parseFloat(bidAmount) > currentPrice) {
                 Alert.alert(
                     "Bid Submitted",

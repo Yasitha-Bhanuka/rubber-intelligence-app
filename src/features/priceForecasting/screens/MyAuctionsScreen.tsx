@@ -2,23 +2,38 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlockchainService, RubberLotNFT } from '../services/blockchainService';
+import { BiddingService, BiddingAuction } from '../services/biddingService';
+import { useStore } from '../../../store';
 
 export const MyAuctionsScreen = () => {
     const navigation = useNavigation<any>();
-    const [lots, setLots] = useState<RubberLotNFT[]>([]);
+    const { user } = useStore();
+    const [lots, setLots] = useState<BiddingAuction[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchLots = async () => {
-            const data = await BlockchainService.getLots();
-            setLots(data);
-            setLoading(false);
-        };
-        fetchLots();
-    }, []);
+    useFocusEffect(
+        React.useCallback(() => {
+            const fetchLots = async () => {
+                setLoading(true);
+                try {
+                    const [active, closed] = await Promise.all([
+                        BiddingService.getActiveAuctions(),
+                        BiddingService.getClosedAuctions()
+                    ]);
+                    const allAuctions = [...active, ...closed].filter(a => a.seller === user?.name);
+                    setLots(allAuctions);
+                } catch (error) {
+                    console.error("Failed to load seller lots:", error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            if (user?.name) fetchLots();
+            else setLoading(false);
+        }, [user?.name])
+    );
 
     return (
         <ScrollView style={styles.container}>
@@ -32,11 +47,16 @@ export const MyAuctionsScreen = () => {
             <View style={styles.statsRow}>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Active Lots</Text>
-                    <Text style={styles.statValue}>{lots.length}</Text>
+                    <Text style={styles.statValue}>{lots.filter(l => l.status !== 'Closed').length}</Text>
                 </View>
                 <View style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
                     <Text style={styles.statLabel}>Sold Value</Text>
-                    <Text style={[styles.statValue, { color: '#1565C0' }]}>0.00</Text>
+                    <Text style={[styles.statValue, { color: '#1565C0' }]}>
+                        {lots.filter(l => l.status === 'Closed').reduce((sum, lot) => {
+                            const val = lot.currentPrice * (parseInt(lot.quantity.replace(/\D/g, '')) || 1);
+                            return sum + val;
+                        }, 0).toLocaleString()}
+                    </Text>
                 </View>
             </View>
 
@@ -63,22 +83,24 @@ export const MyAuctionsScreen = () => {
                     <View key={lot.id} style={styles.lotCard}>
                         <View style={styles.lotHeader}>
                             <View>
-                                <Text style={styles.lotGrade}>{lot.metadata.grade} Grade</Text>
-                                <Text style={styles.lotToken}>{lot.tokenId}</Text>
+                                <Text style={styles.lotGrade}>{lot.grade} Grade</Text>
+                                <Text style={styles.lotToken}>{lot.nftTokenId || 'Minting...'}</Text>
                             </View>
-                            <View style={styles.statusBadge}>
-                                <Text style={styles.statusText}>In Auction</Text>
+                            <View style={[styles.statusBadge, lot.status === 'Closed' && { backgroundColor: '#E8F5E9' }]}>
+                                <Text style={[styles.statusText, lot.status === 'Closed' && { color: '#2E7D32' }]}>
+                                    {lot.status === 'Closed' ? 'Sold' : 'In Auction'}
+                                </Text>
                             </View>
                         </View>
 
                         <View style={styles.lotDetails}>
                             <View style={styles.detailItem}>
                                 <Ionicons name="scale-outline" size={14} color="#666" />
-                                <Text style={styles.detailText}>{lot.metadata.weight}</Text>
+                                <Text style={styles.detailText}>{lot.quantity}</Text>
                             </View>
                             <View style={styles.detailItem}>
                                 <Ionicons name="location-outline" size={14} color="#666" />
-                                <Text style={styles.detailText}>{lot.metadata.location}</Text>
+                                <Text style={styles.detailText}>{lot.subtitle}</Text>
                             </View>
                         </View>
 

@@ -4,21 +4,29 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlockchainService, RubberLotNFT } from '../services/blockchainService';
+import { BiddingService, BiddingAuction } from '../services/biddingService';
 
 export const TraceabilityScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { lotId } = route.params || { lotId: '1' };
-    const [lot, setLot] = useState<RubberLotNFT | null>(null);
+    const { lotId } = route.params || {};
+    const [lot, setLot] = useState<BiddingAuction | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchLot = async () => {
-            const lots = await BlockchainService.getLots();
-            const found = lots.find(l => l.id === lotId);
-            setLot(found || null);
-            setLoading(false);
+            if (!lotId || lotId === '1') {
+                setLoading(false);
+                return;
+            }
+            try {
+                const data = await BiddingService.getAuctionById(lotId);
+                setLot(data);
+            } catch (error) {
+                console.error("Traceability lot load failed", error);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchLot();
     }, [lotId]);
@@ -31,12 +39,48 @@ export const TraceabilityScreen = () => {
         );
     }
 
+    if (!lotId || lotId === '1') {
+        return (
+            <View style={styles.center}>
+                <Ionicons name="alert-circle-outline" size={48} color="#CCC" />
+                <Text style={{ marginTop: 10, color: '#666' }}>Invalid Lot ID.</Text>
+            </View>
+        );
+    }
+
     if (!lot) {
         return (
             <View style={styles.center}>
                 <Text>Lot not found.</Text>
             </View>
         );
+    }
+
+    const generatedHistory = [
+        {
+            event: 'Lot Registered',
+            timestamp: lot?.endTime ? new Date(new Date(lot.endTime).getTime() - 30 * 60000).toISOString().substring(0, 16).replace('T', ' ') : 'Just Now',
+            actor: `Farmer: ${lot?.seller}`,
+            details: `Added ${lot?.quantity} ${lot?.grade}`,
+            txHash: `0x${Math.random().toString(16).slice(2, 10)}...`
+        },
+        {
+            event: 'NFT Passport Minted',
+            timestamp: lot?.endTime ? new Date(new Date(lot.endTime).getTime() - 29 * 60000).toISOString().substring(0, 16).replace('T', ' ') : 'Just Now',
+            actor: 'Ethereum Network',
+            details: `Token ID: ${lot?.nftTokenId || 'Pending'}`,
+            txHash: `0x${Math.random().toString(16).slice(2, 10)}...`
+        }
+    ];
+
+    if (lot?.status === 'Closed') {
+        generatedHistory.push({
+            event: 'Auction Closed',
+            timestamp: lot.endTime ? lot.endTime.substring(0, 16).replace('T', ' ') : 'Just Now',
+            actor: 'Smart Contract',
+            details: `Winner: ${lot.highestBidder}`,
+            txHash: `0x${Math.random().toString(16).slice(2, 10)}...`
+        });
     }
 
     return (
@@ -48,7 +92,7 @@ export const TraceabilityScreen = () => {
                 <Text style={styles.headerTitle}>NFT Traceability</Text>
                 <View style={styles.tokenBadge}>
                     <Ionicons name="link" size={12} color="#81C784" />
-                    <Text style={styles.tokenText}>{lot.tokenId}</Text>
+                    <Text style={styles.tokenText}>{lot.nftTokenId || 'Minting...'}</Text>
                 </View>
             </LinearGradient>
 
@@ -57,20 +101,20 @@ export const TraceabilityScreen = () => {
                 <View style={styles.metaGrid}>
                     <View style={styles.metaBox}>
                         <Text style={styles.metaLabel}>Grade</Text>
-                        <Text style={styles.metaValue}>{lot.metadata.grade}</Text>
+                        <Text style={styles.metaValue}>{lot.grade}</Text>
                     </View>
                     <View style={styles.metaBox}>
                         <Text style={styles.metaLabel}>Weight</Text>
-                        <Text style={styles.metaValue}>{lot.metadata.weight}</Text>
+                        <Text style={styles.metaValue}>{lot.quantity}</Text>
                     </View>
                     <View style={styles.metaBox}>
                         <Text style={styles.metaLabel}>Source</Text>
-                        <Text style={styles.metaValue}>{lot.metadata.location}</Text>
+                        <Text style={styles.metaValue}>{lot.subtitle}</Text>
                     </View>
                 </View>
                 <TouchableOpacity
                     style={styles.ipfsLink}
-                    onPress={() => Alert.alert("IPFS Content", `CID: ${lot.ipfsHash}`)}
+                    onPress={() => Alert.alert("IPFS Content", "CID: DefaultIPFSHashPending")}
                 >
                     <Ionicons name="cloud-done-outline" size={16} color="#1565C0" />
                     <Text style={styles.ipfsText}>View Metadata on IPFS</Text>
@@ -79,11 +123,11 @@ export const TraceabilityScreen = () => {
 
             <View style={styles.timelineContainer}>
                 <Text style={styles.sectionTitle}>Blockchain Ledger Events</Text>
-                {lot.history.map((event, index) => (
+                {generatedHistory.map((event, index) => (
                     <View key={index} style={styles.timelineItem}>
                         <View style={styles.timelineLeft}>
                             <View style={[styles.timelineDot, index === 0 && styles.activeDot]} />
-                            {index !== lot.history.length - 1 && <View style={styles.timelineLine} />}
+                            {index !== generatedHistory.length - 1 && <View style={styles.timelineLine} />}
                         </View>
                         <View style={styles.timelineRight}>
                             <View style={styles.eventHeader}>
