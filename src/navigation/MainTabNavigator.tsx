@@ -23,6 +23,7 @@ import DppNavigator from './DppNavigator';
 const MonitoringScreen = () => <View style={styles.center}><Text>Monitoring Dashboard</Text></View>;
 
 import ChatbotScreen from '../features/chatbot/screens/ChatbotScreen';
+import { EnvironmentAlertDashboard } from '../features/EnvironmentAlert/EnvironmentAlertDashboard';
 
 // Moved outside to prevent re-creation on every render
 const HeaderBellButton = React.memo(({ onPress }: { onPress: () => void }) => (
@@ -60,6 +61,7 @@ export const MainTabNavigator = () => {
                         if (route.name === 'Grading') iconName = focused ? 'leaf' : 'leaf-outline';
                         else if (route.name === 'Disease') iconName = focused ? 'medkit' : 'medkit-outline';
                         else if (route.name === 'Price') iconName = focused ? 'cash' : 'cash-outline';
+                        else if (route.name === 'Alerts') iconName = focused ? 'thermometer' : 'thermometer-outline';
                         else if (route.name === 'Monitoring') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
                         else if (route.name === 'DPP') iconName = focused ? 'qr-code' : 'qr-code-outline';
                         else if (route.name === 'Chatbot') iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
@@ -85,6 +87,11 @@ export const MainTabNavigator = () => {
                 {/* Price & Bidding (Farmers, Buyers, and Exporters) */}
                 {(role === 'farmer' || role === 'buyer' || role === 'exporter') && (
                     <Tab.Screen name="Price" component={PriceForecastingNavigator} options={{ headerShown: false }} />
+                )}
+
+                {/* Environment Alert */}
+                {role === 'farmer' && (
+                    <Tab.Screen name="Alerts" component={EnvironmentAlertDashboard} options={{ headerShown: false }} />
                 )}
 
                 {/* Admin / Researcher / DPP Roles */}
