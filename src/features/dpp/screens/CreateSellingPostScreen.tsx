@@ -1,26 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
+import {
+    View, Text, StyleSheet, TextInput, TouchableOpacity,
+    ScrollView, Alert, ActivityIndicator, Modal, StatusBar
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getBuyerDocuments } from '../services/dppService';
 import { createSellingPost } from '../services/marketplaceService';
 import { DppDocument } from '../types';
 
+const GREEN = '#2E7D32';
+const GREEN_LIGHT = '#4CAF50';
+const GREEN_PALE = '#E8F5E9';
+const GREEN_DARK = '#1B5E20';
+
 export default function CreateSellingPostScreen() {
     const navigation = useNavigation<any>();
     const [loading, setLoading] = useState(false);
 
-    // Form State
     const [grade, setGrade] = useState('');
     const [quantity, setQuantity] = useState('');
     const [price, setPrice] = useState('');
     const [location, setLocation] = useState('');
     const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 
-    // Data for Selector
     const [myDocs, setMyDocs] = useState<DppDocument[]>([]);
 
-    // Data
     const GRADE_OPTIONS = ['RSS1', 'RSS2', 'RSS3', 'RSS4', 'RSS5'];
     const [showGradePicker, setShowGradePicker] = useState(false);
 
@@ -58,100 +63,187 @@ export default function CreateSellingPostScreen() {
     };
 
     return (
-        <ScrollView style={styles.container}>
+        <View style={styles.screen}>
+            <StatusBar barStyle="light-content" backgroundColor={GREEN_DARK} />
+
+            {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={24} color="black" />
+                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                    <Ionicons name="arrow-back" size={22} color="#fff" />
                 </TouchableOpacity>
-                <Text style={styles.title}>New Selling Post</Text>
+                <View style={styles.headerTextWrap}>
+                    <Text style={styles.headerTitle}>New Selling Post</Text>
+                    <Text style={styles.headerSub}>List your rubber for buyers</Text>
+                </View>
+                <View style={styles.headerIcon}>
+                    <Ionicons name="pricetag" size={28} color="rgba(255,255,255,0.4)" />
+                </View>
             </View>
 
-            <View style={styles.form}>
-                <Text style={styles.label}>Rubber Grade</Text>
-                <TouchableOpacity
-                    style={styles.pickerTrigger}
-                    onPress={() => setShowGradePicker(true)}
-                >
-                    <Text style={grade ? styles.pickerValue : styles.pickerPlaceholder}>
-                        {grade || "Select Grade"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#666" />
-                </TouchableOpacity>
+            <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-                <Text style={styles.label}>Quantity (Kg)</Text>
-                <TextInput style={styles.input} placeholder="1000" keyboardType="numeric" value={quantity} onChangeText={setQuantity} />
+                {/* Section: Product Details */}
+                <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeader}>
+                        <Ionicons name="leaf" size={18} color={GREEN} />
+                        <Text style={styles.sectionTitle}>Product Details</Text>
+                    </View>
 
-                <Text style={styles.label}>Price per Kg (LKR)</Text>
-                <TextInput style={styles.input} placeholder="500" keyboardType="numeric" value={price} onChangeText={setPrice} />
-
-                <Text style={styles.label}>Dispatched Address</Text>
-                <TextInput
-                    style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                    placeholder="e.g. 123 Rubber Estate, Kalutara, Sri Lanka"
-                    value={location}
-                    onChangeText={setLocation}
-                    multiline
-                    numberOfLines={3}
-                />
-
-                <Text style={styles.label}>Attach Proof (DPP Document)</Text>
-                <Text style={styles.helperText}>
-                    Select the **Certified Digital Product Passport** that corresponds to this physical rubber lot.
-                    This proves the origin and quality to the buyer.
-                </Text>
-
-                <ScrollView horizontal style={styles.docSelector} showsHorizontalScrollIndicator={false}>
-                    {myDocs.map((doc) => (
-                        <TouchableOpacity
-                            key={doc.id}
-                            style={[styles.docChip, selectedDocId === doc.id && styles.docChipSelected]}
-                            onPress={() => setSelectedDocId(selectedDocId === doc.id ? null : doc.id)}
-                        >
-                            <Ionicons name="shield-checkmark" size={16} color={selectedDocId === doc.id ? 'white' : '#555'} />
-                            <View>
-                                <Text style={[styles.docText, selectedDocId === doc.id && { color: 'white' }]}>
-                                    {doc.originalFileName}
-                                </Text>
-                                <Text style={[styles.docDate, selectedDocId === doc.id && { color: 'rgba(255,255,255,0.8)' }]}>
-                                    {new Date(doc.uploadedAt).toLocaleDateString()}
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
-                    {myDocs.length === 0 && (
-                        <View style={styles.noDocs}>
-                            <Text style={styles.noDocsText}>No certified documents found.</Text>
-                            <TouchableOpacity onPress={() => navigation.navigate('DocumentUpload')}>
-                                <Text style={styles.uploadLink}>Upload & Certify a Document first</Text>
-                            </TouchableOpacity>
+                    <Text style={styles.label}>Rubber Grade</Text>
+                    <TouchableOpacity
+                        style={styles.pickerTrigger}
+                        onPress={() => setShowGradePicker(true)}
+                    >
+                        <View style={styles.inputRow}>
+                            <Ionicons name="layers-outline" size={18} color={GREEN_LIGHT} />
+                            <Text style={grade ? styles.pickerValue : styles.pickerPlaceholder}>
+                                {grade || 'Select Grade'}
+                            </Text>
                         </View>
-                    )}
-                </ScrollView>
+                        <Ionicons name="chevron-down" size={18} color="#999" />
+                    </TouchableOpacity>
 
+                    <Text style={styles.label}>Quantity (Kg)</Text>
+                    <View style={styles.inputWrap}>
+                        <Ionicons name="cube-outline" size={18} color={GREEN_LIGHT} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="e.g. 1000"
+                            placeholderTextColor="#bbb"
+                            keyboardType="numeric"
+                            value={quantity}
+                            onChangeText={setQuantity}
+                        />
+                    </View>
+
+                    <Text style={styles.label}>Price per Kg (LKR)</Text>
+                    <View style={styles.inputWrap}>
+                        <Ionicons name="cash-outline" size={18} color={GREEN_LIGHT} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="e.g. 500"
+                            placeholderTextColor="#bbb"
+                            keyboardType="numeric"
+                            value={price}
+                            onChangeText={setPrice}
+                        />
+                    </View>
+                </View>
+
+                {/* Section: Dispatch Info */}
+                <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeader}>
+                        <Ionicons name="location" size={18} color={GREEN} />
+                        <Text style={styles.sectionTitle}>Dispatch Info</Text>
+                    </View>
+
+                    <Text style={styles.label}>Dispatched Address</Text>
+                    <View style={[styles.inputWrap, { alignItems: 'flex-start', paddingTop: 14 }]}>
+                        <Ionicons name="navigate-outline" size={18} color={GREEN_LIGHT} style={{ marginTop: 2 }} />
+                        <TextInput
+                            style={[styles.input, { height: 72, textAlignVertical: 'top' }]}
+                            placeholder="e.g. 123 Rubber Estate, Kalutara"
+                            placeholderTextColor="#bbb"
+                            value={location}
+                            onChangeText={setLocation}
+                            multiline
+                            numberOfLines={3}
+                        />
+                    </View>
+                </View>
+
+                {/* Section: DPP Document */}
+                <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeader}>
+                        <Ionicons name="shield-checkmark" size={18} color={GREEN} />
+                        <Text style={styles.sectionTitle}>Attach Proof (DPP)</Text>
+                    </View>
+
+                    <Text style={styles.helperText}>
+                        Select the Certified Digital Product Passport that corresponds to this rubber lot.
+                        This proves the origin and quality to the buyer.
+                    </Text>
+
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.docSelector}>
+                        {myDocs.map((doc) => (
+                            <TouchableOpacity
+                                key={doc.id}
+                                style={[styles.docChip, selectedDocId === doc.id && styles.docChipSelected]}
+                                onPress={() => setSelectedDocId(selectedDocId === doc.id ? null : doc.id)}
+                            >
+                                <Ionicons
+                                    name="shield-checkmark"
+                                    size={16}
+                                    color={selectedDocId === doc.id ? '#fff' : GREEN_LIGHT}
+                                />
+                                <View style={{ flex: 1 }}>
+                                    <Text
+                                        style={[styles.docText, selectedDocId === doc.id && { color: '#fff' }]}
+                                        numberOfLines={1}
+                                    >
+                                        {doc.originalFileName}
+                                    </Text>
+                                    <Text style={[styles.docDate, selectedDocId === doc.id && { color: 'rgba(255,255,255,0.8)' }]}>
+                                        {new Date(doc.uploadedAt).toLocaleDateString()}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                        {myDocs.length === 0 && (
+                            <View style={styles.noDocs}>
+                                <Ionicons name="document-text-outline" size={24} color="#ccc" />
+                                <Text style={styles.noDocsText}>No certified documents found.</Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('DocumentUpload')}>
+                                    <Text style={styles.uploadLink}>Upload & Certify a Document</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </ScrollView>
+                </View>
+
+                {/* Submit Button */}
                 <TouchableOpacity
-                    style={[styles.btn, loading && { opacity: 0.7 }]}
+                    style={[styles.submitBtn, loading && { opacity: 0.7 }]}
                     onPress={handleSubmit}
                     disabled={loading}
+                    activeOpacity={0.8}
                 >
-                    {loading ? <ActivityIndicator color="white" /> : <Text style={styles.btnText}>Publish Post</Text>}
+                    {loading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <View style={styles.submitInner}>
+                            <Ionicons name="rocket-outline" size={20} color="#fff" />
+                            <Text style={styles.submitText}>Publish Post</Text>
+                        </View>
+                    )}
                 </TouchableOpacity>
-            </View>
+
+                <View style={{ height: 40 }} />
+            </ScrollView>
 
             {/* Grade Picker Modal */}
             <Modal visible={showGradePicker} transparent animationType="slide">
                 <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowGradePicker(false)}>
                     <View style={styles.modalContent}>
+                        <View style={styles.modalHandle} />
                         <Text style={styles.modalTitle}>Select Rubber Grade</Text>
                         {GRADE_OPTIONS.map(opt => (
                             <TouchableOpacity
                                 key={opt}
-                                style={styles.modalOption}
+                                style={[styles.modalOption, grade === opt && styles.modalOptionActive]}
                                 onPress={() => { setGrade(opt); setShowGradePicker(false); }}
                             >
-                                <Text style={[styles.modalOptionText, grade === opt && { color: '#007AFF', fontWeight: 'bold' }]}>
-                                    {opt}
-                                </Text>
-                                {grade === opt && <Ionicons name="checkmark" size={20} color="#007AFF" />}
+                                <View style={styles.inputRow}>
+                                    <Ionicons
+                                        name="leaf"
+                                        size={16}
+                                        color={grade === opt ? GREEN : '#bbb'}
+                                    />
+                                    <Text style={[styles.modalOptionText, grade === opt && { color: GREEN, fontWeight: 'bold' }]}>
+                                        {opt}
+                                    </Text>
+                                </View>
+                                {grade === opt && <Ionicons name="checkmark-circle" size={22} color={GREEN} />}
                             </TouchableOpacity>
                         ))}
                         <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowGradePicker(false)}>
@@ -160,60 +252,249 @@ export default function CreateSellingPostScreen() {
                     </View>
                 </TouchableOpacity>
             </Modal>
-        </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F2F2F7' },
-    header: { padding: 20, paddingTop: 60, backgroundColor: 'white', flexDirection: 'row', alignItems: 'center', gap: 16 },
-    title: { fontSize: 24, fontWeight: 'bold' },
-    form: { padding: 20 },
-    label: { fontSize: 14, fontWeight: '600', color: '#666', marginBottom: 8, marginTop: 16 },
-    input: { backgroundColor: 'white', padding: 16, borderRadius: 12, fontSize: 16 },
-    pickerTrigger: {
-        backgroundColor: 'white',
-        padding: 16,
-        borderRadius: 12,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+    screen: {
+        flex: 1,
+        backgroundColor: '#F4F6F3',
     },
-    pickerValue: { fontSize: 16, color: '#000' },
-    pickerPlaceholder: { fontSize: 16, color: '#ccc' },
 
-    helperText: { fontSize: 12, color: '#888', marginBottom: 12, lineHeight: 18 },
+    // Header
+    header: {
+        backgroundColor: GREEN,
+        paddingTop: 56,
+        paddingBottom: 22,
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        shadowColor: GREEN_DARK,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    backBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerTextWrap: {
+        flex: 1,
+        marginLeft: 14,
+    },
+    headerTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerSub: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.75)',
+        marginTop: 2,
+    },
+    headerIcon: {
+        marginLeft: 8,
+    },
 
-    btn: { backgroundColor: '#007AFF', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 32 },
-    btnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    // Body
+    body: {
+        flex: 1,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+    },
 
-    docSelector: { flexDirection: 'row', gap: 10, paddingBottom: 8 },
-    docChip: {
+    // Section Card
+    sectionCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 18,
+        marginBottom: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        backgroundColor: 'white',
-        padding: 12,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        marginRight: 10,
-        maxWidth: 200
+        marginBottom: 12,
+        paddingBottom: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: GREEN_PALE,
     },
-    docChipSelected: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-    docText: { fontSize: 14, fontWeight: '600', color: '#333' },
-    docDate: { fontSize: 10, color: '#888', marginTop: 2 },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: GREEN_DARK,
+    },
 
-    noDocs: { padding: 10 },
-    noDocsText: { color: '#999', fontStyle: 'italic', marginBottom: 4 },
-    uploadLink: { color: '#007AFF', fontWeight: 'bold' },
+    // Labels & Inputs
+    label: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#666',
+        marginBottom: 6,
+        marginTop: 14,
+    },
+    inputWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8FAF8',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        borderWidth: 1,
+        borderColor: '#E8EDE8',
+    },
+    input: {
+        flex: 1,
+        fontSize: 15,
+        color: '#222',
+        paddingVertical: 13,
+        paddingHorizontal: 10,
+    },
+    pickerTrigger: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#F8FAF8',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        borderWidth: 1,
+        borderColor: '#E8EDE8',
+    },
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    pickerValue: { fontSize: 15, color: '#222' },
+    pickerPlaceholder: { fontSize: 15, color: '#bbb' },
+
+    // Helper
+    helperText: {
+        fontSize: 12,
+        color: '#888',
+        lineHeight: 18,
+        marginBottom: 12,
+    },
+
+    // Submit Button
+    submitBtn: {
+        backgroundColor: GREEN,
+        paddingVertical: 16,
+        borderRadius: 14,
+        alignItems: 'center',
+        marginTop: 8,
+        shadowColor: GREEN_DARK,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 6,
+    },
+    submitInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    submitText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 17,
+        letterSpacing: 0.3,
+    },
+
+    // Doc Selector
+    docSelector: {
+        flexDirection: 'row',
+        paddingBottom: 4,
+    },
+    docChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: GREEN_PALE,
+        padding: 12,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: '#C8E6C9',
+        marginRight: 10,
+        maxWidth: 200,
+    },
+    docChipSelected: {
+        backgroundColor: GREEN,
+        borderColor: GREEN,
+    },
+    docText: { fontSize: 13, fontWeight: '600', color: '#333' },
+    docDate: { fontSize: 10, color: '#777', marginTop: 2 },
+
+    noDocs: {
+        alignItems: 'center',
+        padding: 16,
+        gap: 6,
+    },
+    noDocsText: { color: '#999', fontStyle: 'italic', fontSize: 13 },
+    uploadLink: { color: GREEN, fontWeight: 'bold', fontSize: 13 },
 
     // Modal
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
-    modalOption: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', justifyContent: 'space-between' },
-    modalOptionText: { fontSize: 16, color: '#333' },
-    cancelBtn: { marginTop: 16, alignItems: 'center', padding: 12 },
-    cancelText: { color: 'red', fontSize: 16, fontWeight: '600' }
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        padding: 24,
+        paddingTop: 14,
+    },
+    modalHandle: {
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#ddd',
+        alignSelf: 'center',
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: GREEN_DARK,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    modalOption: {
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    modalOptionActive: {
+        backgroundColor: GREEN_PALE,
+        borderRadius: 10,
+        marginHorizontal: -8,
+        paddingHorizontal: 8,
+    },
+    modalOptionText: { fontSize: 16, color: '#444' },
+    cancelBtn: {
+        marginTop: 14,
+        alignItems: 'center',
+        padding: 14,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 12,
+    },
+    cancelText: { color: '#888', fontSize: 15, fontWeight: '600' },
 });
