@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system/next';
 import * as Sharing from 'expo-sharing';
 import { getMyTransactions, getInvoice } from '../services/marketplaceService';
 import { MarketplaceTransaction } from '../types';
-
+import { useStore } from '../../../store';
+//add
 export default function OrderReceiptScreen() {
     const route = useRoute<any>();
     const navigation = useNavigation<any>();
@@ -14,6 +15,7 @@ export default function OrderReceiptScreen() {
 
     const [transaction, setTransaction] = useState<MarketplaceTransaction | null>(null);
     const [loading, setLoading] = useState(true);
+    const { user } = useStore();
 
     useEffect(() => {
         loadTransaction();
@@ -29,45 +31,42 @@ export default function OrderReceiptScreen() {
     const handleViewInvoice = async () => {
         if (!transaction) return;
         try {
-            // Get URL - In real app, might need to handle headers with FileSystem.downloadAsync
-            // Assuming getInvoice returns the full URL with necessary tokens or we append them here.
-            // For now, let's assume valid access if we have the link. 
-            // NOTE: If getInvoice returns just a string URL, we need to ensure the backend validates the token via QueryParam or similar if headers aren't passed by FS.
-            // Or use a custom fetch implementation to save blob to FS.
-            // Simplified: Use getInvoice url.
             const url = await getInvoice(transaction.id);
 
-            // To pass auth headers to downloadAsync:
-            // import { getToken } from ...
-            // const token = await getToken();
-            // headers: { Authorization: `Bearer ${token}` }
-            // Let's assume we implement this for robustness. We need to grab auth token. 
-            // For prototype without importing auth store here, could be tricky. 
-            // Let's assume the API allows query param auth or we skip auth for this proof-of-concept if hard.
-            // BETTER: Use axios to get blob, convert to base64, save to FS.
-            // Or trust FileSystem.downloadAsync accepts headers. It does!
+            // Fetch the invoice from the server
+            const response = await fetch(url);
+            if (!response.ok) {
+                alert('Download failed: ' + response.statusText);
+                return;
+            }
 
-            // TODO: Get real token. Proceeding with simplified download for now (assuming public or session cookie if web).
-            // Actually, let's just alert the URL for now or try to open if simple.
-
-            // Re-implementing correctly:
-            // Fix: Cast FileSystem to any because documentDirectory is missing from types in this version
-            const fs = FileSystem as any;
-            const fileUri = (fs.documentDirectory || fs.cacheDirectory) + `invoice_${transaction.id}.pdf`;
-            // Note: We need the proper extension. We can guess or get from headers. Defaulting .pdf
-
-            const downloadRes = await FileSystem.downloadAsync(url, fileUri, {
-                // headers: { Authorization: ... } 
+            // Convert response to base64 string
+            const blob = await response.blob();
+            const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const result = reader.result as string;
+                    // Strip the data URL prefix (e.g. "data:application/pdf;base64,")
+                    resolve(result.split(',')[1]);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
             });
 
-            if (downloadRes.status === 200) {
-                if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(downloadRes.uri);
-                } else {
-                    alert('Sharing not available');
-                }
+            // Decode base64 → Uint8Array then write with the new File API
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            const file = new File(Paths.cache, `invoice_${transaction.id}.pdf`);
+            file.write(bytes);
+
+            // Share the saved file
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(file.uri);
             } else {
-                alert('Download failed');
+                alert('Sharing not available on this device');
             }
         } catch (e) {
             console.error(e);
@@ -133,7 +132,39 @@ export default function OrderReceiptScreen() {
                 </TouchableOpacity>
             )}
 
+            {/* Buyer: view the Gemini-extracted metadata fields decrypted on demand */}
+            {transaction.status === 'InvoiceUploaded' && user?.role === 'buyer' && (
+                <TouchableOpacity
+                    style={[styles.dppBtn, { backgroundColor: '#00BCD4' }]}
+                    onPress={() => navigation.navigate('InvoiceExtractedFields', { transactionId: transaction.id })}
+                >
+                    <Ionicons name="analytics" size={24} color="white" />
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.dppBtnTitle}>View Extracted Fields</Text>
+                        <Text style={styles.dppBtnSub}>See your invoice data — decrypted on demand.</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={24} color="white" />
+                </TouchableOpacity>
+            )}
 
+
+
+            {/* Secure Lot Messaging */}
+            <TouchableOpacity
+                style={[styles.dppBtn, { backgroundColor: '#007AFF' }]}
+                onPress={() => navigation.navigate('LotMessaging', {
+                    lotId: transaction.id,
+                    receiverId: transaction.buyerId,
+                    lotLabel: `Order ${transaction.id.substring(0, 8)}`
+                })}
+            >
+                <Ionicons name="chatbubbles" size={24} color="white" />
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.dppBtnTitle}>Secure Messaging</Text>
+                    <Text style={styles.dppBtnSub}>Chat with the buyer about this lot.</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="white" />
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.homeBtn} onPress={() => navigation.navigate('Marketplace')}>
                 <Text style={styles.homeBtnText}>Continue Shopping</Text>
