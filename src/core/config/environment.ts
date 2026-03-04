@@ -1,14 +1,21 @@
 import { Platform } from 'react-native';
 
-// Your machine's current WiFi IP — update this if you change networks.
-// Find it with: ipconfig (Windows) → look for "Wireless LAN adapter WiFi" → IPv4 Address.
+// For Android EMULATOR: 10.0.2.2 always maps to the host machine's localhost (no adb reverse needed).
+// For Android PHYSICAL DEVICE via USB (adb reverse): use 127.0.0.1 — adb reverse tcp:5001 tcp:5001
+//   forwards device localhost:5001 → host localhost:5001, so IP never needs to change.
+//   Run before starting: adb reverse tcp:5001 tcp:5001 && adb reverse tcp:8081 tcp:8081
+const EMULATOR_IP = '10.0.2.2';
+const PHYSICAL_DEVICE_IP = '127.0.0.1'; // Works with adb reverse — no WiFi IP needed.
 
-const MACHINE_IP = '10.148.43.12';
+// Set to true when testing on a physical device via USB (adb reverse), false for emulator.
+const USE_PHYSICAL_DEVICE = true;
+
+const MACHINE_IP = USE_PHYSICAL_DEVICE ? PHYSICAL_DEVICE_IP : EMULATOR_IP;
 
 function getApiUrl(): string {
     const envUrl = process.env.EXPO_PUBLIC_API_URL;
     if (Platform.OS === 'android') {
-        // On Android, 'localhost' resolves to the device itself — must use the machine's LAN IP.
+        // On Android, 'localhost' resolves to the device itself — must use the machine's IP.
         if (envUrl) return envUrl.replace('localhost', MACHINE_IP);
         return `http://${MACHINE_IP}:5001/api`;
     }
