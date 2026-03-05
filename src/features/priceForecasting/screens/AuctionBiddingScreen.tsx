@@ -5,6 +5,8 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import { useStore } from '../../../store';
 import { colors } from '../../../shared/styles/colors';
 import { BiddingService, BiddingAuction } from '../services/biddingService';
+import * as signalR from '@microsoft/signalr';
+import { ENV } from '../../../core/config/environment';
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -52,13 +54,52 @@ export const AuctionBiddingScreen = () => {
         }, [id])
     );
 
-    // Polling active auctions every 5 seconds for real-time bid updates
+    // SignalR real-time connection
     useEffect(() => {
-        const pollInterval = setInterval(() => {
-            loadAuction(true);
-        }, 5000);
+        if (!id || id === '1') return;
 
-        return () => clearInterval(pollInterval);
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl(`${ENV.API_URL.replace(/\/api\/?$/, '')}/hubs/auction`)
+            .withAutomaticReconnect()
+            .build();
+
+        connection.start()
+            .then(() => {
+                console.log('Connected to AuctionHub');
+                connection.invoke('JoinAuctionGroup', id);
+            })
+            .catch(err => console.error('SignalR Connection Error: ', err));
+
+        connection.on('ReceiveBid', (bid: any) => {
+            setAuctionData(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    currentPrice: bid.amount,
+                    highestBidder: bid.bidderName,
+                    totalBids: prev.totalBids + 1
+                };
+            });
+        });
+
+        connection.on('AuctionClosed', (auctionId: string, winnerName: string, winningAmount: number) => {
+            setAuctionData(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    status: 'Closed',
+                    highestBidder: winnerName || 'No Winner',
+                    currentPrice: winningAmount || prev.currentPrice
+                };
+            });
+            setTimeLeftSeconds(0);
+        });
+
+        return () => {
+            if (connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke('LeaveAuctionGroup', id).then(() => connection.stop());
+            }
+        };
     }, [id]);
 
     // Derived state for easy rendering
@@ -148,10 +189,16 @@ export const AuctionBiddingScreen = () => {
                     <View style={styles.gradeBadge}>
                         <Text style={styles.gradeText}>{auctionData.grade}</Text>
                     </View>
-                    {role === 'farmer' && (
+                    {role === 'farmer' && auctionData.isNftSecured && (
                         <View style={styles.nftBadge}>
                             <Ionicons name="shield-checkmark" size={12} color="#2E7D32" />
                             <Text style={styles.nftBadgeText}>NFT Secured</Text>
+                        </View>
+                    )}
+                    {auctionData.esgScore !== undefined && (
+                        <View style={[styles.nftBadge, { backgroundColor: '#E3F2FD', marginLeft: 8 }]}>
+                            <Ionicons name="leaf" size={12} color="#1565C0" />
+                            <Text style={[styles.nftBadgeText, { color: '#1565C0' }]}>ESG Score: {auctionData.esgScore}/100</Text>
                         </View>
                     )}
                 </View>
@@ -227,24 +274,38 @@ export const AuctionBiddingScreen = () => {
                     </View>
                 </View>
 
-                {/* NFT Passport Section (Farmer Only) */}
-                {role === 'farmer' && (
+                {/* NFT Passport Section */}
+                {auctionData.isNftSecured && (
                     <View style={styles.nftSection}>
                         <Text style={styles.nftTitle}>Digital Passport (NFT)</Text>
+
                         <View style={styles.nftRow}>
                             <Ionicons name="cube-outline" size={32} color="#333" />
                             <View style={styles.nftDetails}>
                                 <Text style={styles.nftLabel}>Token ID</Text>
-                                <Text style={styles.nftValue}>0x7b...82a</Text>
+                                <Text style={styles.nftValue}>{auctionData.nftTokenId || 'Minting...'}</Text>
                             </View>
+                        </View>
+
+                        {auctionData.ipfsHash && (
+                            <View style={[styles.nftRow, { marginTop: 12 }]}>
+                                <Ionicons name="cloud-done-outline" size={32} color="#333" />
+                                <View style={styles.nftDetails}>
+                                    <Text style={styles.nftLabel}>IPFS Metadata Hash</Text>
+                                    <Text style={styles.nftValue}>{auctionData.ipfsHash}</Text>
+                                </View>
+                            </View>
+                        )}
+
+                        {role === 'farmer' && (
                             <TouchableOpacity
-                                style={styles.traceBtn}
+                                style={[styles.traceBtn, { marginTop: 15 }]}
                                 onPress={() => navigation.navigate('Traceability', { lotId: id })}
                             >
                                 <Text style={styles.traceBtnText}>Traceability</Text>
                                 <Ionicons name="chevron-forward" size={16} color="#2962FF" />
                             </TouchableOpacity>
-                        </View>
+                        )}
                     </View>
                 )}
 
