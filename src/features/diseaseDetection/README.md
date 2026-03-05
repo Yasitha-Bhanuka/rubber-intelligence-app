@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Disease Detection feature is a React Native (Expo) module that provides a mobile interface for identifying **three types of rubber plantation threats**: leaf diseases, pests, and weeds. Users capture or select a photo, which is sent to the backend API for AI-powered analysis.
+The Disease Detection feature is a React Native (Expo) module that provides a mobile interface for identifying **three types of rubber plantation threats**: leaf diseases, pests, and weeds. Users capture or select a photo, which is sent to the backend API for AI-powered analysis. **Output is restricted to trained classes only** — predictions outside the model boundary are shown as "Unidentified" (rejected alert).
 
 ## User Flow
 
