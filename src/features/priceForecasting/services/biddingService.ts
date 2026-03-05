@@ -17,6 +17,8 @@ export interface BiddingAuction {
     status: string;
     isNftSecured: boolean;
     nftTokenId?: string;
+    ipfsHash?: string;
+    esgScore?: number;
     lotId?: string;
 }
 

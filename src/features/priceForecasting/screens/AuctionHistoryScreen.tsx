@@ -46,28 +46,51 @@ export const AuctionHistoryScreen = () => {
         }, [])
     );
 
+    // Filter data based on search and roles
     const renderData = historyData.filter(item => {
-        // filter by search query
         if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase()) && !item.seller.toLowerCase().includes(searchQuery.toLowerCase())) {
             return false;
         }
 
         if (role === 'farmer') return item.seller === user?.name;
-        return item.highestBidder === user?.name || item.highestBidder?.includes('Winner');
-    }).map(item => ({
-        id: item.id,
-        title: item.title,
-        seller: item.seller,
-        grade: item.grade,
-        date: 'Recently Closed', // Mocking for now as EndTime is not directly returned uniformly
-        finalPrice: item.currentPrice,
-        priceIncrement: item.currentPrice > 0 ? `+${item.currentPrice}` : '0',
-        quantity: item.quantity,
-        totalValue: (item.currentPrice * parseInt(item.quantity.replace(/[^0-9]/g, '') || '0')).toLocaleString(),
-        winner: item.highestBidder,
-        bids: item.totalBids,
-        statusColor: '#48BB78'
-    }));
+        // Basic buyer check, can view all closed auctions or specific
+        return true;
+    }).map(item => {
+        const cleanStr = item.endTime ? item.endTime.substring(0, 19) : "";
+        const formattedDate = cleanStr ? new Date(cleanStr + "Z").toLocaleDateString() : "Unknown";
+
+        return {
+            id: item.id,
+            title: item.title,
+            seller: item.seller,
+            grade: item.grade,
+            date: formattedDate,
+            finalPrice: item.currentPrice,
+            quantity: item.quantity,
+            totalValue: (item.currentPrice * parseInt(item.quantity.replace(/[^0-9]/g, '') || '0')).toLocaleString(),
+            winner: item.highestBidder,
+            bids: item.totalBids,
+            statusColor: '#48BB78'
+        };
+    });
+
+    // Dynamic stats
+    const totalAuctions = renderData.length;
+    let totalVolumeKg = 0;
+    let totalPriceSum = 0;
+    let myWins = 0;
+
+    renderData.forEach(d => {
+        const kg = parseInt(d.quantity.replace(/[^0-9]/g, '') || '0');
+        totalVolumeKg += kg;
+        totalPriceSum += d.finalPrice;
+        if (role !== 'farmer' && d.winner === user?.name) {
+            myWins += 1;
+        }
+    });
+
+    const avgPrice = totalAuctions > 0 ? Math.round(totalPriceSum / totalAuctions) : 0;
+    const volTons = (totalVolumeKg / 1000).toFixed(1);
 
     return (
         <ScrollView style={styles.container}>
@@ -84,17 +107,19 @@ export const AuctionHistoryScreen = () => {
 
             {/* Stat Cards Row */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll} contentContainerStyle={styles.statsContainer}>
-                <StatCard title="Total Auctions" value="3" subtitle="completed" icon="ribbon-outline" iconColor="#2962FF" />
-                <StatCard title="Total Volume" value="11.3t" subtitle="rubber traded" icon="ribbon-outline" iconColor="#4CAF50" />
-                <StatCard title="Average Price" value="LKR 452" subtitle="per kg" icon="ribbon-outline" iconColor="#9C27B0" />
-                <StatCard title="Your Wins" value="8" subtitle="auctions won" icon="ribbon-outline" iconColor="#FF9800" />
+                <StatCard title="Total Auctions" value={totalAuctions.toString()} subtitle="completed" icon="ribbon-outline" iconColor="#2962FF" />
+                <StatCard title="Total Volume" value={`${volTons}t`} subtitle="rubber traded" icon="cube-outline" iconColor="#4CAF50" />
+                <StatCard title="Avg Price" value={`LKR ${avgPrice}`} subtitle="per kg" icon="pricetag-outline" iconColor="#9C27B0" />
+                {role !== 'farmer' && (
+                    <StatCard title="Your Wins" value={myWins.toString()} subtitle="auctions won" icon="trophy-outline" iconColor="#FF9800" />
+                )}
             </ScrollView>
 
             {/* Main Content Area */}
-            <View style={styles.mainCard}>
+            <View style={styles.mainContent}>
 
                 {/* Search & Filters */}
-                <View style={styles.filterRow}>
+                <View style={styles.filterCard}>
                     <View style={styles.searchContainer}>
                         <Ionicons name="search-outline" size={20} color="#888" style={{ marginLeft: 10 }} />
                         <TextInput
@@ -104,136 +129,62 @@ export const AuctionHistoryScreen = () => {
                             onChangeText={setSearchQuery}
                         />
                     </View>
-                    <View style={styles.dropdownContainer}>
-                        <Text style={styles.dropdownLabel}>Filter by Grade</Text>
-                        <TouchableOpacity style={styles.dropdownBtn}>
-                            <Text style={styles.dropdownText}>All Grades</Text>
-                            <Ionicons name="chevron-down" size={16} color="#888" />
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.dropdownContainer}>
-                        <Text style={styles.dropdownLabel}>Sort By</Text>
-                        <TouchableOpacity style={styles.dropdownBtn}>
-                            <Text style={styles.dropdownText}>Date (Newest)</Text>
-                            <Ionicons name="chevron-down" size={16} color="#888" />
-                        </TouchableOpacity>
-                    </View>
                 </View>
 
-                {/* Table Header Wrapper */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={true} style={{ marginTop: 15 }}>
-                    <View>
-                        <View style={styles.tableHeader}>
-                            <Text style={[styles.thText, { width: 180 }]}>Auction Details</Text>
-                            <Text style={[styles.thText, { width: 80 }]}>Grade</Text>
-                            <Text style={[styles.thText, { width: 100 }]}>Date</Text>
-                            <Text style={[styles.thText, { width: 120 }]}>Final Price</Text>
-                            <Text style={[styles.thText, { width: 110 }]}>Quantity</Text>
-                            <Text style={[styles.thText, { width: 140 }]}>Winner</Text>
-                            <Text style={[styles.thText, { width: 60, textAlign: 'center' }]}>Bids</Text>
-                            <Text style={[styles.thText, { width: 90, textAlign: 'center' }]}>Actions</Text>
-                        </View>
-
-                        {/* List Items */}
+                {loading ? (
+                    <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+                ) : renderData.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <Ionicons name="document-text-outline" size={48} color="#CCC" />
+                        <Text style={styles.emptyText}>No historical auctions found.</Text>
+                    </View>
+                ) : (
+                    <View style={styles.listContainer}>
                         {renderData.map((item) => (
-                            <View key={item.id} style={styles.tableRow}>
-                                {/* Details */}
-                                <View style={{ width: 180, paddingRight: 10 }}>
-                                    <Text style={styles.itemTitle}>{item.title}</Text>
-                                    <Text style={styles.itemSeller}>{item.seller}</Text>
-                                </View>
-
-                                {/* Grade */}
-                                <View style={{ width: 80 }}>
+                            <View key={item.id} style={styles.auctionCard}>
+                                <View style={styles.cardHeader}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.itemTitle}>{item.title}</Text>
+                                        <Text style={styles.itemSeller}>by {item.seller}</Text>
+                                    </View>
                                     <View style={styles.gradeBadge}>
                                         <Text style={styles.gradeText}>{item.grade}</Text>
                                     </View>
                                 </View>
 
-                                {/* Date */}
-                                <View style={{ width: 100, flexDirection: 'row', alignItems: 'center' }}>
-                                    <Ionicons name="calendar-outline" size={14} color="#888" style={{ marginRight: 4 }} />
-                                    <Text style={styles.tdText}>{item.date}</Text>
-                                </View>
-
-                                {/* Price */}
-                                <View style={{ width: 120 }}>
-                                    <Text style={[styles.itemPrice, { color: item.statusColor }]}>LKR {item.finalPrice}/kg</Text>
-                                    <Text style={styles.itemIncrement}>{item.priceIncrement} from start</Text>
-                                </View>
-
-                                {/* Quantity */}
-                                <View style={{ width: 110 }}>
-                                    <Text style={styles.itemQuantity}>{item.quantity}</Text>
-                                    <Text style={styles.itemTotalVal}>LKR {item.totalValue}</Text>
-                                </View>
-
-                                {/* Winner */}
-                                <View style={{ width: 140 }}>
-                                    <Text style={styles.itemWinner}>{item.winner}</Text>
-                                </View>
-
-                                {/* Bids */}
-                                <View style={{ width: 60, alignItems: 'center' }}>
-                                    <View style={styles.bidBadge}>
-                                        <Text style={styles.bidText}>{item.bids}</Text>
+                                <View style={styles.cardInfoRow}>
+                                    <View style={styles.infoCol}>
+                                        <Text style={styles.infoLabel}>Final Price</Text>
+                                        <Text style={[styles.infoVal, { color: item.statusColor }]}>LKR {item.finalPrice}/kg</Text>
+                                    </View>
+                                    <View style={styles.infoCol}>
+                                        <Text style={styles.infoLabel}>Volume</Text>
+                                        <Text style={styles.infoVal}>{item.quantity}</Text>
+                                    </View>
+                                    <View style={styles.infoCol}>
+                                        <Text style={styles.infoLabel}>Total Value</Text>
+                                        <Text style={styles.infoVal}>LKR {item.totalValue}</Text>
                                     </View>
                                 </View>
 
-                                {/* Actions */}
-                                <View style={{ width: 90, alignItems: 'center' }}>
-                                    <TouchableOpacity style={styles.actionBtn}>
-                                        <Ionicons name="download-outline" size={16} color="#333" />
-                                        <Text style={styles.actionText}>Report</Text>
-                                    </TouchableOpacity>
+                                <View style={styles.cardFooter}>
+                                    <View style={styles.footerInfo}>
+                                        <Ionicons name="trophy-outline" size={14} color="#FF9800" style={{ marginRight: 4 }} />
+                                        <Text style={styles.winnerLabel}>Winner: </Text>
+                                        <Text style={styles.winnerName}>{item.winner}</Text>
+                                    </View>
+                                    <View style={styles.footerInfo}>
+                                        <Ionicons name="calendar-outline" size={14} color="#888" style={{ marginRight: 4 }} />
+                                        <Text style={styles.dateLabel}>{item.date}</Text>
+                                    </View>
                                 </View>
                             </View>
                         ))}
                     </View>
-                </ScrollView>
+                )}
             </View>
 
-            {/* Bottom Export Section */}
-            <View style={styles.exportSection}>
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.exportTitle}>Export Historical Data</Text>
-                    <Text style={styles.exportSubtitle}>Download auction history reports for analysis and record-keeping</Text>
-                </View>
-                <View style={styles.exportBtnsContainer}>
-                    <TouchableOpacity style={styles.exportBtn}>
-                        <Ionicons name="download-outline" size={16} color="#333" />
-                        <Text style={styles.exportBtnText}>Export to CSV</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.exportBtn}>
-                        <Ionicons name="download-outline" size={16} color="#333" />
-                        <Text style={styles.exportBtnText}>Export to PDF</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Analytics Insights */}
-            <View style={styles.analyticsSection}>
-                <Text style={styles.analyticsTitle}>Historical Price Insights</Text>
-                <View style={styles.analyticsGrid}>
-                    <View style={styles.analyticsBox}>
-                        <Text style={styles.anLabel}>Highest Price (RSS1)</Text>
-                        <Text style={[styles.anValue, { color: '#4CAF50' }]}>LKR 485/kg</Text>
-                        <Text style={styles.anSub}>November 7, 2025</Text>
-                    </View>
-                    <View style={styles.analyticsBox}>
-                        <Text style={styles.anLabel}>Average Winning Margin</Text>
-                        <Text style={[styles.anValue, { color: '#2962FF' }]}>LKR 28/kg</Text>
-                        <Text style={styles.anSub}>above starting price</Text>
-                    </View>
-                    <View style={styles.analyticsBox}>
-                        <Text style={styles.anLabel}>Most Competitive</Text>
-                        <Text style={[styles.anValue, { color: '#9C27B0' }]}>24 bids</Text>
-                        <Text style={styles.anSub}>TSR20 auction</Text>
-                    </View>
-                </View>
-            </View>
-
-            <View style={{ height: 40 }} />
+            <View style={{ height: 60 }} />
         </ScrollView>
     );
 };
@@ -247,53 +198,37 @@ const styles = StyleSheet.create({
 
     statsScroll: { paddingLeft: 15, marginVertical: 20 },
     statsContainer: { paddingRight: 30 },
-    statCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, width: 220, marginRight: 15, flexDirection: 'row', justifyContent: 'space-between', elevation: 1 },
+    statCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, width: 180, marginRight: 15, flexDirection: 'row', justifyContent: 'space-between', elevation: 1 },
     statContent: { flex: 1 },
     statTitle: { fontSize: 13, color: '#888', marginBottom: 8 },
-    statValue: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+    statValue: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 4 },
     statSubtitle: { fontSize: 12, color: '#888' },
     iconWrapper: { justifyContent: 'flex-start' },
 
-    mainCard: { backgroundColor: '#FFF', margin: 15, borderRadius: 12, elevation: 1, padding: 20 },
-    filterRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 30, gap: 15 },
-    searchContainer: { flex: 2, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderRadius: 8, height: 40 },
-    searchInput: { flex: 1, height: '100%', paddingHorizontal: 10, fontSize: 14 },
-    dropdownContainer: { flex: 1 },
-    dropdownLabel: { fontSize: 12, color: '#888', marginBottom: 6 },
-    dropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F8F9FA', borderRadius: 8, height: 40, paddingHorizontal: 12 },
-    dropdownText: { fontSize: 13, color: '#333' },
+    mainContent: { paddingHorizontal: 15 },
+    filterCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 10, elevation: 1, marginBottom: 15 },
+    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderRadius: 8, height: 45 },
+    searchInput: { flex: 1, height: '100%', paddingHorizontal: 10, fontSize: 15 },
 
-    tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#EEE', paddingBottom: 12, marginBottom: 15 },
-    thText: { fontSize: 13, fontWeight: 'bold', color: '#333' },
+    emptyState: { alignItems: 'center', marginTop: 40 },
+    emptyText: { color: '#888', fontSize: 16, marginTop: 10 },
 
-    tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-    itemTitle: { fontSize: 14, color: '#333', marginBottom: 4 },
-    itemSeller: { fontSize: 12, color: '#888' },
-    gradeBadge: { alignSelf: 'flex-start', backgroundColor: '#F5F5F5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#EEE' },
-    gradeText: { fontSize: 11, fontWeight: 'bold', color: '#555' },
-    tdText: { fontSize: 13, color: '#666' },
-    itemPrice: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
-    itemIncrement: { fontSize: 12, color: '#888' },
-    itemQuantity: { fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 2 },
-    itemTotalVal: { fontSize: 12, color: '#888' },
-    itemWinner: { fontSize: 13, color: '#444' },
-    bidBadge: { backgroundColor: '#F0F4F8', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-    bidText: { fontSize: 12, fontWeight: 'bold', color: '#555' },
-    actionBtn: { flexDirection: 'row', alignItems: 'center' },
-    actionText: { fontSize: 12, fontWeight: 'bold', color: '#333', marginLeft: 4 },
+    listContainer: { gap: 15 },
+    auctionCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, elevation: 1, borderWidth: 1, borderColor: '#F0F0F0' },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 },
+    itemTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+    itemSeller: { fontSize: 13, color: '#888' },
+    gradeBadge: { backgroundColor: '#F5F5F5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#EEE' },
+    gradeText: { fontSize: 12, fontWeight: 'bold', color: '#555' },
 
-    exportSection: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', marginHorizontal: 15, marginBottom: 15, padding: 20, borderRadius: 12, elevation: 1 },
-    exportTitle: { fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-    exportSubtitle: { fontSize: 12, color: '#666' },
-    exportBtnsContainer: { flexDirection: 'row', gap: 10 },
-    exportBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 6, borderWidth: 1, borderColor: '#DDD' },
-    exportBtnText: { fontSize: 13, fontWeight: 'bold', color: '#333', marginLeft: 6 },
+    cardInfoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+    infoCol: { flex: 1, alignItems: 'center' },
+    infoLabel: { fontSize: 11, color: '#888', marginBottom: 4 },
+    infoVal: { fontSize: 14, fontWeight: 'bold', color: '#333' },
 
-    analyticsSection: { backgroundColor: '#F0F7FF', marginHorizontal: 15, borderRadius: 12, padding: 20 },
-    analyticsTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 20 },
-    analyticsGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-    analyticsBox: { flex: 1 },
-    anLabel: { fontSize: 12, color: '#666', marginBottom: 10 },
-    anValue: { fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
-    anSub: { fontSize: 12, color: '#888' }
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    footerInfo: { flexDirection: 'row', alignItems: 'center' },
+    winnerLabel: { fontSize: 12, color: '#666' },
+    winnerName: { fontSize: 13, fontWeight: 'bold', color: '#333' },
+    dateLabel: { fontSize: 12, color: '#666' }
 });
