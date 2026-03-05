@@ -26,6 +26,7 @@ export default function ClassificationResultScreen() {
     const navigation = useNavigation<any>();
     const result: DppUploadResponse = route.params?.result;
     const isInvoice: boolean = route.params?.isInvoice ?? false;
+    const isQir: boolean = route.params?.isQir ?? false;
     const [generating, setGenerating] = useState(false);
 
     if (!result) return (
@@ -63,8 +64,8 @@ export default function ClassificationResultScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.inner}>
-            {/* ── Pipeline Progress (DPP only) ── */}
-            {!isInvoice && (
+            {/* ── Pipeline Progress ── */}
+            {!isInvoice && !isQir && (
                 <View style={styles.pipelineBar}>
                     <View style={styles.pipelineStep}>
                         <View style={[styles.stepDot, styles.stepDone]}>
@@ -80,6 +81,17 @@ export default function ClassificationResultScreen() {
                         </View>
                         <Text style={styles.stepLabelPending}>Step B — Awaiting Your Approval</Text>
                         <Text style={styles.stepSubPending}>Review below, then approve</Text>
+                    </View>
+                </View>
+            )}
+            {isQir && (
+                <View style={styles.pipelineBar}>
+                    <View style={styles.pipelineStep}>
+                        <View style={[styles.stepDot, styles.stepDone]}>
+                            <Ionicons name="checkmark" size={14} color="white" />
+                        </View>
+                        <Text style={styles.stepLabelDone}>QIR Processed</Text>
+                        <Text style={styles.stepSubDone}>Extracted · Classified · Encrypted</Text>
                     </View>
                 </View>
             )}
@@ -345,7 +357,7 @@ export default function ClassificationResultScreen() {
             </View>
 
             {/* ── Glass Box Review Panel (DPP only) ── */}
-            {!isInvoice && (
+            {!isInvoice && !isQir && (
                 <View style={styles.reviewPanel}>
                     <View style={styles.reviewPanelHeader}>
                         <Ionicons name="eye" size={18} color={COLORS.purple} />
@@ -377,8 +389,8 @@ export default function ClassificationResultScreen() {
                 </View>
             )}
 
-            {/* Actions — DPP: Approve & Generate Passport | Invoice: Done */}
-            {!isInvoice ? (
+            {/* Actions — DPP: Approve & Generate Passport | QIR: View Fields | Invoice: Done */}
+            {!isInvoice && !isQir ? (
                 <TouchableOpacity
                     style={[styles.primaryBtn, { backgroundColor: COLORS.purple }, generating && styles.disabled]}
                     onPress={handleGeneratePassport}
@@ -396,6 +408,14 @@ export default function ClassificationResultScreen() {
                         </>
                     )}
                 </TouchableOpacity>
+            ) : isQir ? (
+                <TouchableOpacity
+                    style={[styles.primaryBtn, { backgroundColor: '#2E7D32' }]}
+                    onPress={() => navigation.navigate('QirExtractedFields', { transactionId: dppId })}
+                >
+                    <Ionicons name="analytics" size={22} color="white" />
+                    <Text style={styles.primaryBtnText}>View QIR Fields</Text>
+                </TouchableOpacity>
             ) : (
                 <TouchableOpacity
                     style={[styles.primaryBtn, { backgroundColor: COLORS.green }]}
@@ -408,11 +428,11 @@ export default function ClassificationResultScreen() {
 
             <TouchableOpacity
                 style={styles.secondaryBtn}
-                onPress={() => isInvoice ? navigation.goBack() : navigation.navigate('DocumentUpload')}
+                onPress={() => (isInvoice || isQir) ? navigation.goBack() : navigation.navigate('DocumentUpload')}
             >
-                <Ionicons name={isInvoice ? 'arrow-back-outline' : 'add-circle-outline'} size={20} color={COLORS.primary} />
+                <Ionicons name={(isInvoice || isQir) ? 'arrow-back-outline' : 'add-circle-outline'} size={20} color={COLORS.primary} />
                 <Text style={styles.secondaryBtnText}>
-                    {isInvoice ? 'Back to Dashboard' : 'Process Another Document'}
+                    {(isInvoice || isQir) ? 'Back to Dashboard' : 'Process Another Document'}
                 </Text>
             </TouchableOpacity>
         </ScrollView>

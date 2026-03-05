@@ -103,7 +103,8 @@ export interface MarketplaceTransaction {
   exporterId: string;
   exporterName: string;
   buyerId: string;
-  status: 'PendingInvoice' | 'InvoiceUploaded' | 'Completed';
+  /** PendingInvoice → InvoiceUploaded → QirUploaded → Completed */
+  status: 'PendingInvoice' | 'InvoiceUploaded' | 'QirUploaded' | 'Completed';
   offerPrice: number;
   lastUpdatedAt: string;
   dppInvoicePath?: string;
@@ -112,6 +113,32 @@ export interface MarketplaceTransaction {
   dppDocumentId?: string;
   /** Safe invoice fields extracted by Gemini. Confidential values are null. */
   invoiceFields?: Record<string, string | null>;
+  /** Safe QIR fields extracted by Gemini. Confidential values are null. */
+  qirFields?: Record<string, string | null>;
+  qirClassification?: string;
+}
+
+/**
+ * Returned by POST /api/Marketplace/transactions/{id}/qir.
+ * Shape mirrors InvoiceUploadResponse so ClassificationResultScreen is reusable.
+ * dppId here is the transactionId.
+ */
+export interface QirUploadResponse {
+  dppId: string;
+  message: string;
+  fieldsExtracted: number;
+  fields: DppFieldSummary[];
+  classification: DppClassification;
+  supportedFormats: string[];
+}
+
+/**
+ * Returned by GET /api/Marketplace/transactions/{id}/qir-fields.
+ */
+export interface QirDecryptedField {
+  fieldName: string;
+  value: string | null;
+  isConfidential: boolean;
 }
 
 export interface UploadState {

@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import { getBuyerDocuments, getPendingAccessRequests } from '../services/dppService';
-import { getMyTransactions, uploadInvoice } from '../services/marketplaceService';
+import { getMyTransactions, uploadInvoice, uploadQir } from '../services/marketplaceService';
 import { DppDocument, MarketplaceTransaction } from '../types';
 import { useStore } from '../../../store';
 
@@ -186,14 +186,35 @@ export default function BuyerDashboardScreen() {
             setLoading(false);
         }
     };
-
+    /* ── QIR upload ─────────────────────── */
+    const handleUploadQir = async (transactionId: string) => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+            if (result.canceled) return;
+            const file = result.assets[0];
+            setLoading(true);
+            const response = await uploadQir(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
+            loadData();
+            // Reuse ClassificationResultScreen — pass isInvoice:false so header shows "Quality Inspection Report"
+            navigation.navigate('ClassificationResult', { result: response, isInvoice: false, isQir: true });
+        } catch {
+            Alert.alert('Error', 'Failed to upload Quality Inspection Report');
+        } finally {
+            setLoading(false);
+        }
+    };
     /* ── Helpers ─────────────────────────── */
     const statusColor = (status: string) =>
-        status === 'Completed' ? C.green : status === 'InvoiceUploaded' ? C.blue : C.orange;
+        status === 'Completed'      ? C.green
+        : status === 'QirUploaded'  ? C.accent
+        : status === 'InvoiceUploaded' ? C.blue
+        : C.orange;
 
     const statusLabel = (status: string) =>
-        status === 'Completed' ? 'Payment Completed'
-            : status === 'PendingInvoice' ? 'Pending Invoice' : 'Invoice Uploaded';
+        status === 'Completed'         ? 'Payment Completed'
+        : status === 'QirUploaded'     ? 'QIR Uploaded'
+        : status === 'PendingInvoice'  ? 'Pending Invoice'
+        : 'Invoice Uploaded';
 
     const getInitials = (name?: string) => {
         if (!name) return 'B';
@@ -419,6 +440,28 @@ export default function BuyerDashboardScreen() {
                                         >
                                             <Ionicons name="cloud-upload" size={14} color="#FFF" />
                                             <Text style={s.txBtnText}>Upload Invoice</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {/* Step 2 — upload QIR after invoice */}
+                                    {t.status === 'InvoiceUploaded' && (
+                                        <TouchableOpacity
+                                            style={[s.txBtn, { backgroundColor: C.primary }]}
+                                            onPress={() => handleUploadQir(t.id)}
+                                        >
+                                            <Ionicons name="clipboard" size={14} color="#FFF" />
+                                            <Text style={s.txBtnText}>Upload QIR</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {/* View QIR extracted fields once uploaded */}
+                                    {(t.status === 'QirUploaded' || t.status === 'Completed') && t.qirFields && (
+                                        <TouchableOpacity
+                                            style={[s.txBtn, { backgroundColor: C.accent }]}
+                                            onPress={() => navigation.navigate('QirExtractedFields', { transactionId: t.id })}
+                                        >
+                                            <Ionicons name="analytics" size={14} color="#FFF" />
+                                            <Text style={s.txBtnText}>View QIR</Text>
                                         </TouchableOpacity>
                                     )}
 

@@ -13,6 +13,7 @@ import PendingRequestsScreen from '../features/dpp/screens/PendingRequestsScreen
 import ConfidentialAccessScreen from '../features/dpp/screens/ConfidentialAccessScreen';
 import LotMessagingScreen from '../features/dpp/screens/LotMessagingScreen';
 import InvoiceExtractedFieldsScreen from '../features/dpp/screens/InvoiceExtractedFieldsScreen';
+import QirExtractedFieldsScreen from '../features/dpp/screens/QirExtractedFieldsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -49,6 +50,9 @@ export default function DppNavigator() {
 
             {/* Buyer: on-demand decryption of extracted invoice fields */}
             <Stack.Screen name="InvoiceExtractedFields" component={InvoiceExtractedFieldsScreen} />
+
+            {/* Buyer: on-demand decryption of extracted QIR fields */}
+            <Stack.Screen name="QirExtractedFields" component={QirExtractedFieldsScreen} />
 
             {/* Secure Lot-Linked Messaging */}
             <Stack.Screen name="LotMessaging" component={LotMessagingScreen} />
