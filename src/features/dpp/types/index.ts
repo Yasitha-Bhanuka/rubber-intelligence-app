@@ -1,26 +1,88 @@
-export interface DppResult {
-  id?: string; // Optional because legacy results might not have it immediately
-  fileName: string;
+// ── Upload response (POST /api/dpp/upload) ──────────────────────────
+export interface DppUploadResponse {
+  dppId: string;
+  fieldsExtracted: number;
+  fields: DppFieldSummary[];
+  classification: DppClassification;
+  supportedFormats: string[];
+}
+
+/**
+ * Returned by POST /api/Marketplace/transactions/{id}/invoice.
+ * Shape mirrors DppUploadResponse so ClassificationResultScreen is reusable.
+ * dppId here is the transactionId.
+ */
+export interface InvoiceUploadResponse {
+  dppId: string;
+  message: string;
+  fieldsExtracted: number;
+  fields: DppFieldSummary[];
+  classification: DppClassification;
+  supportedFormats: string[];
+}
+
+export interface DppFieldSummary {
+  fieldName: string;
+  isConfidential: boolean;
+  confidenceScore: number;
+  hasValue: boolean;
+  /** Plain value for non-confidential fields; null/undefined for encrypted ones */
+  extractedValue?: string | null;
+}
+
+export interface DppClassification {
   classification: 'CONFIDENTIAL' | 'NON_CONFIDENTIAL';
   confidenceScore: number;
   confidenceLevel: string;
   systemAction: string;
   explanation: string;
   influentialKeywords: string[];
-  isEncrypted: boolean;
-  extractedText?: string;
-  qrCodeData?: string; // For frontend generation
+  /** Total fields Gemini extracted from the document */
+  geminiExtractedCount: number;
+  publicFieldCount: number;
+  confidentialFieldCount: number;
+}
+/**
+ * Returned by GET /api/Marketplace/transactions/{id}/invoice-fields.
+ * Confidential fields carry their AES-256-CBC decrypted plaintext value;
+ * non-confidential fields carry the value stored directly in the database.
+ */
+export interface InvoiceDecryptedField {
+  /** Machine-friendly field key, e.g. "invoiceNumber", "totalAmount" */
+  fieldName: string;
+  /** Decrypted plaintext value; null if field had no value or decryption failed */
+  value: string | null;
+  /** True when the field was classified as commercially sensitive at upload time */
+  isConfidential: boolean;
+}
+// ── Digital Product Passport (GET /api/dpp/passport/{dppId}) ─────────
+export interface DigitalProductPassport {
+  id: string;
+  lotId: string;
+  rubberGrade: string;
+  quantity: number;
+  dispatchDetails: string;
+  confidentialDataExists: boolean;
+  /** GENERATED | VERIFIED | REINSPECTION_REQUESTED | ACCEPTED | REJECTED */
+  lifecycleState: string;
+  dppHash: string;
+  createdAt: string;
 }
 
+// ── DppDocument (GET /api/dpp/my-uploads) ────────────────────────────
 export interface DppDocument {
   id: string;
   originalFileName: string;
   classification: string;
-  isEncrypted: boolean;
+  confidenceScore: number;
   uploadedAt: string;
+  uploadedBy: string;
   extractedTextSummary?: string;
+  detectedKeywords: string[];
+  contentType: string;
 }
 
+// ── Marketplace ───────────────────────────────────────────────────────
 export interface SellingPost {
   id: string;
   buyerId: string;
@@ -29,8 +91,8 @@ export interface SellingPost {
   quantityKg: number;
   pricePerKg: number;
   location: string;
-  dppDocumentId?: string; // Links to DppDocument.id
-  status: 'Active' | 'Sold' | 'Archived';
+  dppDocumentId?: string;
+  status: 'Active' | 'Sold' | 'Archived' | 'AVAILABLE' | 'REQUESTED' | 'APPROVED' | 'COMPLETED' | 'REJECTED' | 'REINSPECTION';
   soldToExporterId?: string;
   createdAt: string;
 }
@@ -39,21 +101,88 @@ export interface MarketplaceTransaction {
   id: string;
   postId: string;
   exporterId: string;
-  exporterName: string; // Helpful for summary
+  exporterName: string;
   buyerId: string;
   status: 'PendingInvoice' | 'InvoiceUploaded' | 'Completed';
   offerPrice: number;
-  lastUpdatedAt: string; // Kept for sorting
+  lastUpdatedAt: string;
   dppInvoicePath?: string;
   dppClassification?: string;
   encryptionMetadata?: string;
-  dppDocumentId?: string; // Links to the DPP document for the lot
+  dppDocumentId?: string;
+  /** Safe invoice fields extracted by Gemini. Confidential values are null. */
+  invoiceFields?: Record<string, string | null>;
 }
-
-
 
 export interface UploadState {
   isLoading: boolean;
   error: string | null;
-  result: DppResult | null;
+  result: DppUploadResponse | null;
+}
+
+// ── Controlled Access ─────────────────────────────────────────────────
+export interface AccessRequest {
+  id: string;
+  lotId: string;
+  exporterId: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestedAt: string;
+}
+
+export interface ConfidentialField {
+  fieldName: string;
+  decryptedValue: string;
+}
+
+export interface ConfidentialAccessResponse {
+  lotId: string;
+  accessGrantedAt: string;
+  fields: ConfidentialField[];
+}
+
+// ── DPP Hash Verification (GET /api/dpp/verify/{lotId}) ───────────────
+export interface DppVerificationResponse {
+  isValid: boolean;
+  recalculatedHash: string;
+  storedHash: string;
+}
+
+// ── Exporter Context (GET /api/dpp/exporter-context/{exporterId}) ──────
+export interface ExporterContext {
+  name: string;
+  country: string | null;
+  organizationType: string | null;
+  platformTenureMonths: number;
+  totalCollaborationsWithBuyer: number;
+  lastCollaborationDate: string | null;
+  isVerified: boolean;
+}
+
+// ── Buyer History (GET /api/marketplace/buyer-history/{buyerId}) ────────
+export interface BuyerHistory {
+  buyerId: string;
+  totalLots: number;
+  accepted: number;
+  rejected: number;
+  reInspections: number;
+  averageQuality: number;
+  verificationConsistency: 'High' | 'Medium' | 'Low';
+  lastActivityDate: string | null;
+}
+
+// ── Lot-Linked Messaging ───────────────────────────────────────────────
+export interface MessageDto {
+  id: string;
+  lotId: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  isConfidential: boolean;
+  createdAt: string;
+}
+
+export interface SendMessageRequest {
+  receiverId: string;
+  content: string;
+  isConfidential: boolean;
 }

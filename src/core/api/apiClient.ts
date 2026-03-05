@@ -26,10 +26,13 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        // Handle global errors (e.g., 401 Unauthorized)
         if (error.response && error.response.status === 401) {
-            // Trigger logout action or refresh token flow here
-            console.warn('Unauthorized access - Redirecting to login');
+            const url: string = error.config?.url ?? '';
+            // Suppress warning for auth endpoints — 401 there is expected
+            // (no session, expired token, wrong credentials)
+            if (!url.includes('/auth/')) {
+                console.warn('Session expired - please log in again');
+            }
         }
         return Promise.reject(error);
     }
