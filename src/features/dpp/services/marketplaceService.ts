@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField } from '../types';
+import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField } from '../types';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -100,6 +100,43 @@ export const getInvoice = async (transactionId: string): Promise<string> => {
 };
 
 // ── INVOICE EXTRACTED FIELDS ──────────────────────────────────────────────────
+
+/**
+ * POST /api/Marketplace/transactions/{transactionId}/qir
+ * Buyer uploads a Quality Inspection Report after the invoice is uploaded.
+ * Returns the same shape as InvoiceUploadResponse for reuse with ClassificationResultScreen.
+ */
+export const uploadQir = async (transactionId: string, file: any): Promise<QirUploadResponse> => {
+    try {
+        const formData = new FormData();
+        formData.append('file', {
+            uri: file.uri,
+            name: file.name,
+            type: file.mimeType || 'application/pdf'
+        } as any);
+        const response = await apiClient.post<QirUploadResponse>(
+            `/Marketplace/transactions/${transactionId}/qir`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Upload QIR Error:', error);
+        throw error;
+    }
+};
+
+/**
+ * GET /api/Marketplace/transactions/{transactionId}/qir-fields
+ * Decrypts and returns all extracted QIR fields for the authenticated Buyer.
+ */
+export const getQirExtractedFields = async (
+    transactionId: string
+): Promise<QirDecryptedField[]> => {
+    const response = await apiClient.get<QirDecryptedField[]>(
+        `/Marketplace/transactions/${transactionId}/qir-fields`
+    );
+    return response.data;
+};
 
 /**
  * GET /api/Marketplace/transactions/{transactionId}/invoice-fields
