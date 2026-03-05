@@ -56,17 +56,24 @@ export const TraceabilityScreen = () => {
         );
     }
 
+    const renderDateStr = (dateInput?: string, offsetMinutes = 0) => {
+        const baseDate = dateInput ? new Date(dateInput) : new Date();
+        const adjustedDate = new Date(baseDate.getTime() + offsetMinutes * 60000);
+        // Returns local date-time string omitting seconds
+        return adjustedDate.toLocaleString('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace('T', ' ');
+    };
+
     const generatedHistory = [
         {
             event: 'Lot Registered',
-            timestamp: lot?.endTime ? new Date(new Date(lot.endTime).getTime() - 60 * 60000).toISOString().substring(0, 16).replace('T', ' ') : 'Just Now',
+            timestamp: renderDateStr(lot?.endTime, -60), // Start time is -60 min
             actor: `Farmer: ${lot?.seller}`,
             details: `Added ${lot?.quantity} ${lot?.grade}`,
             txHash: `0x${Math.random().toString(16).slice(2, 10)}...`
         },
         {
             event: 'NFT Passport Minted',
-            timestamp: lot?.endTime ? new Date(new Date(lot.endTime).getTime() - 59 * 60000).toISOString().substring(0, 16).replace('T', ' ') : 'Just Now',
+            timestamp: renderDateStr(lot?.endTime, -59), // Minted 1 min after start
             actor: 'Ethereum Network',
             details: `Token ID: ${lot?.nftTokenId || 'Pending'}`,
             txHash: `0x${Math.random().toString(16).slice(2, 10)}...`
@@ -76,7 +83,7 @@ export const TraceabilityScreen = () => {
     if (lot?.status === 'Closed') {
         generatedHistory.push({
             event: 'Auction Closed',
-            timestamp: lot.endTime ? lot.endTime.substring(0, 16).replace('T', ' ') : 'Just Now',
+            timestamp: renderDateStr(lot.endTime, 0), // End time
             actor: 'Smart Contract',
             details: `Winner: ${lot.highestBidder}`,
             txHash: `0x${Math.random().toString(16).slice(2, 10)}...`

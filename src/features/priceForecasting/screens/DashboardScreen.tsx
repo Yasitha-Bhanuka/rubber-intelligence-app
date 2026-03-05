@@ -17,6 +17,7 @@ export const DashboardScreen = () => {
     const role = user?.role || 'buyer'; // default fallback
     const [priceHistory, setPriceHistory] = useState<any[]>([]);
     const [auctions, setAuctions] = useState<BiddingAuction[]>([]);
+    const [wonAuctions, setWonAuctions] = useState<BiddingAuction[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [trend, setTrend] = useState({ value: 0, isPositive: true });
@@ -28,12 +29,18 @@ export const DashboardScreen = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // Polling loop for active auctions
+    // Polling loop for active and won auctions
     useEffect(() => {
         const interval = setInterval(async () => {
             try {
-                const data = await BiddingService.getActiveAuctions();
-                setAuctions(data);
+                const [activeData, closedData] = await Promise.all([
+                    BiddingService.getActiveAuctions(),
+                    BiddingService.getClosedAuctions()
+                ]);
+                setAuctions(activeData);
+                if (user?.name) {
+                    setWonAuctions(closedData.filter(a => a.status === 'Closed' && a.highestBidder === user.name));
+                }
             } catch (error) {
                 // fail silently in background poll
             }
@@ -43,12 +50,16 @@ export const DashboardScreen = () => {
 
     const loadData = useCallback(async () => {
         try {
-            const [historyData, auctionData] = await Promise.all([
+            const [historyData, auctionData, closedData] = await Promise.all([
                 PriceForecastingService.getPriceHistory(),
-                BiddingService.getActiveAuctions()
+                BiddingService.getActiveAuctions(),
+                BiddingService.getClosedAuctions()
             ]);
             setPriceHistory(historyData);
             setAuctions(auctionData);
+            if (user?.name) {
+                setWonAuctions(closedData.filter(a => a.status === 'Closed' && a.highestBidder === user.name));
+            }
             calculateTrend(historyData);
         } catch (error) {
             console.error("Failed to fetch dashboard data", error);
@@ -270,6 +281,49 @@ export const DashboardScreen = () => {
                     })}
                 </ScrollView>
             </View>
+
+            {/* Won Auctions Section (Buyer only) */}
+            {role !== 'farmer' && wonAuctions.length > 0 && (
+                <View style={[styles.section, { paddingTop: 0 }]}>
+                    <Text style={styles.sectionTitle}>My Won Auctions</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
+                        {wonAuctions.map((auction) => (
+                            <View key={auction.id} style={[styles.auctionCard, { borderColor: '#4CAF50', borderWidth: 1.5 }]}>
+                                <View style={styles.auctionHeader}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.auctionTitle}>{auction.title}</Text>
+                                        <Text style={styles.auctionSubtitle}>{auction.subtitle}</Text>
+                                    </View>
+                                    <View style={[styles.activeBadge, { backgroundColor: '#E8F5E9' }]}>
+                                        <Ionicons name="trophy" size={14} color="#2E7D32" style={{ marginRight: 4 }} />
+                                        <Text style={[styles.activeBadgeText, { color: '#2E7D32' }]}>
+                                            Won
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <View style={styles.auctionDetails}>
+                                    <View>
+                                        <Text style={styles.detailLabel}>Winning Bid</Text>
+                                        <Text style={styles.detailValuePrice}>LKR {auction.currentPrice}/kg</Text>
+                                    </View>
+                                    <View>
+                                        <Text style={styles.detailLabel}>Quantity</Text>
+                                        <Text style={styles.detailValue}>{auction.quantity}</Text>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity
+                                    style={[styles.placeBidBtn, { backgroundColor: '#2E7D32' }]}
+                                    onPress={() => navigation.navigate('Traceability', { lotId: auction.id })}
+                                >
+                                    <Text style={styles.placeBidText}>View Blockchain Details</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
 
             {/* Quick Actions */}
             <View style={styles.section}>
