@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { getBuyerDocuments } from '../services/dppService';
 import { createSellingPost } from '../services/marketplaceService';
 import { DppDocument } from '../types';
@@ -24,6 +25,7 @@ export default function CreateSellingPostScreen() {
     const [location, setLocation] = useState('');
     const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 
+    const [locationLoading, setLocationLoading] = useState(false);
     const [myDocs, setMyDocs] = useState<DppDocument[]>([]);
 
     const GRADE_OPTIONS = ['RSS1', 'RSS2', 'RSS3', 'RSS4', 'RSS5'];
@@ -36,6 +38,46 @@ export default function CreateSellingPostScreen() {
     const loadDocs = async () => {
         const docs = await getBuyerDocuments();
         setMyDocs(docs);
+    };
+
+    const fetchGPSLocation = async () => {
+        setLocationLoading(true);
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert(
+                    'Permission Denied',
+                    'Location access is required to auto-fill your dispatch address. Please enable it in settings.'
+                );
+                return;
+            }
+            const coords = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.High,
+            });
+            const [place] = await Location.reverseGeocodeAsync({
+                latitude: coords.coords.latitude,
+                longitude: coords.coords.longitude,
+            });
+            if (place) {
+                const parts = [
+                    place.name,
+                    place.street,
+                    place.district,
+                    place.city,
+                    place.region,
+                    place.country,
+                ].filter(Boolean);
+                setLocation(parts.join(', '));
+            } else {
+                setLocation(
+                    `${coords.coords.latitude.toFixed(6)}, ${coords.coords.longitude.toFixed(6)}`
+                );
+            }
+        } catch {
+            Alert.alert('GPS Error', 'Could not retrieve your location. Please try again or enter manually.');
+        } finally {
+            setLocationLoading(false);
+        }
     };
 
     const handleSubmit = async () => {
@@ -138,18 +180,48 @@ export default function CreateSellingPostScreen() {
                     </View>
 
                     <Text style={styles.label}>Dispatched Address</Text>
-                    <View style={[styles.inputWrap, { alignItems: 'flex-start', paddingTop: 14 }]}>
+
+                    {/* GPS Auto-Fill Button */}
+                    <TouchableOpacity
+                        style={[styles.gpsBtn, locationLoading && { opacity: 0.7 }]}
+                        onPress={fetchGPSLocation}
+                        disabled={locationLoading}
+                        activeOpacity={0.8}
+                    >
+                        {locationLoading ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Ionicons name="locate" size={18} color="#fff" />
+                        )}
+                        <Text style={styles.gpsBtnText}>
+                            {locationLoading ? 'Getting Location...' : 'Use My Current GPS Location'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Address Display / Manual Override */}
+                    <View style={[styles.inputWrap, { alignItems: 'flex-start', paddingTop: 14, marginTop: 10 }]}>
                         <Ionicons name="navigate-outline" size={18} color={GREEN_LIGHT} style={{ marginTop: 2 }} />
                         <TextInput
                             style={[styles.input, { height: 72, textAlignVertical: 'top' }]}
-                            placeholder="e.g. 123 Rubber Estate, Kalutara"
+                            placeholder="Auto-filled from GPS or enter manually..."
                             placeholderTextColor="#bbb"
                             value={location}
                             onChangeText={setLocation}
                             multiline
                             numberOfLines={3}
                         />
+                        {location.length > 0 && (
+                            <TouchableOpacity onPress={() => setLocation('')} style={{ paddingTop: 12 }}>
+                                <Ionicons name="close-circle" size={20} color="#ccc" />
+                            </TouchableOpacity>
+                        )}
                     </View>
+                    {location.length > 0 && (
+                        <View style={styles.gpsConfirmedRow}>
+                            <Ionicons name="checkmark-circle" size={14} color={GREEN_LIGHT} />
+                            <Text style={styles.gpsConfirmedText}>Location captured</Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* Section: DPP Document */}
@@ -380,6 +452,41 @@ const styles = StyleSheet.create({
     },
     pickerValue: { fontSize: 15, color: '#222' },
     pickerPlaceholder: { fontSize: 15, color: '#bbb' },
+
+    // GPS Button
+    gpsBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: GREEN,
+        paddingVertical: 13,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        justifyContent: 'center',
+        shadowColor: GREEN_DARK,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 5,
+        elevation: 4,
+    },
+    gpsBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 14,
+        letterSpacing: 0.2,
+    },
+    gpsConfirmedRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        marginTop: 6,
+        marginLeft: 4,
+    },
+    gpsConfirmedText: {
+        fontSize: 11,
+        color: GREEN_LIGHT,
+        fontWeight: '600',
+    },
 
     // Helper
     helperText: {

@@ -245,3 +245,22 @@ export interface SendMessageRequest {
   content: string;
   isConfidential: boolean;
 }
+
+// ── Interested Exporter (Trust-Scored Leaderboard) ─────────────────────
+export interface InterestedExporter {
+  interestId: string;
+  exporterId: string;
+  exporterName: string;
+  country: string | null;
+  organizationType: string | null;
+  isVerified: boolean;
+  platformTenureMonths: number;
+  successfulCollaborations: number;
+  trustScore: number;
+  requestedAt: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+}
+
+export interface AcceptExporterRequest {
+  exporterId: string;
+}
