@@ -6,6 +6,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useStore } from '../../../store';
 import { ChatbotService, ChatResponse } from '../services/chatService';
 
 const { width } = Dimensions.get('window');
@@ -33,6 +35,10 @@ interface Message {
     confidence_level?: string;
     category?: string;
     suggested_topics?: string[];
+    action?: {
+        type: string;
+        params: any;
+    };
 }
 
 export default function ChatbotScreen() {
@@ -42,6 +48,8 @@ export default function ChatbotScreen() {
     const [sessionId] = useState(() => `session_${Date.now()}`);
     const [isOnline, setIsOnline] = useState(true);
     const flatListRef = useRef<FlatList>(null);
+    const { user } = useStore();
+    const navigation = useNavigation<any>();
 
     // Load welcome message on mount
     useEffect(() => {
@@ -83,7 +91,7 @@ export default function ChatbotScreen() {
         setMessage('');
         setIsTyping(true);
 
-        const response = await ChatbotService.sendMessage(text.trim(), sessionId);
+        const response = await ChatbotService.sendMessage(text.trim(), sessionId, user?.latitude, user?.longitude);
 
         const botMsg: Message = {
             id: (Date.now() + 1).toString(),
@@ -94,6 +102,7 @@ export default function ChatbotScreen() {
             confidence_level: response.confidence_level,
             category: response.category,
             suggested_topics: response.suggested_topics,
+            action: response.action,
         };
 
         setMessages(prev => [...prev, botMsg]);
@@ -163,6 +172,17 @@ export default function ChatbotScreen() {
                     <View style={styles.categoryTag}>
                         <Text style={styles.categoryText}>{msg.category}</Text>
                     </View>
+                )}
+
+                {/* Special Action Button */}
+                {msg.sender === 'bot' && msg.action && msg.action.type === 'NAVIGATE_TO_MAP' && (
+                    <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => navigation.navigate('DiseaseMap', msg.action!.params)}
+                    >
+                        <Ionicons name="map-outline" size={16} color="#FFF" />
+                        <Text style={styles.actionButtonText}>View '{msg.action!.params.diseaseName}' on Map</Text>
+                    </TouchableOpacity>
                 )}
 
                 <Text style={[styles.timestamp, msg.sender === 'user' ? styles.userTimestamp : styles.botTimestamp]}>
@@ -355,4 +375,10 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3, shadowRadius: 4, elevation: 3,
     },
     sendButtonDisabled: { backgroundColor: '#D1D5DB', shadowOpacity: 0 },
+    actionButton: {
+        flexDirection: 'row', alignItems: 'center', backgroundColor: themeColors.primaryDark,
+        paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, marginTop: 12, gap: 8,
+        alignSelf: 'flex-start',
+    },
+    actionButtonText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
 });

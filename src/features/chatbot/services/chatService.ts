@@ -19,6 +19,10 @@ export interface ChatResponse {
     category?: string;
     sources?: { category: string; question: string; score: number }[];
     suggested_topics?: string[];
+    action?: {
+        type: string;
+        params: any;
+    };
 }
 
 export interface TopicsByCategory {
@@ -26,12 +30,16 @@ export interface TopicsByCategory {
 }
 
 export const ChatbotService = {
-    sendMessage: async (message: string, sessionId: string): Promise<ChatResponse> => {
+    sendMessage: async (message: string, sessionId: string, latitude?: number, longitude?: number): Promise<ChatResponse> => {
         try {
+            const bodyData: any = { message, sessionId };
+            if (latitude !== undefined) bodyData.latitude = latitude;
+            if (longitude !== undefined) bodyData.longitude = longitude;
+
             const response = await fetch(`${CHATBOT_BASE_URL}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message, sessionId }),
+                body: JSON.stringify(bodyData),
             });
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
