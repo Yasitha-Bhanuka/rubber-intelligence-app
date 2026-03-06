@@ -43,44 +43,22 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
     const pickImage = async () => {
         try {
-            // Option 1: File Browser (Supports any size, bypasses Photo Picker limit)
-            const docResult = await import('expo-document-picker').then(m => m.getDocumentAsync({
-                type: 'image/*',
-                copyToCacheDirectory: true,
-            }));
-            
-            if (!docResult.canceled && docResult.assets && docResult.assets.length > 0) {
-                const docUri = docResult.assets[0].uri;
-                
-                // Programmatically resize & compress the image so the API accepts it
-                try {
-                    const manipulator = await import('expo-image-manipulator');
-                    const manipResult = await manipulator.manipulateAsync(
-                        docUri,
-                        [{ resize: { width: 1080 } }], // Resize width, keep aspect ratio
-                        { compress: 0.5, format: manipulator.SaveFormat.JPEG }
-                    );
-                    setImage(manipResult.uri);
-                } catch (err) {
-                    console.log("Image manipulation failed, using original document uri", err);
-                    setImage(docUri);
-                }
-                return;
-            }
-        } catch (error) {
-            console.log("DocumentPicker failed, falling back to ImagePicker", error);
-            // Option 2: Fallback Photo Picker
+            // Using standard Expo ImagePicker without allowsEditing=true 
+            // Avoids the heavy OS cropping activity that causes Android to kill the background app 
+            // and restart back to the Splash Screen.
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
-                allowsEditing: true, // Only this option actually provides user crop UI
-                aspect: [4, 3],
+                allowsEditing: false,
                 quality: 0.5,
                 selectionLimit: 1,
             });
 
-            if (!result.canceled) {
+            if (!result.canceled && result.assets && result.assets.length > 0) {
                 setImage(result.assets[0].uri);
             }
+        } catch (error) {
+            console.error("ImagePicker failed", error);
+            Alert.alert("Error", "Could not load the image picker.");
         }
     };
 
