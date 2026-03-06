@@ -74,6 +74,8 @@ export default function MarketplaceScreen() {
     const [historyLoading, setHistoryLoading] = useState(false);
     const [buyerHistory, setBuyerHistory] = useState<BuyerHistory | null>(null);
     const [dppModal, setDppModal] = useState(false);
+    const [confirmModal, setConfirmModal] = useState<{ visible: boolean, post: SellingPost | null }>({ visible: false, post: null });
+    const [successModal, setSuccessModal] = useState<{ visible: boolean, transactionId: string | null, sellerName: string }>({ visible: false, transactionId: null, sellerName: '' });
     const [dppData, setDppData] = useState<any>(null);
     const [dppLoading, setDppLoading] = useState(false);
     const [dppVerified, setDppVerified] = useState<boolean | null>(null);
@@ -143,27 +145,30 @@ export default function MarketplaceScreen() {
 
     /* ── Handlers ──────────────────────────── */
     const handleBuy = (post: SellingPost) => {
-        Alert.alert(
-            'Confirm Purchase',
-            `Buy ${post.grade} (${post.quantityKg}kg) for LKR ${post.pricePerKg}/kg?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Request Purchase',
-                    onPress: async () => {
-                        try {
-                            const transaction = await buyItem(post.id);
-                            Alert.alert('Request Sent', 'Seller notified. Please wait for the encrypted invoice to be uploaded.');
-                            navigation.navigate('OrderReceipt', { transactionId: transaction.id });
-                            loadData();
-                        } catch {
-                            Alert.alert('Error', 'Failed to complete purchase. Item might be unavailable.');
-                            loadData();
-                        }
-                    }
-                }
-            ]
-        );
+        setConfirmModal({ visible: true, post });
+    };
+
+    const confirmRequestPurchase = async () => {
+        const post = confirmModal.post;
+        if (!post) return;
+
+        setConfirmModal({ visible: false, post: null });
+        try {
+            const transaction = await buyItem(post.id);
+            setSuccessModal({ visible: true, transactionId: transaction.id, sellerName: post.buyerName });
+            loadData();
+        } catch {
+            Alert.alert('Error', 'Failed to complete request. Item might be unavailable.');
+            loadData();
+        }
+    };
+
+    const handleSuccessContinue = () => {
+        const txId = successModal.transactionId;
+        setSuccessModal({ visible: false, transactionId: null, sellerName: '' });
+        if (txId) {
+            navigation.navigate('OrderReceipt', { transactionId: txId });
+        }
     };
 
     const handleViewBuyerHistory = async (buyerId: string) => {
@@ -513,13 +518,28 @@ export default function MarketplaceScreen() {
                     <Ionicons name="stats-chart-outline" size={14} color={C.purple} />
                     <Text style={s.historyBtnText}>Seller History</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={s.purchaseBtn}
-                    onPress={() => handleBuy(item)}
-                >
-                    <Ionicons name="cart" size={16} color="#FFF" />
-                    <Text style={s.purchaseBtnText}>Request Purchase</Text>
-                </TouchableOpacity>
+
+                {item.buyerId === user?.id && (item.status === 'REQUESTED' || item.status === 'Active' || item.status === 'AVAILABLE') ? (
+                    <TouchableOpacity
+                        style={[s.purchaseBtn, { backgroundColor: C.blue }]}
+                        onPress={() => navigation.navigate('LotBidders', {
+                            postId: item.id,
+                            grade: item.grade,
+                            quantityKg: item.quantityKg,
+                        })}
+                    >
+                        <Ionicons name="people" size={16} color="#FFF" />
+                        <Text style={s.purchaseBtnText}>View Bidders</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity
+                        style={s.purchaseBtn}
+                        onPress={() => handleBuy(item)}
+                    >
+                        <Ionicons name="cart" size={16} color="#FFF" />
+                        <Text style={s.purchaseBtnText}>Request Purchase</Text>
+                    </TouchableOpacity>
+                )}
             </View>
         </View>
     );
@@ -1115,6 +1135,61 @@ export default function MarketplaceScreen() {
                 </View>
             </Modal>
 
+            {/* ═══ Confirm Request Modal ═══════════════════════════════════ */}
+            <Modal visible={confirmModal.visible} transparent animationType="slide">
+                <View style={s.modalBackdrop}>
+                    <View style={s.confirmModalCard}>
+                        <View style={s.confirmModalIconWrap}>
+                            <Ionicons name="cart" size={32} color={C.primary} />
+                        </View>
+                        <Text style={s.confirmModalTitle}>Confirm Request</Text>
+                        <Text style={s.confirmModalSubtitle}>
+                            Are you sure you want to request the lot of <Text style={{fontWeight: '700', color: C.textDark}}>{confirmModal.post?.grade}</Text> ({confirmModal.post?.quantityKg}kg) for <Text style={{fontWeight: '700', color: C.textDark}}>LKR {confirmModal.post?.pricePerKg}/kg</Text>?
+                        </Text>
+
+                        <View style={s.confirmModalActions}>
+                            <TouchableOpacity
+                                style={s.confirmCancelBtn}
+                                onPress={() => setConfirmModal({ visible: false, post: null })}
+                            >
+                                <Text style={s.confirmCancelBtnText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={s.confirmRequestBtn}
+                                onPress={confirmRequestPurchase}
+                            >
+                                <Text style={s.confirmRequestBtnText}>Confirm Request</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ═══ Success Alert Modal ═══════════════════════════════════ */}
+            <Modal visible={successModal.visible} transparent animationType="fade">
+                <View style={s.modalBackdrop}>
+                    <View style={s.successModalCard}>
+                        <View style={s.successModalIconWrap}>
+                            <Ionicons name="checkmark-circle" size={48} color={C.green} />
+                        </View>
+                        <Text style={s.successModalTitle}>Request Sent!</Text>
+                        <Text style={s.successModalSubtitle}>
+                            Seller <Text style={{fontWeight: '700', color: C.textDark}}>{successModal.sellerName}</Text> was immediately notified.
+                        </Text>
+                        <Text style={s.successModalInfoText}>
+                            Please wait for the encrypted invoice to be uploaded to proceed securely.
+                        </Text>
+
+                        <TouchableOpacity
+                            style={s.successContinueBtn}
+                            onPress={handleSuccessContinue}
+                        >
+                            <Text style={s.successContinueBtnText}>View Receipt</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
             {/* ═══ Seller History Modal ═══════════════════════════════════ */}
             <Modal visible={historyModal} transparent animationType="slide">
                 <View style={s.modalBackdrop}>
@@ -1508,6 +1583,70 @@ const s = StyleSheet.create({
         marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.borderLight,
     },
     encryptionNoticeText: { fontSize: 11, color: C.sub, flex: 1, fontStyle: 'italic' },
+
+    /* ═══ CONFIRM REQUEST MODAL ═════════════ */
+    confirmModalCard: {
+        backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, alignItems: 'center',
+    },
+    confirmModalIconWrap: {
+        width: 64, height: 64, borderRadius: 32,
+        backgroundColor: C.primaryPale,
+        justifyContent: 'center', alignItems: 'center',
+        marginBottom: 16,
+    },
+    confirmModalTitle: {
+        fontSize: 20, fontWeight: '800', color: C.textDark, marginBottom: 8, textAlign: 'center',
+    },
+    confirmModalSubtitle: {
+        fontSize: 15, color: C.sub, textAlign: 'center', marginBottom: 24, lineHeight: 22, paddingHorizontal: 10,
+    },
+    confirmModalActions: {
+        flexDirection: 'row', gap: 12, width: '100%',
+    },
+    confirmCancelBtn: {
+        flex: 1, backgroundColor: C.bg, borderRadius: 12, paddingVertical: 14,
+        alignItems: 'center', borderWidth: 1, borderColor: C.border,
+    },
+    confirmCancelBtnText: {
+        fontSize: 15, fontWeight: '700', color: C.sub,
+    },
+    confirmRequestBtn: {
+        flex: 1, backgroundColor: C.primary, borderRadius: 12, paddingVertical: 14,
+        alignItems: 'center',
+    },
+    confirmRequestBtnText: {
+        fontSize: 15, fontWeight: '700', color: '#FFF',
+    },
+
+    /* ═══ SUCCESS MODAL ═════════════ */
+    successModalCard: {
+        backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, alignItems: 'center',
+    },
+    successModalIconWrap: {
+        width: 80, height: 80, borderRadius: 40,
+        backgroundColor: C.greenLight,
+        justifyContent: 'center', alignItems: 'center',
+        marginBottom: 16,
+    },
+    successModalTitle: {
+        fontSize: 22, fontWeight: '800', color: C.green, marginBottom: 8, textAlign: 'center',
+    },
+    successModalSubtitle: {
+        fontSize: 15, color: C.sub, textAlign: 'center', marginBottom: 12, lineHeight: 22,
+    },
+    successModalInfoText: {
+        fontSize: 13, color: C.sub, textAlign: 'center', marginBottom: 24, fontStyle: 'italic', paddingHorizontal: 10,
+    },
+    successContinueBtn: {
+        width: '100%', backgroundColor: C.primary, borderRadius: 12, paddingVertical: 14,
+        alignItems: 'center',
+        shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3,
+    },
+    successContinueBtnText: {
+        fontSize: 16, fontWeight: '700', color: '#FFF',
+    },
 
     /* ═══ DPP MODAL ═════════════ */
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

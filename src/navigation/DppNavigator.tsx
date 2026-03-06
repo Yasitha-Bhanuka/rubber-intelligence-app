@@ -15,6 +15,7 @@ import LotMessagingScreen from '../features/dpp/screens/LotMessagingScreen';
 import InvoiceExtractedFieldsScreen from '../features/dpp/screens/InvoiceExtractedFieldsScreen';
 import QirExtractedFieldsScreen from '../features/dpp/screens/QirExtractedFieldsScreen';
 import ExporterDppViewScreen from '../features/dpp/screens/ExporterDppViewScreen';
+import LotBiddersScreen from '../features/dpp/screens/LotBiddersScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -60,6 +61,9 @@ export default function DppNavigator() {
 
             {/* Secure Lot-Linked Messaging */}
             <Stack.Screen name="LotMessaging" component={LotMessagingScreen} />
+
+            {/* Trust-Scored Interested Exporters Leaderboard (Buyer) */}
+            <Stack.Screen name="LotBidders" component={LotBiddersScreen} />
         </Stack.Navigator>
     );
 }

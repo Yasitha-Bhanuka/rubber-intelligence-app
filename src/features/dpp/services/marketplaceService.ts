@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView } from '../types';
+import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView, InterestedExporter, AcceptExporterRequest } from '../types';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -180,6 +180,28 @@ export const getExporterTransactionDpp = async (
 ): Promise<ExporterDppView> => {
     const response = await apiClient.get<ExporterDppView>(
         `/Marketplace/transactions/${transactionId}/exporter-dpp`
+    );
+    return response.data;
+};
+
+// ── INTERESTED EXPORTERS (TRUST-SCORED LEADERBOARD) ───────────────────
+
+export const getInterestedExporters = async (
+    postId: string
+): Promise<InterestedExporter[]> => {
+    const response = await apiClient.get<InterestedExporter[]>(
+        `/Marketplace/posts/${postId}/interested-exporters`
+    );
+    return response.data;
+};
+
+export const acceptExporter = async (
+    postId: string,
+    request: AcceptExporterRequest
+): Promise<MarketplaceTransaction> => {
+    const response = await apiClient.post<MarketplaceTransaction>(
+        `/Marketplace/posts/${postId}/accept-exporter`,
+        request
     );
     return response.data;
 };
