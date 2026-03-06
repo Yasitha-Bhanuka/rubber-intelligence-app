@@ -16,6 +16,7 @@ import InvoiceExtractedFieldsScreen from '../features/dpp/screens/InvoiceExtract
 import QirExtractedFieldsScreen from '../features/dpp/screens/QirExtractedFieldsScreen';
 import ExporterDppViewScreen from '../features/dpp/screens/ExporterDppViewScreen';
 import LotBiddersScreen from '../features/dpp/screens/LotBiddersScreen';
+import DualLayerDppScreen from '../features/dpp/screens/DualLayerDppScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -64,6 +65,9 @@ export default function DppNavigator() {
 
             {/* Trust-Scored Interested Exporters Leaderboard (Buyer) */}
             <Stack.Screen name="LotBidders" component={LotBiddersScreen} />
+
+            {/* Zero-Knowledge Dual-Layer DPP — client-side RSA+AES decryption */}
+            <Stack.Screen name="DualLayerDpp" component={DualLayerDppScreen} />
         </Stack.Navigator>
     );
 }

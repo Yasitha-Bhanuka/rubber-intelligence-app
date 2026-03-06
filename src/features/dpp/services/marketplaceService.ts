@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView, InterestedExporter, AcceptExporterRequest } from '../types';
+import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView, InterestedExporter, AcceptExporterRequest, DualLayerDppResponse } from '../types';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -202,6 +202,22 @@ export const acceptExporter = async (
     const response = await apiClient.post<MarketplaceTransaction>(
         `/Marketplace/posts/${postId}/accept-exporter`,
         request
+    );
+    return response.data;
+};
+
+// ── DUAL-LAYER DPP (Zero-Knowledge Delivery) ─────────────────────────
+
+/**
+ * GET /api/Marketplace/transactions/{transactionId}/dual-layer-dpp
+ * Returns a dual-layer payload: public summary + RSA-wrapped AES-encrypted vault.
+ * Only the purchasing Exporter may call this endpoint (ReBAC: 403 otherwise).
+ */
+export const getDualLayerDpp = async (
+    transactionId: string
+): Promise<DualLayerDppResponse> => {
+    const response = await apiClient.get<DualLayerDppResponse>(
+        `/Marketplace/transactions/${transactionId}/dual-layer-dpp`
     );
     return response.data;
 };

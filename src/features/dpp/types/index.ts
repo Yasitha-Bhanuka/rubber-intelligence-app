@@ -264,3 +264,18 @@ export interface InterestedExporter {
 export interface AcceptExporterRequest {
   exporterId: string;
 }
+
+// ── Dual-Layer DPP (Zero-Knowledge Delivery) ──────────────────────────
+export interface DualLayerDppResponse {
+  publicSummary: {
+    LotId: string;
+    RubberGrade: string;
+    Quantity: number;
+    DppHash: string;
+  };
+  encryptedVault: string;
+  encryptionMetadata: {
+    EncryptedAesKeyBase64: string;
+    IvBase64: string;
+  };
+}
