@@ -11,7 +11,7 @@ export const uploadDppDocument = async (
     formData.append('File', { uri: fileUri, name: fileName, type: fileType } as any);
 
     const response = await apiClient.post<DppUploadResponse>('/dpp/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        transformRequest: [(data: any) => data],
     });
     return response.data;
 };

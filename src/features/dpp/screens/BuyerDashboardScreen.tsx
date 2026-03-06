@@ -11,6 +11,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import { getBuyerDocuments, getPendingAccessRequests } from '../services/dppService';
 import { getMyTransactions, uploadInvoice, uploadQir } from '../services/marketplaceService';
+import { getUnreadMessageCount } from '../services/messagesService';
 import { DppDocument, MarketplaceTransaction } from '../types';
 import { useStore } from '../../../store';
 
@@ -100,6 +101,7 @@ export default function BuyerDashboardScreen() {
     const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
     const [loading, setLoading] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
+    const [msgCount, setMsgCount] = useState(0);
     const [showAllSales, setShowAllSales] = useState(false);
     const [showAllDocs, setShowAllDocs] = useState(false);
     const [purchaseNotifs, setPurchaseNotifs] = useState<MarketplaceTransaction[]>([]);
@@ -131,14 +133,16 @@ export default function BuyerDashboardScreen() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [docs, trans, pending] = await Promise.all([
+            const [docs, trans, pending, unread] = await Promise.all([
                 getBuyerDocuments(),
                 getMyTransactions(),
                 getPendingAccessRequests().catch(() => [] as any[]),
+                getUnreadMessageCount().catch(() => 0),
             ]);
             setDocuments(docs);
             setTransactions(trans);
             setPendingCount(pending.length);
+            setMsgCount(unread);
 
             /* ── Detect new purchase requests ── */
             const NOTIF_KEY = 'buyer_notified_purchase_ids';
@@ -180,8 +184,18 @@ export default function BuyerDashboardScreen() {
             loadData();
             // Navigate to ClassificationResultScreen with isInvoice=true to show invoice-specific UI
             navigation.navigate('ClassificationResult', { result: response, isInvoice: true });
-        } catch {
-            Alert.alert('Error', 'Failed to upload invoice');
+        } catch (error: any) {
+            const msg =
+                error?.response?.data?.error ||
+                error?.response?.data?.message ||
+                (error?.response?.status === 429 ? 'Gemini API quota exceeded. Please try again later.' : null) ||
+                (error?.response?.status === 403 ? 'Access denied. This transaction does not belong to your account.' : null) ||
+                (error?.response?.status === 404 ? 'Transaction not found.' : null) ||
+                (error?.code === 'ECONNABORTED' ? 'Request timed out. The server is processing — please retry in a moment.' : null) ||
+                (!error?.response ? 'Network error — check your connection and ensure the server is running.' : null) ||
+                error?.message ||
+                'Failed to upload invoice.';
+            Alert.alert('Invoice Upload Failed', msg);
         } finally {
             setLoading(false);
         }
@@ -197,8 +211,18 @@ export default function BuyerDashboardScreen() {
             loadData();
             // Reuse ClassificationResultScreen — pass isInvoice:false so header shows "Quality Inspection Report"
             navigation.navigate('ClassificationResult', { result: response, isInvoice: false, isQir: true });
-        } catch {
-            Alert.alert('Error', 'Failed to upload Quality Inspection Report');
+        } catch (error: any) {
+            const status  = error?.response?.status;
+            const apiMsg  = error?.response?.data?.error as string | undefined;
+            const msg =
+                apiMsg ||
+                (status === 503 ? 'Gemini AI is temporarily unavailable due to high demand. Please try again in a few minutes.' :
+                 status === 429 ? 'Gemini AI is rate-limited. Please wait a moment and try again.' :
+                 status === 500 ? 'Server error during OCR processing. Please try again.' :
+                 !error?.response ? 'Network error — check your connection and ensure the server is running.' :
+                 error?.message ||
+                 'Failed to upload Quality Inspection Report.');
+            Alert.alert('QIR Upload Failed', msg);
         } finally {
             setLoading(false);
         }
@@ -290,14 +314,14 @@ export default function BuyerDashboardScreen() {
                     >
                         <View style={s.notifInner}>
                             <Ionicons
-                                name={pendingCount > 0 ? 'notifications' : 'notifications-outline'}
+                                name={(pendingCount + msgCount) > 0 ? 'notifications' : 'notifications-outline'}
                                 size={24}
                                 color="#fff"
                             />
-                            {pendingCount > 0 && (
+                            {(pendingCount + msgCount) > 0 && (
                                 <View style={s.notifBadge}>
                                     <Text style={s.notifBadgeText}>
-                                        {pendingCount > 9 ? '9+' : pendingCount}
+                                        {(pendingCount + msgCount) > 9 ? '9+' : (pendingCount + msgCount)}
                                     </Text>
                                 </View>
                             )}
