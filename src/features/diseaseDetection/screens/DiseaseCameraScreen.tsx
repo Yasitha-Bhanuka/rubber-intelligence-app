@@ -8,6 +8,9 @@ import { colors } from '../../../shared/styles/colors';
 import { DiseaseService } from '../services/diseaseService';
 import { useStore } from '../../../store';
 
+import * as DocumentPicker from 'expo-document-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+
 export const DiseaseCameraScreen = ({ navigation, route }: any) => {
     const { user } = useStore();
     const [permission, requestPermission] = useCameraPermissions();
@@ -43,22 +46,33 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
     const pickImage = async () => {
         try {
-            // Using standard Expo ImagePicker without allowsEditing=true 
-            // Avoids the heavy OS cropping activity that causes Android to kill the background app 
-            // and restart back to the Splash Screen.
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
-                allowsEditing: false,
-                quality: 0.5,
-                selectionLimit: 1,
+            // Using standard DocumentPicker per user request
+            // We import it statically at the top to prevent a sudden memory spike 
+            // when pressing the button, which causes the Android background kill
+            const docResult = await DocumentPicker.getDocumentAsync({
+                type: 'image/*',
+                copyToCacheDirectory: true,
             });
 
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-                setImage(result.assets[0].uri);
+            if (!docResult.canceled && docResult.assets && docResult.assets.length > 0) {
+                const docUri = docResult.assets[0].uri;
+
+                // Programmatically resize & compress the image so the API accepts it
+                try {
+                    const manipResult = await manipulateAsync(
+                        docUri,
+                        [{ resize: { width: 1080 } }], // Resize width, keep aspect ratio
+                        { compress: 0.5, format: SaveFormat.JPEG }
+                    );
+                    setImage(manipResult.uri);
+                } catch (err) {
+                    console.log("Image manipulation failed, using original document uri", err);
+                    setImage(docUri);
+                }
             }
         } catch (error) {
-            console.error("ImagePicker failed", error);
-            Alert.alert("Error", "Could not load the image picker.");
+            console.error("DocumentPicker failed", error);
+            Alert.alert("Error", "Could not load the file picker.");
         }
     };
 
