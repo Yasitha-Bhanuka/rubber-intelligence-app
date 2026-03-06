@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -6,38 +6,18 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/styles/colors';
 import { DiseaseService } from '../services/diseaseService';
+import { useStore } from '../../../store';
 
 export const DiseaseCameraScreen = ({ navigation, route }: any) => {
+    const { user } = useStore();
     const [permission, requestPermission] = useCameraPermissions();
     const [image, setImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const cameraRef = useRef<any>(null);
 
-    // GPS state
-    const [latitude, setLatitude] = useState<number | undefined>(undefined);
-    const [longitude, setLongitude] = useState<number | undefined>(undefined);
-
     // Default to Leaf Disease (0) if not passed
     const diseaseType = route.params?.type ?? 0;
     const diseaseTypeName = ['Leaf Disease', 'Pest', 'Weed'][diseaseType];
-
-    // Auto-capture GPS on mount
-    useEffect(() => {
-        (async () => {
-            try {
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status === 'granted') {
-                    const loc = await Location.getCurrentPositionAsync({
-                        accuracy: Location.Accuracy.Balanced,
-                    });
-                    setLatitude(loc.coords.latitude);
-                    setLongitude(loc.coords.longitude);
-                }
-            } catch (err) {
-                console.log('GPS unavailable, proceeding without location');
-            }
-        })();
-    }, []);
 
     if (!permission) {
         return <View />;
@@ -109,7 +89,30 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
         setLoading(true);
         try {
-            const result = await DiseaseService.detect(image, diseaseType, latitude, longitude);
+            // 1. Try live GPS capture at analyze time
+            let lat: number | undefined;
+            let lng: number | undefined;
+
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    const loc = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.Balanced,
+                    });
+                    lat = loc.coords.latitude;
+                    lng = loc.coords.longitude;
+                }
+            } catch {
+                console.log('Live GPS unavailable');
+            }
+
+            // 2. Fallback to user's registered plantation location
+            if (lat === undefined || lng === undefined) {
+                lat = user?.latitude;
+                lng = user?.longitude;
+            }
+
+            const result = await DiseaseService.detect(image, diseaseType, lat, lng);
             if (result.isRejected) {
                 Alert.alert(
                     "Image Rejected",

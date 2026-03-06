@@ -5,6 +5,7 @@ export interface AlertItem {
     farmerId: string;
     detectionId: string;
     diseaseName: string;
+    severity: string;
     distanceKm: number;
     latitude: number;
     longitude: number;

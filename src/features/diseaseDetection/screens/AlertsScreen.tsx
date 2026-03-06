@@ -32,10 +32,13 @@ export const AlertsScreen = () => {
         return date.toLocaleDateString();
     };
 
-    const getSeverityColor = (distance: number) => {
-        if (distance <= 1) return '#D32F2F'; // Very close - red
-        if (distance <= 3) return '#FF9800'; // Moderate - orange
-        return '#4CAF50'; // Far - green
+    const getSeverityColor = (severity: string) => {
+        switch (severity?.toLowerCase()) {
+            case 'high': return '#D32F2F';
+            case 'medium': return '#FF9800';
+            case 'low': return '#4CAF50';
+            default: return '#9E9E9E';
+        }
     };
 
     const renderAlert = ({ item }: any) => (
@@ -45,13 +48,18 @@ export const AlertsScreen = () => {
             activeOpacity={0.7}
         >
             <View style={styles.alertLeft}>
-                <View style={[styles.severityDot, { backgroundColor: getSeverityColor(item.distanceKm) }]} />
+                <View style={[styles.severityDot, { backgroundColor: getSeverityColor(item.severity) }]} />
                 {!item.isRead && <View style={styles.unreadDot} />}
             </View>
             <View style={styles.alertContent}>
-                <Text style={[styles.alertTitle, item.isRead && styles.alertTitleRead]}>
-                    ⚠️ {item.diseaseName} Detected Nearby
-                </Text>
+                <View style={styles.alertTitleRow}>
+                    <Text style={[styles.alertTitle, item.isRead && styles.alertTitleRead]} numberOfLines={1}>
+                        ⚠️ {item.diseaseName} Detected Nearby
+                    </Text>
+                    <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(item.severity) }]}>
+                        <Text style={styles.severityBadgeText}>{item.severity}</Text>
+                    </View>
+                </View>
                 <Text style={styles.alertDetail}>
                     📍 {item.distanceKm.toFixed(1)} km from your plantation
                 </Text>
@@ -197,5 +205,22 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#999',
         marginTop: 8,
+    },
+    alertTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 4,
+    },
+    severityBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+        marginLeft: 8,
+    },
+    severityBadgeText: {
+        color: '#FFF',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });
