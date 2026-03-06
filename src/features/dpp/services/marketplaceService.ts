@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField } from '../types';
+import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView } from '../types';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -47,14 +47,21 @@ export const uploadInvoice = async (transactionId: string, file: any): Promise<I
         const formData = new FormData();
         formData.append('file', {
             uri: file.uri,
-            name: file.name,
-            type: file.mimeType || 'application/pdf'
+            name: file.name || 'invoice.pdf',
+            type: file.mimeType || 'application/pdf',
         } as any);
 
+        // In React Native, setting Content-Type to 'multipart/form-data' causes the native XHR layer
+        // to append the correct boundary automatically. Do NOT include transformRequest — it bypasses
+        // axios's FormData handling and strips the boundary, causing ASP.NET to return 400.
         const response = await apiClient.post<InvoiceUploadResponse>(
-            `/Marketplace/transactions/${transactionId}/invoice`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+            `/Marketplace/transactions/${transactionId}/invoice`,
+            formData,
+            {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 120000, // 2 min — Gemini OCR + AES encryption pipeline can take 60-90 s
+            }
+        );
         return response.data;
     } catch (error) {
         console.error('Upload Invoice Error:', error);
@@ -111,13 +118,21 @@ export const uploadQir = async (transactionId: string, file: any): Promise<QirUp
         const formData = new FormData();
         formData.append('file', {
             uri: file.uri,
-            name: file.name,
-            type: file.mimeType || 'application/pdf'
+            name: file.name || 'qir.pdf',
+            type: file.mimeType || 'application/pdf',
         } as any);
+
+        // In React Native, setting Content-Type to 'multipart/form-data' lets the native XHR layer
+        // append the correct boundary automatically. Do NOT include transformRequest — it bypasses
+        // axios's FormData handling and strips the multipart boundary, causing a Network Error.
         const response = await apiClient.post<QirUploadResponse>(
-            `/Marketplace/transactions/${transactionId}/qir`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+            `/Marketplace/transactions/${transactionId}/qir`,
+            formData,
+            {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 180000, // 3 min — Gemini OCR up to 3 retry attempts + AES encryption pipeline
+            }
+        );
         return response.data;
     } catch (error) {
         console.error('Upload QIR Error:', error);
@@ -149,6 +164,22 @@ export const getInvoiceExtractedFields = async (
 ): Promise<InvoiceDecryptedField[]> => {
     const response = await apiClient.get<InvoiceDecryptedField[]>(
         `/Marketplace/transactions/${transactionId}/invoice-fields`
+    );
+    return response.data;
+};
+
+/**
+ * GET /api/Marketplace/transactions/{transactionId}/exporter-dpp
+ * Returns the combined DPP view for the exporter who purchased this lot.
+ * Built from the buyer's invoice + QIR extracted fields.
+ * Confidential buyer fields are withheld (value = null, isConfidential = true).
+ * Only accessible by the Exporter who owns the transaction.
+ */
+export const getExporterTransactionDpp = async (
+    transactionId: string
+): Promise<ExporterDppView> => {
+    const response = await apiClient.get<ExporterDppView>(
+        `/Marketplace/transactions/${transactionId}/exporter-dpp`
     );
     return response.data;
 };

@@ -197,6 +197,38 @@ export interface BuyerHistory {
   lastActivityDate: string | null;
 }
 
+// ── Exporter DPP View (GET /api/Marketplace/transactions/{id}/exporter-dpp) ──
+/**
+ * A single field in the exporter's view of the DPP.
+ * Confidential buyer fields have value = null and isConfidential = true.
+ */
+export interface ExporterDppField {
+  fieldName: string;
+  value: string | null;
+  isConfidential: boolean;
+}
+
+/**
+ * Combined Digital Product Passport for a lot, as seen by the purchasing exporter.
+ * Derived from the invoice + QIR files uploaded by the buyer.
+ * Only the exporter who purchased the lot can access this data.
+ */
+export interface ExporterDppView {
+  transactionId: string;
+  /** PendingInvoice | InvoiceUploaded | QirUploaded | Completed */
+  status: string;
+  exporterName: string;
+  /** Masked buyer ID (first 8 chars) */
+  buyerRef: string;
+  offerPrice: number;
+  lastUpdatedAt: string;
+  invoiceClassification: string | null;
+  qirClassification: string | null;
+  invoiceFields: ExporterDppField[];
+  qirFields: ExporterDppField[];
+  generatedAt: string;
+}
+
 // ── Lot-Linked Messaging ───────────────────────────────────────────────
 export interface MessageDto {
   id: string;

@@ -17,6 +17,7 @@ import {
     getConfidentialFields,
 } from '../services/dppService';
 import { SellingPost, BuyerHistory, MarketplaceTransaction } from '../types';
+import { getUnreadMessageCount } from '../services/messagesService';
 import { useStore } from '../../../store';
 
 /* ─── Light Green Palette ─────────────────────────────────────────── */
@@ -62,6 +63,7 @@ export default function MarketplaceScreen() {
     const [posts, setPosts] = useState<SellingPost[]>([]);
     const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
     const [accessRequests, setAccessRequests] = useState<any[]>([]);
+    const [msgCount, setMsgCount] = useState(0);
 
     // Filters
     const [gradeFilter, setGradeFilter] = useState('All');
@@ -82,14 +84,16 @@ export default function MarketplaceScreen() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [postsData, transData, reqData] = await Promise.all([
+            const [postsData, transData, reqData, unread] = await Promise.all([
                 getSellingPosts(),
                 getMyTransactions(),
                 getMyAccessRequests().catch(() => []),
+                getUnreadMessageCount().catch(() => 0),
             ]);
             setPosts(postsData);
             setTransactions(transData);
             setAccessRequests(reqData);
+            setMsgCount(unread);
         } finally {
             setLoading(false);
         }
@@ -212,8 +216,18 @@ export default function MarketplaceScreen() {
             const response = await uploadInvoice(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
             loadData();
             navigation.navigate('ClassificationResult', { result: response, isInvoice: true });
-        } catch {
-            Alert.alert('Error', 'Failed to upload invoice');
+        } catch (error: any) {
+            const msg =
+                error?.response?.data?.error ||
+                error?.response?.data?.message ||
+                (error?.response?.status === 429 ? 'Gemini API quota exceeded. Please try again later.' : null) ||
+                (error?.response?.status === 403 ? 'Access denied. This transaction does not belong to your account.' : null) ||
+                (error?.response?.status === 404 ? 'Transaction not found.' : null) ||
+                (error?.code === 'ECONNABORTED' ? 'Request timed out. The server is processing — please retry in a moment.' : null) ||
+                (!error?.response ? 'Network error — check your connection and ensure the server is running.' : null) ||
+                error?.message ||
+                'Failed to upload invoice.';
+            Alert.alert('Invoice Upload Failed', msg);
         } finally {
             setLoading(false);
         }
@@ -408,6 +422,7 @@ export default function MarketplaceScreen() {
                         >
                             <View style={[s.activityDot, {
                                 backgroundColor: tx.status === 'Completed' ? C.green
+                                    : tx.status === 'QirUploaded' ? C.primaryLight
                                     : tx.status === 'InvoiceUploaded' ? C.blue : C.orange
                             }]} />
                             <View style={s.activityContent}>
@@ -416,6 +431,7 @@ export default function MarketplaceScreen() {
                                 </Text>
                                 <Text style={s.activityTime}>
                                     {tx.status === 'Completed' ? 'Payment Completed'
+                                        : tx.status === 'QirUploaded' ? 'QIR Uploaded'
                                         : tx.status === 'InvoiceUploaded' ? 'Invoice Ready' : 'Pending Invoice'}
                                 </Text>
                             </View>
@@ -698,12 +714,20 @@ export default function MarketplaceScreen() {
                 </View>
             ) : (
                 transactions.map(tx => {
-                    const isCompleted = tx.status === 'Completed';
-                    const isInvoiceReady = tx.status === 'InvoiceUploaded';
+                    const isCompleted      = tx.status === 'Completed';
+                    const isInvoiceReady   = tx.status === 'InvoiceUploaded';
+                    const isQirUploaded    = tx.status === 'QirUploaded';
                     const isPendingInvoice = tx.status === 'PendingInvoice';
-                    const stColor = isCompleted ? C.green : isInvoiceReady ? C.blue : C.orange;
-                    const stBg = isCompleted ? C.greenLight : isInvoiceReady ? C.blueLight : C.orangeLight;
-                    const stLabel = isCompleted ? 'Completed' : isInvoiceReady ? 'Invoice Ready' : 'Pending Invoice';
+                    const hasDpp           = isInvoiceReady || isQirUploaded || isCompleted;
+                    const stColor = isCompleted ? C.green
+                        : isQirUploaded    ? C.primaryLight
+                        : isInvoiceReady   ? C.blue : C.orange;
+                    const stBg = isCompleted    ? C.greenLight
+                        : isQirUploaded    ? C.primaryPale
+                        : isInvoiceReady   ? C.blueLight : C.orangeLight;
+                    const stLabel = isCompleted    ? 'Completed'
+                        : isQirUploaded    ? 'QIR Uploaded'
+                        : isInvoiceReady   ? 'Invoice Ready' : 'Pending Invoice';
 
                     return (
                         <View key={tx.id} style={s.txCard}>
@@ -754,11 +778,22 @@ export default function MarketplaceScreen() {
 
                                 {isInvoiceReady && (
                                     <TouchableOpacity
-                                        style={[s.txActionBtn, { backgroundColor: C.primary }]}
+                                        style={[s.txActionBtn, { backgroundColor: C.blue }]}
                                         onPress={() => navigation.navigate('InvoiceExtractedFields', { transactionId: tx.id })}
                                     >
                                         <Ionicons name="document-text" size={15} color="#FFF" />
                                         <Text style={s.txActionBtnText}>View Invoice Fields</Text>
+                                    </TouchableOpacity>
+                                )}
+
+                                {/* View DPP — available once invoice is uploaded; only the exporter can access */}
+                                {hasDpp && (
+                                    <TouchableOpacity
+                                        style={[s.txActionBtn, { backgroundColor: C.primary }]}
+                                        onPress={() => navigation.navigate('ExporterDppView', { transactionId: tx.id })}
+                                    >
+                                        <Ionicons name="shield-checkmark" size={15} color="#FFF" />
+                                        <Text style={s.txActionBtnText}>View DPP</Text>
                                     </TouchableOpacity>
                                 )}
 
@@ -846,6 +881,23 @@ export default function MarketplaceScreen() {
                         </View>
                     </TouchableOpacity>
 
+                    {/* Notification Bell */}
+                    <TouchableOpacity style={s.headerActionBtn}>
+                        <View>
+                            <Ionicons
+                                name={msgCount > 0 ? 'notifications' : 'notifications-outline'}
+                                size={22}
+                                color="#FFF"
+                            />
+                            {msgCount > 0 && (
+                                <View style={s.notifBadge}>
+                                    <Text style={s.notifBadgeText}>
+                                        {msgCount > 9 ? '9+' : msgCount}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    </TouchableOpacity>
                     <TouchableOpacity
                         style={s.headerActionBtn}
                         onPress={() => navigation.navigate('ExporterScanner')}
@@ -1198,6 +1250,13 @@ const s = StyleSheet.create({
         justifyContent: 'center', alignItems: 'center',
         borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
     },
+    notifBadge: {
+        position: 'absolute', top: -5, right: -6,
+        backgroundColor: '#FF3B30', borderRadius: 8,
+        minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center',
+        paddingHorizontal: 2,
+    },
+    notifBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '800' } as const,
     headerStrip: {
         flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
         backgroundColor: 'rgba(0,0,0,0.15)',

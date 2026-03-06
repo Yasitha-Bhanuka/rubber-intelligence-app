@@ -1,203 +1,404 @@
+/**
+ * OrderReceiptScreen
+ *
+ * Post-purchase confirmation screen — styled to match the Marketplace
+ * green-palette design system.
+ */
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+    View, Text, StyleSheet, TouchableOpacity,
+    ActivityIndicator, ScrollView, StatusBar, Platform,
+} from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { File, Paths } from 'expo-file-system/next';
 import * as Sharing from 'expo-sharing';
 import { getMyTransactions, getInvoice } from '../services/marketplaceService';
 import { MarketplaceTransaction } from '../types';
 import { useStore } from '../../../store';
-//add
+
+/* ─── Marketplace Palette ──────────────────────────────────────────── */
+const C = {
+    primary:      '#2E7D32',
+    primaryLight: '#4CAF50',
+    primaryPale:  '#E8F5E9',
+    primaryDark:  '#1B5E20',
+    bg:           '#F1F8E9',
+    card:         '#FFFFFF',
+    blue:         '#2196F3',
+    blueLight:    '#E3F2FD',
+    orange:       '#FF9800',
+    orangeLight:  '#FFF3E0',
+    purple:       '#7E57C2',
+    purpleLight:  '#EDE7F6',
+    cyan:         '#00ACC1',
+    cyanLight:    '#E0F7FA',
+    text:         '#1B5E20',
+    textDark:     '#1C1C1E',
+    sub:          '#6B7B6E',
+    border:       '#C8E6C9',
+    borderLight:  '#E8F5E9',
+};
+
+const statusColor = (s: string) => {
+    if (s === 'Completed')       return C.primary;
+    if (s === 'InvoiceUploaded') return C.blue;
+    if (s === 'PendingInvoice')  return C.orange;
+    return C.sub;
+};
+const statusBg = (s: string) => {
+    if (s === 'Completed')       return C.primaryPale;
+    if (s === 'InvoiceUploaded') return C.blueLight;
+    if (s === 'PendingInvoice')  return C.orangeLight;
+    return '#F0F0F0';
+};
+/* ═══════════════════════════════════════════════════════════════════════ */
 export default function OrderReceiptScreen() {
-    const route = useRoute<any>();
+    const route      = useRoute<any>();
     const navigation = useNavigation<any>();
     const { transactionId } = route.params;
-
-    const [transaction, setTransaction] = useState<MarketplaceTransaction | null>(null);
-    const [loading, setLoading] = useState(true);
     const { user } = useStore();
 
-    useEffect(() => {
-        loadTransaction();
-    }, []);
+    const [transaction, setTransaction] = useState<MarketplaceTransaction | null>(null);
+    const [loading, setLoading]         = useState(true);
+
+    useEffect(() => { loadTransaction(); }, []);
 
     const loadTransaction = async () => {
-        const all = await getMyTransactions();
-        const found = all.find((t: MarketplaceTransaction) => t.id === transactionId);
-        if (found) setTransaction(found);
-        setLoading(false);
+        try {
+            const all   = await getMyTransactions();
+            const found = all.find((t: MarketplaceTransaction) => t.id === transactionId);
+            if (found) setTransaction(found);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleViewInvoice = async () => {
         if (!transaction) return;
         try {
-            const url = await getInvoice(transaction.id);
-
-            // Fetch the invoice from the server
+            const url      = await getInvoice(transaction.id);
             const response = await fetch(url);
-            if (!response.ok) {
-                alert('Download failed: ' + response.statusText);
-                return;
-            }
-
-            // Convert response to base64 string
-            const blob = await response.blob();
+            if (!response.ok) { alert('Download failed: ' + response.statusText); return; }
+            const blob   = await response.blob();
             const base64 = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onloadend = () => {
-                    const result = reader.result as string;
-                    // Strip the data URL prefix (e.g. "data:application/pdf;base64,")
-                    resolve(result.split(',')[1]);
-                };
-                reader.onerror = reject;
+                reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                reader.onerror   = reject;
                 reader.readAsDataURL(blob);
             });
-
-            // Decode base64 → Uint8Array then write with the new File API
             const binaryString = atob(base64);
             const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
+            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
             const file = new File(Paths.cache, `invoice_${transaction.id}.pdf`);
             file.write(bytes);
-
-            // Share the saved file
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(file.uri);
-            } else {
-                alert('Sharing not available on this device');
-            }
+            if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri);
+            else alert('Sharing not available on this device');
         } catch (e) {
             console.error(e);
             alert('Error viewing invoice');
         }
     };
 
-    if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
-    if (!transaction) return <View style={styles.center}><Text>Transaction Not Found</Text></View>;
+    /* ── Loading / not-found ──────────────────────────────────────── */
+    if (loading) {
+        return (
+            <View style={s.loadingWrap}>
+                <ActivityIndicator size="large" color={C.primary} />
+                <Text style={s.loadingText}>Loading order…</Text>
+            </View>
+        );
+    }
+    if (!transaction) {
+        return (
+            <View style={s.loadingWrap}>
+                <Ionicons name="alert-circle-outline" size={52} color={C.sub} />
+                <Text style={s.loadingText}>Transaction not found</Text>
+            </View>
+        );
+    }
 
+    /* ── Main ─────────────────────────────────────────────────────── */
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <Ionicons name="checkmark-circle" size={80} color="#34C759" />
-                <Text style={styles.title}>Purchase Confirmed!</Text>
-                <Text style={styles.subtitle}>Order ID: {transaction.id.substring(0, 8)}</Text>
-            </View>
+        <View style={s.root}>
+            <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
 
-            <View style={styles.card}>
-                <View style={styles.row}>
-                    <Text style={styles.label}>Amount Paid:</Text>
-                    <Text style={styles.price}>LKR {transaction.offerPrice}</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.row}>
-                    <Text style={styles.label}>Status:</Text>
-                    <Text style={styles.status}>{transaction.status}</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.row}>
-                    <Text style={styles.label}>Seller:</Text>
-                    <Text style={styles.value}>Verified Buyer (ID: {transaction.buyerId.substring(0, 6)})</Text>
-                </View>
-            </View>
-
-            <Text style={styles.sectionTitle}>Digital Assets</Text>
-
-            {transaction.dppDocumentId && (
-                <TouchableOpacity
-                    style={styles.dppBtn}
-                    onPress={() => navigation.navigate('DppDetail', { id: transaction.dppDocumentId })}
-                >
-                    <Ionicons name="lock-closed" size={24} color="white" />
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.dppBtnTitle}>Acess Secure DPP</Text>
-                        <Text style={styles.dppBtnSub}>You now have owner access to the digital passport.</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={24} color="white" />
-                </TouchableOpacity>
-            )}
-
-            {transaction.status === 'InvoiceUploaded' && (
-                <TouchableOpacity
-                    style={[styles.dppBtn, { backgroundColor: '#FF9500' }]}
-                    onPress={handleViewInvoice}
-                >
-                    <Ionicons name="document-text" size={24} color="white" />
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.dppBtnTitle}>View Encrypted Invoice</Text>
-                        <Text style={styles.dppBtnSub}>Decrypted securely on your device.</Text>
-                    </View>
-                    <Ionicons name="download-outline" size={24} color="white" />
-                </TouchableOpacity>
-            )}
-
-            {/* Buyer: view the Gemini-extracted metadata fields decrypted on demand */}
-            {transaction.status === 'InvoiceUploaded' && user?.role === 'buyer' && (
-                <TouchableOpacity
-                    style={[styles.dppBtn, { backgroundColor: '#00BCD4' }]}
-                    onPress={() => navigation.navigate('InvoiceExtractedFields', { transactionId: transaction.id })}
-                >
-                    <Ionicons name="analytics" size={24} color="white" />
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.dppBtnTitle}>View Extracted Fields</Text>
-                        <Text style={styles.dppBtnSub}>See your invoice data — decrypted on demand.</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={24} color="white" />
-                </TouchableOpacity>
-            )}
-
-
-
-            {/* Secure Lot Messaging */}
-            <TouchableOpacity
-                style={[styles.dppBtn, { backgroundColor: '#007AFF' }]}
-                onPress={() => navigation.navigate('LotMessaging', {
-                    lotId: transaction.id,
-                    receiverId: transaction.buyerId,
-                    lotLabel: `Order ${transaction.id.substring(0, 8)}`
-                })}
+            {/* ── Gradient Header ─────────────────────────────────── */}
+            <LinearGradient
+                colors={[C.primaryDark, C.primary, C.primaryLight]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={s.header}
             >
-                <Ionicons name="chatbubbles" size={24} color="white" />
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.dppBtnTitle}>Secure Messaging</Text>
-                    <Text style={styles.dppBtnSub}>Chat with the buyer about this lot.</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={24} color="white" />
-            </TouchableOpacity>
+                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="arrow-back" size={22} color="#fff" />
+                </TouchableOpacity>
 
-            <TouchableOpacity style={styles.homeBtn} onPress={() => navigation.navigate('Marketplace')}>
-                <Text style={styles.homeBtnText}>Continue Shopping</Text>
-            </TouchableOpacity>
+                <View style={s.successBadge}>
+                    <Ionicons name="checkmark" size={38} color={C.primary} />
+                </View>
+                <Text style={s.headerTitle}>Purchase Confirmed!</Text>
+                <Text style={s.headerSub}>Your order has been placed successfully</Text>
+
+                <View style={s.orderChip}>
+                    <Ionicons name="receipt-outline" size={13} color={C.primaryLight} />
+                    <Text style={s.orderChipText}>
+                        Order #{transaction.id.substring(0, 8).toUpperCase()}
+                    </Text>
+                </View>
+            </LinearGradient>
+
+            <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}
+                showsVerticalScrollIndicator={false}>
+
+                {/* ── Summary Card ─────────────────────────────────── */}
+                <View style={s.card}>
+                    <Text style={s.cardTitle}>Order Summary</Text>
+                    <View style={s.cardDivider} />
+
+                    {/* Amount */}
+                    <View style={s.infoRow}>
+                        <View style={[s.infoIcon, { backgroundColor: C.primaryPale }]}>
+                            <Ionicons name="cash-outline" size={18} color={C.primary} />
+                        </View>
+                        <View style={s.infoBody}>
+                            <Text style={s.infoLabel}>Amount Paid</Text>
+                            <Text style={s.infoValue}>
+                                LKR {Number(transaction.offerPrice).toLocaleString()}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Status */}
+                    <View style={s.infoRow}>
+                        <View style={[s.infoIcon, { backgroundColor: statusBg(transaction.status) }]}>
+                            <Ionicons name="pulse-outline" size={18} color={statusColor(transaction.status)} />
+                        </View>
+                        <View style={s.infoBody}>
+                            <Text style={s.infoLabel}>Status</Text>
+                            <View style={[s.statusPill, { backgroundColor: statusBg(transaction.status) }]}>
+                                <View style={[s.statusDot, { backgroundColor: statusColor(transaction.status) }]} />
+                                <Text style={[s.statusPillText, { color: statusColor(transaction.status) }]}>
+                                    {transaction.status}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Buyer */}
+                    <View style={[s.infoRow, { borderBottomWidth: 0 }]}>
+                        <View style={[s.infoIcon, { backgroundColor: C.blueLight }]}>
+                            <Ionicons name="person-outline" size={18} color={C.blue} />
+                        </View>
+                        <View style={s.infoBody}>
+                            <Text style={s.infoLabel}>Buyer ID</Text>
+                            <Text style={s.infoValue}>
+                                {transaction.buyerId.substring(0, 8).toUpperCase()}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* ── Actions ──────────────────────────────────────── */}
+                <Text style={s.sectionTitle}>Digital Assets & Actions</Text>
+
+                {transaction.dppDocumentId && (
+                    <ActionCard
+                        icon="lock-closed"  iconBg={C.purpleLight} iconColor={C.purple} accent={C.purple}
+                        title="Secure Digital Passport"
+                        subtitle="You now have full owner access to the DPP"
+                        label="View Passport"
+                        onPress={() => navigation.navigate('DppDetail', { id: transaction.dppDocumentId })}
+                    />
+                )}
+
+                {transaction.status === 'InvoiceUploaded' && (
+                    <ActionCard
+                        icon="document-text" iconBg={C.orangeLight} iconColor={C.orange} accent={C.orange}
+                        title="Encrypted Invoice"
+                        subtitle="Decrypted and shared securely on your device"
+                        label="Download"
+                        onPress={handleViewInvoice}
+                    />
+                )}
+
+                {transaction.status === 'InvoiceUploaded' && user?.role === 'buyer' && (
+                    <ActionCard
+                        icon="analytics" iconBg={C.cyanLight} iconColor={C.cyan} accent={C.cyan}
+                        title="Extracted Invoice Data"
+                        subtitle="AI-parsed fields — decrypted on demand"
+                        label="View Fields"
+                        onPress={() =>
+                            navigation.navigate('InvoiceExtractedFields', { transactionId: transaction.id })
+                        }
+                    />
+                )}
+
+                <ActionCard
+                    icon="chatbubbles" iconBg={C.blueLight} iconColor={C.blue} accent={C.blue}
+                    title="Secure Lot Messaging"
+                    subtitle="Chat directly with the buyer about this lot"
+                    label="Open Chat"
+                    onPress={() =>
+                        navigation.navigate('LotMessaging', {
+                            lotId:      transaction.id,
+                            receiverId: transaction.buyerId,
+                            lotLabel:   `Order ${transaction.id.substring(0, 8)}`,
+                        })
+                    }
+                />
+
+                {/* Continue button */}
+                <TouchableOpacity style={s.continueBtn} activeOpacity={0.85}
+                    onPress={() => navigation.navigate('Marketplace')}>
+                    <LinearGradient
+                        colors={[C.primary, C.primaryLight]}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        style={s.continueBtnGrad}
+                    >
+                        <Ionicons name="storefront-outline" size={20} color="#fff" />
+                        <Text style={s.continueBtnText}>Continue Shopping</Text>
+                    </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={{ height: 32 }} />
+            </ScrollView>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F2F2F7', padding: 20, paddingTop: 60 },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { alignItems: 'center', marginBottom: 32 },
-    title: { fontSize: 24, fontWeight: 'bold', marginTop: 16 },
-    subtitle: { color: '#666', marginTop: 8 },
-    card: { backgroundColor: 'white', borderRadius: 16, padding: 20, marginBottom: 24 },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
-    label: { fontSize: 16, color: '#666' },
-    value: { fontSize: 16, fontWeight: '600' },
-    price: { fontSize: 18, fontWeight: 'bold', color: '#007AFF' },
-    status: { fontSize: 16, fontWeight: 'bold', color: '#34C759' },
-    divider: { height: 1, backgroundColor: '#eee' },
-    sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, marginLeft: 4 },
-    dppBtn: {
-        backgroundColor: '#5856D6',
-        padding: 20,
-        borderRadius: 16,
-        flexDirection: 'row',
+/* ─── Reusable Action Card ─────────────────────────────────────────── */
+interface ActionCardProps {
+    icon: any; iconBg: string; iconColor: string; accent: string;
+    title: string; subtitle: string; label: string; onPress: () => void;
+}
+function ActionCard({ icon, iconBg, iconColor, accent, title, subtitle, label, onPress }: ActionCardProps) {
+    return (
+        <TouchableOpacity style={s.actionCard} activeOpacity={0.78} onPress={onPress}>
+            <View style={[s.actionIconWrap, { backgroundColor: iconBg }]}>
+                <Ionicons name={icon} size={22} color={iconColor} />
+            </View>
+            <View style={s.actionBody}>
+                <Text style={s.actionTitle}>{title}</Text>
+                <Text style={s.actionSub}>{subtitle}</Text>
+            </View>
+            <View style={[s.actionPill, { backgroundColor: iconBg }]}>
+                <Text style={[s.actionPillText, { color: accent }]}>{label}</Text>
+                <Ionicons name="chevron-forward" size={13} color={accent} />
+            </View>
+        </TouchableOpacity>
+    );
+}
+
+/* ─── Styles ───────────────────────────────────────────────────────── */
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+
+    loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+    loadingText: { marginTop: 12, color: C.sub, fontSize: 15 },
+
+    /* Header */
+    header: {
+        paddingTop: Platform.OS === 'android' ? 44 : 56,
+        paddingBottom: 28,
+        paddingHorizontal: 24,
         alignItems: 'center',
-        gap: 16,
-        marginBottom: 20
+        borderBottomLeftRadius: 28,
+        borderBottomRightRadius: 28,
     },
-    dppBtnTitle: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-    dppBtnSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4 },
-    homeBtn: { padding: 16, alignItems: 'center' },
-    homeBtnText: { color: '#007AFF', fontSize: 16, fontWeight: '600' }
+    backBtn: {
+        position: 'absolute',
+        top: Platform.OS === 'android' ? 44 : 56,
+        left: 20,
+        width: 38, height: 38, borderRadius: 19,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    successBadge: {
+        width: 74, height: 74, borderRadius: 37,
+        backgroundColor: '#fff',
+        justifyContent: 'center', alignItems: 'center',
+        marginBottom: 16,
+        shadowColor: '#000', shadowOpacity: 0.15,
+        shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+        elevation: 6,
+    },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 6 },
+    headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.78)', marginBottom: 16 },
+    orderChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        paddingHorizontal: 14, paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)',
+    },
+    orderChipText: { color: '#fff', fontSize: 12, fontWeight: '700', letterSpacing: 0.6 },
+
+    /* Scroll */
+    scroll:        { flex: 1 },
+    scrollContent: { padding: 20, paddingTop: 24 },
+
+    /* Summary card */
+    card: {
+        backgroundColor: C.card,
+        borderRadius: 20, padding: 20, marginBottom: 24,
+        shadowColor: C.primary, shadowOpacity: 0.09,
+        shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+        borderWidth: 1, borderColor: C.borderLight,
+    },
+    cardTitle:   { fontSize: 15, fontWeight: '700', color: C.textDark, marginBottom: 14 },
+    cardDivider: { height: 1, backgroundColor: C.borderLight, marginBottom: 8 },
+
+    infoRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 14,
+        paddingVertical: 10,
+        borderBottomWidth: 1, borderBottomColor: C.borderLight,
+    },
+    infoIcon: { width: 38, height: 38, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    infoBody:  { flex: 1 },
+    infoLabel: { fontSize: 11, color: C.sub, fontWeight: '500', marginBottom: 3 },
+    infoValue: { fontSize: 15, fontWeight: '700', color: C.textDark },
+
+    statusPill: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingHorizontal: 10, paddingVertical: 4,
+        borderRadius: 10, alignSelf: 'flex-start',
+    },
+    statusDot:      { width: 7, height: 7, borderRadius: 4 },
+    statusPillText: { fontSize: 12, fontWeight: '700' },
+
+    /* Section */
+    sectionTitle: { fontSize: 16, fontWeight: '800', color: C.textDark, marginBottom: 14 },
+
+    /* Action cards */
+    actionCard: {
+        backgroundColor: C.card,
+        borderRadius: 18, padding: 15,
+        flexDirection: 'row', alignItems: 'center', gap: 14,
+        marginBottom: 12,
+        shadowColor: C.primary, shadowOpacity: 0.07,
+        shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+        elevation: 2,
+        borderWidth: 1, borderColor: C.borderLight,
+    },
+    actionIconWrap: { width: 46, height: 46, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+    actionBody:     { flex: 1 },
+    actionTitle:    { fontSize: 14, fontWeight: '700', color: C.textDark, marginBottom: 3 },
+    actionSub:      { fontSize: 11, color: C.sub, lineHeight: 15 },
+    actionPill: {
+        flexDirection: 'row', alignItems: 'center', gap: 2,
+        paddingHorizontal: 9, paddingVertical: 6, borderRadius: 10,
+    },
+    actionPillText: { fontSize: 11, fontWeight: '700' },
+
+    /* Continue */
+    continueBtn:     { marginTop: 14, borderRadius: 16, overflow: 'hidden' },
+    continueBtnGrad: {
+        flexDirection: 'row', alignItems: 'center',
+        justifyContent: 'center', gap: 10, paddingVertical: 16,
+    },
+    continueBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
 });

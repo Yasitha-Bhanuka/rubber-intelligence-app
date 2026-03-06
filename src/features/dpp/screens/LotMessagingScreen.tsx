@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { sendMessage, getMessages } from '../services/messagesService';
+import { sendMessage, getMessages, markLotRead } from '../services/messagesService';
 import { MessageDto } from '../types';
 
 export default function LotMessagingScreen() {
@@ -37,6 +37,7 @@ export default function LotMessagingScreen() {
         try {
             const data = await getMessages(lotId);
             setMessages(data);
+            markLotRead(lotId).catch(() => {}); // best-effort: clear badge on open
         } catch (e) {
             console.error('Failed to load messages', e);
         } finally {

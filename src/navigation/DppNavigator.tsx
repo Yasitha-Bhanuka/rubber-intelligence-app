@@ -14,6 +14,7 @@ import ConfidentialAccessScreen from '../features/dpp/screens/ConfidentialAccess
 import LotMessagingScreen from '../features/dpp/screens/LotMessagingScreen';
 import InvoiceExtractedFieldsScreen from '../features/dpp/screens/InvoiceExtractedFieldsScreen';
 import QirExtractedFieldsScreen from '../features/dpp/screens/QirExtractedFieldsScreen';
+import ExporterDppViewScreen from '../features/dpp/screens/ExporterDppViewScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -53,6 +54,9 @@ export default function DppNavigator() {
 
             {/* Buyer: on-demand decryption of extracted QIR fields */}
             <Stack.Screen name="QirExtractedFields" component={QirExtractedFieldsScreen} />
+
+            {/* Exporter: combined DPP view (invoice + QIR) — only accessible to the lot's exporter */}
+            <Stack.Screen name="ExporterDppView" component={ExporterDppViewScreen} />
 
             {/* Secure Lot-Linked Messaging */}
             <Stack.Screen name="LotMessaging" component={LotMessagingScreen} />
