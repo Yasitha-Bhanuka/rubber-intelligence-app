@@ -147,42 +147,11 @@ export interface UploadState {
   result: DppUploadResponse | null;
 }
 
-// ── Controlled Access ─────────────────────────────────────────────────
-export interface AccessRequest {
-  id: string;
-  lotId: string;
-  exporterId: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  requestedAt: string;
-}
-
-export interface ConfidentialField {
-  fieldName: string;
-  decryptedValue: string;
-}
-
-export interface ConfidentialAccessResponse {
-  lotId: string;
-  accessGrantedAt: string;
-  fields: ConfidentialField[];
-}
-
 // ── DPP Hash Verification (GET /api/dpp/verify/{lotId}) ───────────────
 export interface DppVerificationResponse {
   isValid: boolean;
   recalculatedHash: string;
   storedHash: string;
-}
-
-// ── Exporter Context (GET /api/dpp/exporter-context/{exporterId}) ──────
-export interface ExporterContext {
-  name: string;
-  country: string | null;
-  organizationType: string | null;
-  platformTenureMonths: number;
-  totalCollaborationsWithBuyer: number;
-  lastCollaborationDate: string | null;
-  isVerified: boolean;
 }
 
 // ── Buyer History (GET /api/marketplace/buyer-history/{buyerId}) ────────

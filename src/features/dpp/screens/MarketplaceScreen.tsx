@@ -13,8 +13,7 @@ import {
     getBuyerHistory, uploadInvoice,
 } from '../services/marketplaceService';
 import {
-    getMyAccessRequests, getPassport, verifyDpp,
-    getConfidentialFields,
+    getPassport, verifyDpp,
 } from '../services/dppService';
 import { SellingPost, BuyerHistory, MarketplaceTransaction } from '../types';
 import { getUnreadMessageCount } from '../services/messagesService';
@@ -48,7 +47,7 @@ const C = {
     borderLight: '#E8F5E9',
 };
 
-type TabKey = 'overview' | 'marketplace' | 'requests' | 'transactions';
+type TabKey = 'overview' | 'marketplace' | 'transactions';
 
 /* ═══════════════════════════════════════════════════════════════════════
    MarketplaceScreen — Exporter Hub
@@ -62,7 +61,6 @@ export default function MarketplaceScreen() {
     // Data
     const [posts, setPosts] = useState<SellingPost[]>([]);
     const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
-    const [accessRequests, setAccessRequests] = useState<any[]>([]);
     const [msgCount, setMsgCount] = useState(0);
 
     // Filters
@@ -79,22 +77,19 @@ export default function MarketplaceScreen() {
     const [dppData, setDppData] = useState<any>(null);
     const [dppLoading, setDppLoading] = useState(false);
     const [dppVerified, setDppVerified] = useState<boolean | null>(null);
-    const [confidentialFields, setConfidentialFields] = useState<any[] | null>(null);
     const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
 
     /* ── Data Loading ──────────────────────── */
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [postsData, transData, reqData, unread] = await Promise.all([
+            const [postsData, transData, unread] = await Promise.all([
                 getSellingPosts(),
                 getMyTransactions(),
-                getMyAccessRequests().catch(() => []),
                 getUnreadMessageCount().catch(() => 0),
             ]);
             setPosts(postsData);
             setTransactions(transData);
-            setAccessRequests(reqData);
             setMsgCount(unread);
         } finally {
             setLoading(false);
@@ -115,11 +110,9 @@ export default function MarketplaceScreen() {
 
     /* ── Derived Stats ─────────────────────── */
     const stats = useMemo(() => {
-        const pendingRequests = accessRequests.filter(r => r.status === 'PENDING').length;
-        const approvedRequests = accessRequests.filter(r => r.status === 'APPROVED').length;
         const completedTx = transactions.filter(t => t.status === 'Completed').length;
-        return { pendingRequests, approvedRequests, completedTx, totalPurchased: transactions.length };
-    }, [accessRequests, transactions]);
+        return { completedTx, totalPurchased: transactions.length };
+    }, [transactions]);
 
     /* ── Filtered Posts ─────────────────────── */
     const filteredPosts = useMemo(() => {
@@ -188,7 +181,6 @@ export default function MarketplaceScreen() {
     const handleViewDpp = async (dppDocId: string, lotId?: string) => {
         setDppData(null);
         setDppVerified(null);
-        setConfidentialFields(null);
         setSelectedLotId(lotId || dppDocId);
         setDppModal(true);
         setDppLoading(true);
@@ -199,14 +191,6 @@ export default function MarketplaceScreen() {
             ]);
             setDppData(passport);
             setDppVerified(verification?.isValid ?? null);
-
-            // Try loading confidential fields if access was previously approved
-            try {
-                const confFields = await getConfidentialFields(dppDocId);
-                setConfidentialFields(confFields.fields);
-            } catch {
-                setConfidentialFields(null);
-            }
         } finally {
             setDppLoading(false);
         }
@@ -293,30 +277,6 @@ export default function MarketplaceScreen() {
             <Text style={s.sectionTitle}>Status Overview</Text>
             <View style={s.metricsGrid}>
                 <TouchableOpacity
-                    style={[s.metricCard, { borderLeftColor: C.orange }]}
-                    activeOpacity={0.7}
-                    onPress={() => setActiveTab('requests')}
-                >
-                    <View style={[s.metricIconWrap, { backgroundColor: C.orangeLight }]}>
-                        <Ionicons name="time-outline" size={20} color={C.orange} />
-                    </View>
-                    <Text style={s.metricValue}>{stats.pendingRequests}</Text>
-                    <Text style={s.metricLabel}>Pending Requests</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[s.metricCard, { borderLeftColor: C.green }]}
-                    activeOpacity={0.7}
-                    onPress={() => setActiveTab('requests')}
-                >
-                    <View style={[s.metricIconWrap, { backgroundColor: C.greenLight }]}>
-                        <Ionicons name="checkmark-circle-outline" size={20} color={C.green} />
-                    </View>
-                    <Text style={s.metricValue}>{stats.approvedRequests}</Text>
-                    <Text style={s.metricLabel}>Approved Lots</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
                     style={[s.metricCard, { borderLeftColor: C.blue }]}
                     activeOpacity={0.7}
                     onPress={() => setActiveTab('transactions')}
@@ -364,21 +324,11 @@ export default function MarketplaceScreen() {
                     </View>
                     <Text style={s.quickLabel}>Scan{'\n'}QR/NFC</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={s.quickCard}
-                    activeOpacity={0.7}
-                    onPress={() => setActiveTab('requests')}
-                >
-                    <View style={[s.quickIconWrap, { backgroundColor: C.orangeLight }]}>
-                        <Ionicons name="key-outline" size={22} color={C.orange} />
-                    </View>
-                    <Text style={s.quickLabel}>Access{'\n'}Requests</Text>
-                </TouchableOpacity>
             </View>
 
             {/* Recent Activity Feed */}
             <Text style={s.sectionTitle}>Recent Activity</Text>
-            {transactions.length === 0 && accessRequests.length === 0 ? (
+            {transactions.length === 0 ? (
                 <View style={s.emptyCard}>
                     <Ionicons name="pulse-outline" size={36} color={C.sub} />
                     <Text style={s.emptyText}>No recent activity yet</Text>
@@ -386,38 +336,6 @@ export default function MarketplaceScreen() {
                 </View>
             ) : (
                 <View style={s.activityList}>
-                    {/* Show recent access request changes */}
-                    {accessRequests.slice(0, 3).map((req: any) => (
-                        <View key={req.id} style={s.activityItem}>
-                            <View style={[s.activityDot, {
-                                backgroundColor: req.status === 'APPROVED' ? C.green
-                                    : req.status === 'REJECTED' ? C.red : C.orange
-                            }]} />
-                            <View style={s.activityContent}>
-                                <Text style={s.activityText}>
-                                    Access request for Lot #{req.lotId?.substring(0, 8)}
-                                </Text>
-                                <Text style={s.activityTime}>
-                                    {new Date(req.requestedAt).toLocaleDateString()} ·{' '}
-                                    <Text style={{
-                                        color: req.status === 'APPROVED' ? C.green
-                                            : req.status === 'REJECTED' ? C.red : C.orange,
-                                        fontWeight: '700'
-                                    }}>
-                                        {req.status}
-                                    </Text>
-                                </Text>
-                            </View>
-                            {req.status === 'APPROVED' && (
-                                <TouchableOpacity
-                                    style={s.activityAction}
-                                    onPress={() => navigation.navigate('ConfidentialAccess', { lotId: req.lotId })}
-                                >
-                                    <Ionicons name="eye-outline" size={16} color={C.primary} />
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    ))}
                     {/* Show recent transactions */}
                     {transactions.slice(0, 3).map(tx => (
                         <TouchableOpacity
@@ -605,118 +523,6 @@ export default function MarketplaceScreen() {
     );
 
     /* ═══════════════════════════════════════════════════════════════════
-       TAB: Access Request Tracker
-       ═══════════════════════════════════════════════════════════════════ */
-    const renderAccessRequests = () => (
-        <ScrollView
-            style={s.tabContent}
-            contentContainerStyle={s.tabContentInner}
-            showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={loading} onRefresh={loadData} tintColor={C.primary} />}
-        >
-            {/* Summary chips */}
-            <View style={s.reqSummary}>
-                <View style={[s.reqSummaryChip, { backgroundColor: C.orangeLight }]}>
-                    <Ionicons name="time" size={14} color={C.orange} />
-                    <Text style={[s.reqSummaryText, { color: C.orange }]}>
-                        {stats.pendingRequests} Pending
-                    </Text>
-                </View>
-                <View style={[s.reqSummaryChip, { backgroundColor: C.greenLight }]}>
-                    <Ionicons name="checkmark-circle" size={14} color={C.green} />
-                    <Text style={[s.reqSummaryText, { color: C.green }]}>
-                        {stats.approvedRequests} Approved
-                    </Text>
-                </View>
-                <View style={[s.reqSummaryChip, { backgroundColor: C.redLight }]}>
-                    <Ionicons name="close-circle" size={14} color={C.red} />
-                    <Text style={[s.reqSummaryText, { color: C.red }]}>
-                        {accessRequests.filter(r => r.status === 'REJECTED').length} Rejected
-                    </Text>
-                </View>
-            </View>
-
-            {/* Info Note */}
-            <View style={s.infoNote}>
-                <Ionicons name="information-circle" size={18} color={C.blue} />
-                <Text style={s.infoNoteText}>
-                    Buyer approval is evaluated using an ML trust score model. Pending requests are processed asynchronously.
-                </Text>
-            </View>
-
-            {/* Request List */}
-            {accessRequests.length === 0 ? (
-                <View style={s.emptyCard}>
-                    <Ionicons name="key-outline" size={40} color={C.sub} />
-                    <Text style={s.emptyText}>No access requests</Text>
-                    <Text style={s.emptySub}>Request confidential access from DPP views in the marketplace</Text>
-                </View>
-            ) : (
-                accessRequests.map((req: any) => {
-                    const isPending = req.status === 'PENDING';
-                    const isApproved = req.status === 'APPROVED';
-                    const isRejected = req.status === 'REJECTED';
-                    const statusColor = isApproved ? C.green : isRejected ? C.red : C.orange;
-                    const statusBg = isApproved ? C.greenLight : isRejected ? C.redLight : C.orangeLight;
-                    const statusIcon = isApproved ? 'checkmark-circle' : isRejected ? 'close-circle' : 'time';
-
-                    return (
-                        <TouchableOpacity
-                            key={req.id}
-                            style={s.reqCard}
-                            activeOpacity={isApproved ? 0.7 : 1}
-                            onPress={isApproved
-                                ? () => navigation.navigate('ConfidentialAccess', { lotId: req.lotId })
-                                : undefined
-                            }
-                        >
-                            <View style={s.reqCardHeader}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={s.reqLotId}>Lot #{req.lotId?.substring(0, 12)}</Text>
-                                    <Text style={s.reqDate}>
-                                        Requested: {new Date(req.requestedAt).toLocaleDateString()}
-                                    </Text>
-                                </View>
-                                <View style={[s.reqStatusBadge, { backgroundColor: statusBg }]}>
-                                    <Ionicons name={statusIcon as any} size={13} color={statusColor} />
-                                    <Text style={[s.reqStatusText, { color: statusColor }]}>
-                                        {req.status}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            {isPending && (
-                                <View style={s.reqPendingNote}>
-                                    <Ionicons name="hourglass-outline" size={14} color={C.orange} />
-                                    <Text style={s.reqPendingText}>
-                                        Waiting on buyer's ML trust score evaluation
-                                    </Text>
-                                </View>
-                            )}
-
-                            {isApproved && (
-                                <View style={s.reqApprovedAction}>
-                                    <Ionicons name="lock-open-outline" size={14} color={C.green} />
-                                    <Text style={s.reqApprovedText}>Tap to view unlocked DPP</Text>
-                                    <Ionicons name="chevron-forward" size={14} color={C.green} />
-                                </View>
-                            )}
-
-                            {isRejected && (
-                                <View style={s.reqRejectedNote}>
-                                    <Ionicons name="ban-outline" size={14} color={C.red} />
-                                    <Text style={s.reqRejectedText}>Access denied by buyer</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    );
-                })
-            )}
-            <View style={{ height: 30 }} />
-        </ScrollView>
-    );
-
-    /* ═══════════════════════════════════════════════════════════════════
        TAB: Transaction & Invoice Center
        ═══════════════════════════════════════════════════════════════════ */
     const renderTransactions = () => (
@@ -817,16 +623,6 @@ export default function MarketplaceScreen() {
                                     </TouchableOpacity>
                                 )}
 
-                                {tx.dppDocumentId && (
-                                    <TouchableOpacity
-                                        style={[s.txActionBtn, { backgroundColor: C.accent }]}
-                                        onPress={() => navigation.navigate('ConfidentialAccess', { lotId: tx.dppDocumentId })}
-                                    >
-                                        <Ionicons name="lock-open" size={15} color="#FFF" />
-                                        <Text style={s.txActionBtnText}>Confidential Fields</Text>
-                                    </TouchableOpacity>
-                                )}
-
                                 <TouchableOpacity
                                     style={[s.txActionBtn, { backgroundColor: C.sub }]}
                                     onPress={() => navigation.navigate('OrderReceipt', { transactionId: tx.id })}
@@ -841,7 +637,7 @@ export default function MarketplaceScreen() {
                                 <View style={s.encryptionNotice}>
                                     <Ionicons name="lock-closed" size={12} color={C.sub} />
                                     <Text style={s.encryptionNoticeText}>
-                                        Uploaded invoices are secured using RSA/AES hybrid encryption
+                                        Uploaded invoices are secured using AES-256 encryption
                                     </Text>
                                 </View>
                             )}
@@ -859,7 +655,6 @@ export default function MarketplaceScreen() {
     const TAB_CONFIG: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
         { key: 'overview', label: 'Home', icon: 'home' },
         { key: 'marketplace', label: 'Lots', icon: 'storefront' },
-        { key: 'requests', label: 'Access', icon: 'key' },
         { key: 'transactions', label: 'Orders', icon: 'receipt' },
     ];
 
@@ -934,11 +729,6 @@ export default function MarketplaceScreen() {
                     </View>
                     <View style={s.headerStripDivider} />
                     <View style={s.headerStripItem}>
-                        <Text style={s.headerStripVal}>{stats.pendingRequests}</Text>
-                        <Text style={s.headerStripLabel}>Pending</Text>
-                    </View>
-                    <View style={s.headerStripDivider} />
-                    <View style={s.headerStripItem}>
                         <Text style={s.headerStripVal}>{transactions.length}</Text>
                         <Text style={s.headerStripLabel}>Orders</Text>
                     </View>
@@ -985,7 +775,6 @@ export default function MarketplaceScreen() {
                 <>
                     {activeTab === 'overview' && renderOverview()}
                     {activeTab === 'marketplace' && renderMarketplace()}
-                    {activeTab === 'requests' && renderAccessRequests()}
                     {activeTab === 'transactions' && renderTransactions()}
                 </>
             )}
@@ -1046,72 +835,29 @@ export default function MarketplaceScreen() {
                                 {dppData.confidentialDataExists && (
                                     <>
                                         <Text style={s.dppSectionLabel}>Confidential Data</Text>
-                                        {confidentialFields ? (
-                                            /* State B: Unlocked View */
-                                            <View style={s.dppTable}>
-                                                {confidentialFields.map((f: any, i: number) => (
-                                                    <DppRow
-                                                        key={i}
-                                                        label={f.fieldName}
-                                                        value={f.decryptedValue}
-                                                        isConfidential
-                                                        isUnlocked
-                                                    />
-                                                ))}
+                                        <View style={s.dppLockedSection}>
+                                            <View style={s.dppLockedContent}>
+                                                <Ionicons name="lock-closed" size={24} color={C.sub} />
+                                                <Text style={s.dppLockedTitle}>Confidential Fields</Text>
+                                                <Text style={s.dppLockedText}>
+                                                    Price per Kg, Total Amount, Supplier Bank Details and other sensitive fields are encrypted. Only the exporter with the correct Request ID can unlock these fields on their device.
+                                                </Text>
                                             </View>
-                                        ) : (
-                                            /* State A: Locked View */
-                                            <View style={s.dppLockedSection}>
-                                                <View style={s.dppLockedContent}>
-                                                    <Ionicons name="lock-closed" size={24} color={C.sub} />
-                                                    <Text style={s.dppLockedTitle}>Confidential Fields</Text>
-                                                    <Text style={s.dppLockedText}>
-                                                        Price per Kg, Total Amount, Supplier Bank Details and other sensitive fields are encrypted
-                                                    </Text>
-                                                </View>
 
-                                                {/* Blurred placeholders */}
-                                                <View style={s.dppBlurredRow}>
-                                                    <Text style={s.dppBlurredLabel}>Price per Kg</Text>
-                                                    <View style={s.dppBlurredValue}><Text style={s.dppBlurredText}>••••••••</Text></View>
-                                                </View>
-                                                <View style={s.dppBlurredRow}>
-                                                    <Text style={s.dppBlurredLabel}>Total Amount</Text>
-                                                    <View style={s.dppBlurredValue}><Text style={s.dppBlurredText}>••••••••</Text></View>
-                                                </View>
-                                                <View style={s.dppBlurredRow}>
-                                                    <Text style={s.dppBlurredLabel}>Bank Details</Text>
-                                                    <View style={s.dppBlurredValue}><Text style={s.dppBlurredText}>••••••••</Text></View>
-                                                </View>
-
-                                                <TouchableOpacity
-                                                    style={s.dppRequestBtn}
-                                                    onPress={() => {
-                                                        setDppModal(false);
-                                                        if (selectedLotId) {
-                                                            navigation.navigate('ConfidentialAccess', { lotId: selectedLotId });
-                                                        }
-                                                    }}
-                                                >
-                                                    <Ionicons name="key" size={16} color="#FFF" />
-                                                    <Text style={s.dppRequestBtnText}>Request Confidential Access</Text>
-                                                </TouchableOpacity>
+                                            {/* Blurred placeholders */}
+                                            <View style={s.dppBlurredRow}>
+                                                <Text style={s.dppBlurredLabel}>Price per Kg</Text>
+                                                <View style={s.dppBlurredValue}><Text style={s.dppBlurredText}>••••••••</Text></View>
                                             </View>
-                                        )}
-
-                                        {/* Unlocked: proceed action */}
-                                        {confidentialFields && (
-                                            <TouchableOpacity
-                                                style={s.dppProceedBtn}
-                                                onPress={() => {
-                                                    setDppModal(false);
-                                                    setActiveTab('transactions');
-                                                }}
-                                            >
-                                                <Ionicons name="cart" size={16} color="#FFF" />
-                                                <Text style={s.dppProceedBtnText}>Proceed to Purchase</Text>
-                                            </TouchableOpacity>
-                                        )}
+                                            <View style={s.dppBlurredRow}>
+                                                <Text style={s.dppBlurredLabel}>Total Amount</Text>
+                                                <View style={s.dppBlurredValue}><Text style={s.dppBlurredText}>••••••••</Text></View>
+                                            </View>
+                                            <View style={s.dppBlurredRow}>
+                                                <Text style={s.dppBlurredLabel}>Bank Details</Text>
+                                                <View style={s.dppBlurredValue}><Text style={s.dppBlurredText}>••••••••</Text></View>
+                                            </View>
+                                        </View>
                                     </>
                                 )}
 
@@ -1499,51 +1245,6 @@ const s = StyleSheet.create({
     },
     purchaseBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
 
-    /* ═══ ACCESS REQUESTS TAB ═══ */
-    reqSummary: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-    reqSummaryChip: {
-        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 5, paddingVertical: 10, borderRadius: 12,
-    },
-    reqSummaryText: { fontSize: 12, fontWeight: '700' },
-
-    infoNote: {
-        flexDirection: 'row', gap: 8, backgroundColor: C.blueLight,
-        borderRadius: 12, padding: 14, marginBottom: 16, alignItems: 'flex-start',
-    },
-    infoNoteText: { flex: 1, fontSize: 12, color: C.blue, lineHeight: 18 },
-
-    reqCard: {
-        backgroundColor: C.card, borderRadius: 14, padding: 16, marginBottom: 12,
-        borderWidth: 1, borderColor: C.border,
-    },
-    reqCardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-    reqLotId: { fontSize: 15, fontWeight: '700', color: C.textDark },
-    reqDate: { fontSize: 12, color: C.sub, marginTop: 2 },
-    reqStatusBadge: {
-        flexDirection: 'row', alignItems: 'center', gap: 5,
-        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
-    },
-    reqStatusText: { fontSize: 12, fontWeight: '700' },
-
-    reqPendingNote: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        backgroundColor: C.orangeLight, borderRadius: 8, padding: 10,
-    },
-    reqPendingText: { flex: 1, fontSize: 12, color: C.orange, fontWeight: '500' },
-
-    reqApprovedAction: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        backgroundColor: C.greenLight, borderRadius: 8, padding: 10,
-    },
-    reqApprovedText: { flex: 1, fontSize: 12, color: C.green, fontWeight: '600' },
-
-    reqRejectedNote: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        backgroundColor: C.redLight, borderRadius: 8, padding: 10,
-    },
-    reqRejectedText: { flex: 1, fontSize: 12, color: C.red, fontWeight: '500' },
-
     /* ═══ TRANSACTIONS TAB ═════ */
     txCard: {
         backgroundColor: C.card, borderRadius: 14, padding: 16, marginBottom: 14,
@@ -1696,18 +1397,6 @@ const s = StyleSheet.create({
     dppBlurredLabel: { fontSize: 13, color: '#BDBDBD', fontWeight: '500' },
     dppBlurredValue: { backgroundColor: '#E0E0E0', borderRadius: 6, paddingHorizontal: 14, paddingVertical: 4 },
     dppBlurredText: { fontSize: 13, color: '#BDBDBD', letterSpacing: 2 },
-
-    dppRequestBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        backgroundColor: C.orange, borderRadius: 12, paddingVertical: 13, marginTop: 16,
-    },
-    dppRequestBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
-
-    dppProceedBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        backgroundColor: C.primary, borderRadius: 12, paddingVertical: 13, marginBottom: 16,
-    },
-    dppProceedBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
 
     dppHashSection: {
         backgroundColor: C.bg, borderRadius: 10, padding: 12, marginBottom: 8,

@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { DppUploadResponse, DppDocument, DigitalProductPassport, AccessRequest, ConfidentialAccessResponse, DppVerificationResponse, ExporterContext } from '../types';
+import { DppUploadResponse, DppDocument, DigitalProductPassport, DppVerificationResponse } from '../types';
 
 // ── POST /api/dpp/upload ─────────────────────────────────────────────
 export const uploadDppDocument = async (
@@ -50,52 +50,6 @@ export const getDppMetadata = async (id: string): Promise<DppDocument> => {
 export const getDppFileUrl = (id: string): string =>
     `${apiClient.defaults.baseURL}/dpp/${id}/access`;
 
-// ── CONTROLLED ACCESS ─────────────────────────────────────────────────
-
-// POST /api/dpp/request-confidential/{lotId} (Exporter only)
-export const requestConfidentialAccess = async (
-    lotId: string
-): Promise<{ requestId: string; status: string }> => {
-    const response = await apiClient.post(`/dpp/request-confidential/${lotId}`);
-    return response.data;
-};
-
-// GET /api/dpp/pending-requests (Buyer only)
-export const getPendingAccessRequests = async (): Promise<AccessRequest[]> => {
-    const response = await apiClient.get<AccessRequest[]>('/dpp/pending-requests');
-    return response.data;
-};
-
-// POST /api/dpp/approve-confidential/{requestId} (Buyer only)
-export const approveAccessRequest = async (
-    requestId: string
-): Promise<{ requestId: string; status: string }> => {
-    const response = await apiClient.post(`/dpp/approve-confidential/${requestId}`);
-    return response.data;
-};
-
-// POST /api/dpp/reject-confidential/{requestId} (Buyer only)
-export const rejectAccessRequest = async (
-    requestId: string
-): Promise<{ requestId: string; status: string }> => {
-    const response = await apiClient.post(`/dpp/reject-confidential/${requestId}`);
-    return response.data;
-};
-
-// GET /api/dpp/confidential/{lotId} (Exporter only — requires approved request)
-export const getConfidentialFields = async (
-    lotId: string
-): Promise<ConfidentialAccessResponse> => {
-    const response = await apiClient.get<ConfidentialAccessResponse>(`/dpp/confidential/${lotId}`);
-    return response.data;
-};
-
-// GET /api/dpp/my-requests (Exporter only — returns all access requests by this exporter)
-export const getMyAccessRequests = async (): Promise<{ id: string; lotId: string; status: string; requestedAt: string; approvedAt?: string }[]> => {
-    const response = await apiClient.get(`/dpp/my-requests`);
-    return response.data;
-};
-
 // ── HASH VERIFICATION ─────────────────────────────────────────────────
 
 // GET /api/dpp/verify/{lotId} (Buyer, Exporter)
@@ -104,10 +58,3 @@ export const verifyDpp = async (lotId: string): Promise<DppVerificationResponse>
     return response.data;
 };
 
-// ── EXPORTER CONTEXT ──────────────────────────────────────────────────
-
-// GET /api/dpp/exporter-context/{exporterId} (Buyer only)
-export const getExporterContext = async (exporterId: string): Promise<ExporterContext> => {
-    const response = await apiClient.get<ExporterContext>(`/dpp/exporter-context/${exporterId}`);
-    return response.data;
-};

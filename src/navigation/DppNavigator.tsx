@@ -9,8 +9,7 @@ import DppPassportScreen from '../features/dpp/screens/DppPassportScreen';
 import CreateSellingPostScreen from '../features/dpp/screens/CreateSellingPostScreen';
 import MarketplaceScreen from '../features/dpp/screens/MarketplaceScreen';
 import OrderReceiptScreen from '../features/dpp/screens/OrderReceiptScreen';
-import PendingRequestsScreen from '../features/dpp/screens/PendingRequestsScreen';
-import ConfidentialAccessScreen from '../features/dpp/screens/ConfidentialAccessScreen';
+
 import LotMessagingScreen from '../features/dpp/screens/LotMessagingScreen';
 import InvoiceExtractedFieldsScreen from '../features/dpp/screens/InvoiceExtractedFieldsScreen';
 import QirExtractedFieldsScreen from '../features/dpp/screens/QirExtractedFieldsScreen';
@@ -41,10 +40,7 @@ export default function DppNavigator() {
             <Stack.Screen name="ExporterScanner" component={ExporterScannerScreen} />
 
             {/* Confidential field access */}
-            <Stack.Screen name="ConfidentialAccess" component={ConfidentialAccessScreen} />
-
-            {/* Pending access requests (Buyer) — includes ExporterContext panel */}
-            <Stack.Screen name="PendingRequests" component={PendingRequestsScreen} />
+           
 
             {/* Marketplace — includes BuyerHistory modal per post */}
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
