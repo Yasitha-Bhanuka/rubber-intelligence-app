@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    TextInput,
+    Alert
+} from 'react-native';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../store';
+
+const ESP32_IP = "http://10.189.36.161";
 
 export const EnvironmentAlertDashboard = () => {
     const { user } = useStore();
@@ -11,14 +22,38 @@ export const EnvironmentAlertDashboard = () => {
     const [soilMoisture, setSoilMoisture] = useState('');
     const [humidity, setHumidity] = useState('');
     const [temperature, setTemperature] = useState('');
-    const [resultMessage, setResultMessage] = useState('Stress analysis will appear here');
+    const [resultMessage, setResultMessage] = useState(
+        'Stress analysis will appear here'
+    );
+
+    // ✅ Fetch sensor data from ESP32 every 3 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetch(`${ESP32_IP}/data`)
+                .then(res => res.json())
+                .then(data => {
+                    setTemperature(String(data.temperature));
+                    setHumidity(String(data.humidity));
+                    setSoilMoisture(String(data.soilMoisture));
+
+                    setResultMessage(
+                        `Alert: ${data.alert}\nAdvice: ${data.advice}`
+                    );
+                })
+                .catch(err => console.log("ESP32 Fetch Error:", err));
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     // Currently only visible to farmers according to requirement
     if (role !== 'farmer') {
         return (
             <View style={styles.accessDeniedContainer}>
                 <Ionicons name="lock-closed" size={64} color="#ccc" />
-                <Text style={styles.accessDeniedText}>Access Denied. This dashboard is only available to farmers.</Text>
+                <Text style={styles.accessDeniedText}>
+                    Access Denied. This dashboard is only available to farmers.
+                </Text>
             </View>
         );
     }
@@ -29,18 +64,17 @@ export const EnvironmentAlertDashboard = () => {
             return;
         }
 
-        // Future Implementation: Real analysis and sensor integration
-        // Currently setting a placeholder processing message
         setResultMessage('Analyzing environmental stress factors...');
 
         setTimeout(() => {
-            setResultMessage('Analysis complete: Conditions are currently optimal. No severe stress detected.');
+            setResultMessage(
+                'Analysis complete: Conditions are currently optimal. No severe stress detected.'
+            );
         }, 1500);
     };
 
     return (
         <ScrollView style={styles.container}>
-            {/* Header Section */}
             <LinearGradient
                 colors={['#1B5E20', '#4CAF50']}
                 start={{ x: 0, y: 0 }}
@@ -49,9 +83,14 @@ export const EnvironmentAlertDashboard = () => {
             >
                 <View style={styles.headerContent}>
                     <View>
-                        <Text style={styles.greeting}>Environmental Stress Monitor</Text>
-                        <Text style={styles.subtitle}>Track your plantation health</Text>
+                        <Text style={styles.greeting}>
+                            Environmental Stress Monitor
+                        </Text>
+                        <Text style={styles.subtitle}>
+                            Track your plantation health
+                        </Text>
                     </View>
+
                     <View style={styles.iconCircle}>
                         <Ionicons name="leaf" size={24} color="#FFF" />
                     </View>
@@ -60,54 +99,48 @@ export const EnvironmentAlertDashboard = () => {
 
             {/* Input Section */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Real Time Sensor Measurements</Text>
-                <Text style={styles.sectionDescription}>
-                    Enter current readings below.
+                <Text style={styles.sectionTitle}>
+                    Real Time Sensor Measurements
                 </Text>
 
                 <View style={styles.inputCard}>
                     <Text style={styles.inputLabel}>Soil Moisture (%)</Text>
-                    <View style={styles.inputWrapper}>
-                        <Ionicons name="water-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.inputField}
-                            placeholder="e.g. 45"
-                            keyboardType="numeric"
-                            value={soilMoisture}
-                            onChangeText={setSoilMoisture}
-                            placeholderTextColor="#A5D6A7"
-                        />
-                    </View>
+                    <TextInput
+                        style={styles.inputField}
+                        keyboardType="numeric"
+                        value={soilMoisture}
+                        onChangeText={setSoilMoisture}
+                    />
 
                     <Text style={styles.inputLabel}>Humidity (%)</Text>
-                    <View style={styles.inputWrapper}>
-                        <Ionicons name="cloudy-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.inputField}
-                            placeholder="e.g. 80"
-                            keyboardType="numeric"
-                            value={humidity}
-                            onChangeText={setHumidity}
-                            placeholderTextColor="#A5D6A7"
-                        />
-                    </View>
+                    <TextInput
+                        style={styles.inputField}
+                        keyboardType="numeric"
+                        value={humidity}
+                        onChangeText={setHumidity}
+                    />
 
                     <Text style={styles.inputLabel}>Temperature (°C)</Text>
-                    <View style={styles.inputWrapper}>
-                        <Ionicons name="thermometer-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.inputField}
-                            placeholder="e.g. 28"
-                            keyboardType="numeric"
-                            value={temperature}
-                            onChangeText={setTemperature}
-                            placeholderTextColor="#A5D6A7"
-                        />
-                    </View>
+                    <TextInput
+                        style={styles.inputField}
+                        keyboardType="numeric"
+                        value={temperature}
+                        onChangeText={setTemperature}
+                    />
 
-                    <TouchableOpacity style={styles.analyzeBtn} onPress={handleAnalyze}>
-                        <Text style={styles.analyzeBtnText}>Analyze Stress Level</Text>
-                        <Ionicons name="analytics-outline" size={20} color="#FFF" style={{ marginLeft: 8 }} />
+                    <TouchableOpacity
+                        style={styles.analyzeBtn}
+                        onPress={handleAnalyze}
+                    >
+                        <Text style={styles.analyzeBtnText}>
+                            Analyze Stress Level
+                        </Text>
+                        <Ionicons
+                            name="analytics-outline"
+                            size={20}
+                            color="#FFF"
+                            style={{ marginLeft: 8 }}
+                        />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -115,9 +148,18 @@ export const EnvironmentAlertDashboard = () => {
             {/* Result Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Analysis Result</Text>
+
                 <View style={styles.resultCard}>
-                    <Ionicons name="information-circle" size={32} color="#1565C0" style={{ marginBottom: 10 }} />
-                    <Text style={styles.resultMessage}>{resultMessage}</Text>
+                    <Ionicons
+                        name="information-circle"
+                        size={32}
+                        color="#1565C0"
+                        style={{ marginBottom: 10 }}
+                    />
+
+                    <Text style={styles.resultMessage}>
+                        {resultMessage}
+                    </Text>
                 </View>
             </View>
 
@@ -170,49 +212,30 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         color: '#333',
-        marginBottom: 8
-    },
-    sectionDescription: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 15,
-        lineHeight: 20
+        marginBottom: 12
     },
     inputCard: {
         backgroundColor: '#FFF',
         borderRadius: 20,
         padding: 20,
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8
+        elevation: 4
     },
     inputLabel: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#333',
-        marginBottom: 8
+        marginTop: 10,
+        color: '#333'
     },
-    inputWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    inputField: {
+        borderWidth: 1,
+        borderColor: '#DCEDC8',
         backgroundColor: '#F1F8E9',
         borderRadius: 12,
         paddingHorizontal: 15,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#DCEDC8'
-    },
-    inputIcon: {
-        marginRight: 10
-    },
-    inputField: {
-        flex: 1,
         height: 50,
         fontSize: 16,
         color: '#2E7D32',
-        fontWeight: '500'
+        marginTop: 6
     },
     analyzeBtn: {
         backgroundColor: '#2E7D32',
@@ -221,7 +244,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 10
+        marginTop: 20
     },
     analyzeBtnText: {
         color: '#FFF',
