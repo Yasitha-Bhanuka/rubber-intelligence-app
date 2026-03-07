@@ -19,40 +19,41 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
-    TouchableOpacity, ActivityIndicator,
+    TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getExporterTransactionDpp } from '../services/marketplaceService';
+import * as Sharing from 'expo-sharing';
+import { getExporterTransactionDpp, getInvoiceFileUri } from '../services/marketplaceService';
 import { ExporterDppView, ExporterDppField } from '../types';
 
 // ── Palette (matches MarketplaceScreen green theme) ───────────────────
 const C = {
-    primary:     '#2E7D32',
+    primary: '#2E7D32',
     primaryDark: '#1B5E20',
-    primaryLight:'#4CAF50',
+    primaryLight: '#4CAF50',
     primaryPale: '#E8F5E9',
-    teal:        '#00BCD4',
-    amber:       '#FF9500',
-    green:       '#34C759',
-    red:         '#FF3B30',
-    blue:        '#2196F3',
-    purple:      '#7E57C2',
-    bg:          '#F1F8E9',
-    white:       '#FFFFFF',
+    teal: '#00BCD4',
+    amber: '#FF9500',
+    green: '#34C759',
+    red: '#FF3B30',
+    blue: '#2196F3',
+    purple: '#7E57C2',
+    bg: '#F1F8E9',
+    white: '#FFFFFF',
     textPrimary: '#1C1C1E',
-    textSub:     '#6B7B6E',
-    border:      '#C8E6C9',
+    textSub: '#6B7B6E',
+    border: '#C8E6C9',
 };
 
 // ── Status metadata ───────────────────────────────────────────────────
 function statusMeta(status: string): { label: string; color: string; bg: string } {
     switch (status) {
-        case 'QirUploaded':      return { label: 'QIR Uploaded',     color: C.teal,  bg: '#E0F7FA' };
-        case 'InvoiceUploaded':  return { label: 'Invoice Uploaded',  color: C.blue,  bg: '#E3F2FD' };
-        case 'Completed':        return { label: 'Completed',         color: C.green, bg: '#E8FAE8' };
-        default:                 return { label: status,              color: C.amber, bg: '#FFF8E1' };
+        case 'QirUploaded': return { label: 'QIR Uploaded', color: C.teal, bg: '#E0F7FA' };
+        case 'InvoiceUploaded': return { label: 'Invoice Uploaded', color: C.blue, bg: '#E3F2FD' };
+        case 'Completed': return { label: 'Completed', color: C.green, bg: '#E8FAE8' };
+        default: return { label: status, color: C.amber, bg: '#FFF8E1' };
     }
 }
 
@@ -68,7 +69,7 @@ function humanize(key: string): string {
 // ── Single field row ──────────────────────────────────────────────────
 function FieldRow({ field, accent }: { field: ExporterDppField; accent: string }) {
     const isProtected = field.isConfidential;
-    const displayVal  = isProtected ? 'Protected — buyer confidential' : (field.value ?? '—');
+    const displayVal = isProtected ? 'Protected — buyer confidential' : (field.value ?? '—');
     return (
         <View style={[
             st.fieldRow,
@@ -140,13 +141,35 @@ function StatChip({
 // Screen
 // ═════════════════════════════════════════════════════════════════════════
 export default function ExporterDppViewScreen() {
-    const route      = useRoute<any>();
+    const route = useRoute<any>();
     const navigation = useNavigation<any>();
     const { transactionId } = route.params as { transactionId: string };
 
-    const [dpp,     setDpp]     = useState<ExporterDppView | null>(null);
+    const [dpp, setDpp] = useState<ExporterDppView | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error,   setError]   = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [downloadingInv, setDownloadingInv] = useState(false);
+
+    const handleViewInvoice = async () => {
+        setDownloadingInv(true);
+        try {
+            const { uri, mimeType } = await getInvoiceFileUri(transactionId);
+            const canShare = await Sharing.isAvailableAsync();
+            if (canShare) {
+                await Sharing.shareAsync(uri, {
+                    mimeType,
+                    dialogTitle: 'View Source Document',
+                    UTI: mimeType.includes('pdf') ? 'com.adobe.pdf' : 'public.image'
+                });
+            } else {
+                Alert.alert('Not Supported', 'Sharing/viewing is not available on this device.');
+            }
+        } catch (e: any) {
+            Alert.alert('Decrypt Failed', e.message || 'Could not fetch or decrypt the document.');
+        } finally {
+            setDownloadingInv(false);
+        }
+    };
 
     const loadDpp = useCallback(async () => {
         setLoading(true);
@@ -168,12 +191,12 @@ export default function ExporterDppViewScreen() {
     useEffect(() => { loadDpp(); }, [loadDpp]);
 
     // ── derived ────────────────────────────────────────────────────────
-    const invPublic  = dpp?.invoiceFields.filter(f => !f.isConfidential) ?? [];
-    const invConf    = dpp?.invoiceFields.filter(f =>  f.isConfidential) ?? [];
-    const qirPublic  = dpp?.qirFields.filter(f => !f.isConfidential) ?? [];
-    const qirConf    = dpp?.qirFields.filter(f =>  f.isConfidential) ?? [];
-    const stMeta     = dpp ? statusMeta(dpp.status) : null;
-    const hasQir     = dpp ? dpp.qirFields.length > 0 : false;
+    const invPublic = dpp?.invoiceFields.filter(f => !f.isConfidential) ?? [];
+    const invConf = dpp?.invoiceFields.filter(f => f.isConfidential) ?? [];
+    const qirPublic = dpp?.qirFields.filter(f => !f.isConfidential) ?? [];
+    const qirConf = dpp?.qirFields.filter(f => f.isConfidential) ?? [];
+    const stMeta = dpp ? statusMeta(dpp.status) : null;
+    const hasQir = dpp ? dpp.qirFields.length > 0 : false;
 
     // ── render ────────────────────────────────────────────────────────
     return (
@@ -312,6 +335,22 @@ export default function ExporterDppViewScreen() {
                                 subtitle={`${invPublic.length} public · ${invConf.length} protected`}
                                 accentColor={C.blue}
                             />
+
+                            <TouchableOpacity
+                                style={st.downloadDocBtn}
+                                onPress={handleViewInvoice}
+                                disabled={downloadingInv}
+                            >
+                                <Ionicons name="document-lock-outline" size={20} color={C.blue} />
+                                <Text style={st.downloadDocBtnText}>
+                                    {downloadingInv ? 'Decrypting Source Document...' : 'View Decrypted Source Document'}
+                                </Text>
+                                {downloadingInv ? (
+                                    <ActivityIndicator size="small" color={C.blue} />
+                                ) : (
+                                    <Ionicons name="download-outline" size={20} color={C.blue} />
+                                )}
+                            </TouchableOpacity>
                             {dpp.invoiceFields.map((f, i) => (
                                 <FieldRow key={`inv-${i}`} field={f} accent={C.blue} />
                             ))}
@@ -387,7 +426,7 @@ const st = StyleSheet.create({
         justifyContent: 'center', alignItems: 'center',
     },
     headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
-    headerSub:   { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+    headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
     dppBadge: {
         flexDirection: 'row', alignItems: 'center', gap: 5,
         backgroundColor: 'rgba(255,255,255,0.2)',
@@ -400,8 +439,8 @@ const st = StyleSheet.create({
         flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 14,
     },
     loadingText: { fontSize: 14, color: C.textSub, marginTop: 8 },
-    errorTitle:  { fontSize: 18, fontWeight: '700', color: C.textPrimary },
-    errorBody:   { fontSize: 14, color: C.textSub, textAlign: 'center', lineHeight: 20 },
+    errorTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
+    errorBody: { fontSize: 14, color: C.textSub, textAlign: 'center', lineHeight: 20 },
     retryBtn: {
         flexDirection: 'row', alignItems: 'center', gap: 8,
         backgroundColor: C.primary, paddingHorizontal: 24, paddingVertical: 12,
@@ -450,7 +489,7 @@ const st = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 8,
         backgroundColor: '#E0F7FA', padding: 10, borderRadius: 10, marginBottom: 18,
     },
-    classText:  { fontSize: 13, color: C.textPrimary, flex: 1 },
+    classText: { fontSize: 13, color: C.textPrimary, flex: 1 },
     classValue: { fontWeight: '700', color: C.teal },
 
     /* Section header */
@@ -459,7 +498,7 @@ const st = StyleSheet.create({
         borderLeftWidth: 3, paddingLeft: 10, marginBottom: 12, marginTop: 20,
     },
     sectionTitle: { fontSize: 15, fontWeight: '700' },
-    sectionSub:   { fontSize: 11, color: C.textSub, marginTop: 1 },
+    sectionSub: { fontSize: 11, color: C.textSub, marginTop: 1 },
 
     /* Field row */
     fieldRow: {
@@ -473,20 +512,20 @@ const st = StyleSheet.create({
         width: 36, height: 36, borderRadius: 10,
         justifyContent: 'center', alignItems: 'center', flexShrink: 0,
     },
-    fieldContent:       { flex: 1 },
-    fieldName:          { fontSize: 11, fontWeight: '600', color: C.textSub, marginBottom: 2 },
-    fieldValue:         { fontSize: 14, fontWeight: '700', color: C.textPrimary },
-    fieldValueProtected:{ fontSize: 13, fontWeight: '500', color: '#B0B0B0', fontStyle: 'italic' },
+    fieldContent: { flex: 1 },
+    fieldName: { fontSize: 11, fontWeight: '600', color: C.textSub, marginBottom: 2 },
+    fieldValue: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
+    fieldValueProtected: { fontSize: 13, fontWeight: '500', color: '#B0B0B0', fontStyle: 'italic' },
 
     /* Badges */
     badge: {
         paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, alignSelf: 'flex-start',
     },
-    badgePublic:        { backgroundColor: '#DCFCE7' },
-    badgeLocked:        { backgroundColor: '#FEE2E2' },
-    badgeText:          { fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
-    badgeTextPublic:    { color: '#16A34A' },
-    badgeTextLocked:    { color: '#DC2626' },
+    badgePublic: { backgroundColor: '#DCFCE7' },
+    badgeLocked: { backgroundColor: '#FEE2E2' },
+    badgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+    badgeTextPublic: { color: '#16A34A' },
+    badgeTextLocked: { color: '#DC2626' },
 
     /* Empty section */
     emptySection: {
@@ -502,9 +541,9 @@ const st = StyleSheet.create({
         backgroundColor: '#E3F2FD', padding: 14, borderRadius: 12,
         borderWidth: 1, borderColor: '#BBDEFB', marginTop: 24,
     },
-    noticeText:   { flex: 1, fontSize: 12, color: '#1565C0', lineHeight: 18 },
-    noticeBold:   { fontWeight: '700' },
-    noticeLink:   { fontWeight: '700', textDecorationLine: 'underline' },
+    noticeText: { flex: 1, fontSize: 12, color: '#1565C0', lineHeight: 18 },
+    noticeBold: { fontWeight: '700' },
+    noticeLink: { fontWeight: '700', textDecorationLine: 'underline' },
 
     /* Footer */
     footer: {
@@ -514,4 +553,16 @@ const st = StyleSheet.create({
         borderWidth: 1, borderColor: C.border,
     },
     footerText: { fontSize: 11, color: C.textSub, flex: 1, lineHeight: 16 },
+
+    /* Action Button for Docs */
+    downloadDocBtn: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#E3F2FD', padding: 14,
+        borderRadius: 12, marginBottom: 16,
+        borderWidth: 1, borderColor: '#BBDEFB'
+    },
+    downloadDocBtnText: {
+        flex: 1, marginLeft: 10,
+        color: '#1565C0', fontWeight: '700', fontSize: 13
+    }
 });

@@ -1,5 +1,7 @@
 import apiClient from '../../../core/api/apiClient';
 import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView, InterestedExporter, AcceptExporterRequest, DualLayerDppResponse, LotInterestRequest } from '../types';
+import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -87,21 +89,42 @@ export const getBuyerHistory = async (buyerId: string): Promise<BuyerHistory> =>
     return response.data;
 };
 
-export const getInvoice = async (transactionId: string): Promise<string> => {
+export const getInvoiceFileUri = async (transactionId: string): Promise<{ uri: string, mimeType: string }> => {
     try {
-        // We get the file as a blob/stream, but in React Native with Axios, handling binary can be tricky.
-        // For simple display/download, valid URL approach or FileSystem download is better.
-        // Here we assume we fetch the Blob and return a local URI or base64.
-        // Simplified: Return the Direct URL if auth is handled via headers in WebView or similar.
-        // BUT authenticated download often needs specific handling. 
-        // Let's implement basic fetch to check access or return the endpoint for use with a Download Manager.
-
-        // For this prototype: Assume we use expo-file-system in the UI component to download.
-        // This service method might just construct the URL.
         const baseURL = apiClient.defaults.baseURL;
-        return `${baseURL}/Marketplace/transactions/${transactionId}/invoice`;
+        const url = `${baseURL}/Marketplace/transactions/${transactionId}/invoice`;
+        const token = await AsyncStorage.getItem('token');
+
+        // Download to a temporary generic path
+        // @ts-ignore
+        const tempUri = `${FileSystem.documentDirectory}invoice_${transactionId}_tmp`;
+
+        const downloadRes = await FileSystem.downloadAsync(url, tempUri, {
+            headers: !!token ? { Authorization: `Bearer ${token}` } : {}
+        });
+
+        if (downloadRes.status !== 200) {
+            throw new Error(`Failed to download invoice: Status ${downloadRes.status}`);
+        }
+
+        const headers = downloadRes.headers || {};
+        const contentType = headers['Content-Type'] || headers['content-type'] || 'application/octet-stream';
+
+        let ext = '.pdf';
+        if (contentType.includes('image/jpeg')) ext = '.jpg';
+        if (contentType.includes('image/png')) ext = '.png';
+
+        // @ts-ignore
+        const finalUri = `${FileSystem.documentDirectory}invoice_${transactionId}${ext}`;
+
+        await FileSystem.moveAsync({
+            from: tempUri,
+            to: finalUri
+        });
+
+        return { uri: finalUri, mimeType: contentType };
     } catch (error) {
-        console.error('Get Invoice Error:', error);
+        console.error('Get Invoice File Error:', error);
         throw error;
     }
 };
