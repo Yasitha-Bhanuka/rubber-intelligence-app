@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 //   forwards device localhost:5001 → host localhost:5001, so IP never needs to change.
 //   Run before starting: adb reverse tcp:5001 tcp:5001 && adb reverse tcp:8081 tcp:8081
 const EMULATOR_IP = '10.0.2.2';
-const PHYSICAL_DEVICE_IP = '127.0.0.1'; // Works with adb reverse — no WiFi IP needed.
+const PHYSICAL_DEVICE_IP = '10.167.153.253'; // Works with adb reverse — no WiFi IP needed.
 
 // Set to true when testing on a physical device via USB (adb reverse), false for emulator.
 const USE_PHYSICAL_DEVICE = true;

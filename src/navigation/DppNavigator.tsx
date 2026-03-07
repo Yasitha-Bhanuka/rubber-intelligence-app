@@ -9,6 +9,7 @@ import DppPassportScreen from '../features/dpp/screens/DppPassportScreen';
 import CreateSellingPostScreen from '../features/dpp/screens/CreateSellingPostScreen';
 import MarketplaceScreen from '../features/dpp/screens/MarketplaceScreen';
 import OrderReceiptScreen from '../features/dpp/screens/OrderReceiptScreen';
+import PendingRequestsScreen from '../features/dpp/screens/PendingRequestsScreen';
 
 import LotMessagingScreen from '../features/dpp/screens/LotMessagingScreen';
 import InvoiceExtractedFieldsScreen from '../features/dpp/screens/InvoiceExtractedFieldsScreen';
@@ -46,6 +47,9 @@ export default function DppNavigator() {
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
             <Stack.Screen name="CreateSellingPost" component={CreateSellingPostScreen} />
             <Stack.Screen name="OrderReceipt" component={OrderReceiptScreen} />
+
+            {/* Buyer: lots with pending exporter interest requests */}
+            <Stack.Screen name="PendingRequests" component={PendingRequestsScreen} />
 
             {/* Buyer: on-demand decryption of extracted invoice fields */}
             <Stack.Screen name="InvoiceExtractedFields" component={InvoiceExtractedFieldsScreen} />

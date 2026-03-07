@@ -57,4 +57,14 @@ export const verifyDpp = async (lotId: string): Promise<DppVerificationResponse>
     const response = await apiClient.get<DppVerificationResponse>(`/dpp/verify/${lotId}`);
     return response.data;
 };
-
+// ── PENDING INTEREST REQUESTS (Buyer notification) ─────────────────
+// GET /api/Marketplace/posts/my-requests
+// Returns all posts owned by the authenticated buyer with REQUESTED status.
+export const getPendingAccessRequests = async (): Promise<any[]> => {
+    try {
+        const response = await apiClient.get('/Marketplace/posts/my-requests');
+        return response.data;
+    } catch {
+        return [];
+    }
+};

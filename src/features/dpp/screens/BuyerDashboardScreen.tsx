@@ -12,7 +12,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { getBuyerDocuments, getPendingAccessRequests } from '../services/dppService';
 import { getMyTransactions, uploadInvoice, uploadQir } from '../services/marketplaceService';
 import { getUnreadMessageCount } from '../services/messagesService';
-import { DppDocument, MarketplaceTransaction } from '../types';
+import { DppDocument, MarketplaceTransaction, SellingPost } from '../types';
 import { useStore } from '../../../store';
 
 /* ─── Colors ─────────────────────────────────────────────────────── */
@@ -121,6 +121,23 @@ export default function BuyerDashboardScreen() {
         );
     }, [notifAnim]);
 
+    /* ── Show / dismiss exporter interest notification ── */
+    const [interestNotifs, setInterestNotifs] = useState<SellingPost[]>([]);
+    const interestNotifAnim = useRef(new Animated.Value(0)).current;
+
+    const showInterestNotif = useCallback((posts: SellingPost[]) => {
+        if (posts.length === 0) return;
+        setInterestNotifs(posts);
+        interestNotifAnim.setValue(0);
+        Animated.spring(interestNotifAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }).start();
+    }, [interestNotifAnim]);
+
+    const dismissInterestNotif = useCallback(() => {
+        Animated.timing(interestNotifAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
+            setInterestNotifs([])
+        );
+    }, [interestNotifAnim]);
+
     /* ── Derived stats ──────────────────── */
     const stats = useMemo(() => {
         const completedCount = transactions.filter(t => t.status === 'Completed').length;
@@ -144,7 +161,7 @@ export default function BuyerDashboardScreen() {
             setPendingCount(pending.length);
             setMsgCount(unread);
 
-            /* ── Detect new purchase requests ── */
+            /* ── Detect new purchase requests (PendingInvoice transactions) ── */
             const NOTIF_KEY = 'buyer_notified_purchase_ids';
             const raw = await AsyncStorage.getItem(NOTIF_KEY);
             const notifiedIds: string[] = raw ? JSON.parse(raw) : [];
@@ -156,6 +173,17 @@ export default function BuyerDashboardScreen() {
                 const updatedIds = [...notifiedIds, ...newPurchases.map((t: MarketplaceTransaction) => t.id)];
                 await AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(updatedIds));
                 showNextNotif(newPurchases);
+            }
+
+            /* ── Detect new exporter interest requests (REQUESTED lots) ── */
+            const POSTS_NOTIF_KEY = 'buyer_notified_requested_post_ids';
+            const rawPosts = await AsyncStorage.getItem(POSTS_NOTIF_KEY);
+            const notifiedPostIds: string[] = rawPosts ? JSON.parse(rawPosts) : [];
+            const newRequestedPosts = (pending as SellingPost[]).filter(p => !notifiedPostIds.includes(p.id));
+            if (newRequestedPosts.length > 0) {
+                const updatedPostIds = [...notifiedPostIds, ...newRequestedPosts.map(p => p.id)];
+                await AsyncStorage.setItem(POSTS_NOTIF_KEY, JSON.stringify(updatedPostIds));
+                showInterestNotif(newRequestedPosts);
             }
         } finally {
             setLoading(false);
@@ -741,6 +769,64 @@ export default function BuyerDashboardScreen() {
                                 >
                                     <Ionicons name="eye" size={16} color="#fff" />
                                     <Text style={s.notifViewText}>View Order</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+                </View>
+            </Modal>
+
+            {/* ── Exporter Interest Notification Modal ──────── */}
+            <Modal
+                visible={interestNotifs.length > 0}
+                transparent
+                animationType="none"
+                statusBarTranslucent
+                onRequestClose={dismissInterestNotif}
+            >
+                <View style={s.notifOverlay}>
+                    <Animated.View style={[
+                        s.notifCard,
+                        {
+                            opacity: interestNotifAnim,
+                            transform: [{ scale: interestNotifAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }],
+                        },
+                    ]}>
+                        <LinearGradient
+                            colors={[C.primaryDark, C.primary]}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            style={s.notifAccentBar}
+                        />
+                        <View style={s.notifIconWrap}>
+                            <LinearGradient colors={[C.primaryLight, C.primaryDark]} style={s.notifIconCircle}>
+                                <Ionicons name="hand-right" size={32} color="#fff" />
+                            </LinearGradient>
+                        </View>
+                        <Text style={s.notifTitle}>Exporter Interest!</Text>
+                        <Text style={s.notifSubtitle}>
+                            {interestNotifs.length === 1
+                                ? `An exporter is interested in your ${interestNotifs[0].grade} lot (${interestNotifs[0].quantityKg} kg).`
+                                : `${interestNotifs.length} of your lots have received exporter interest requests.`}
+                        </Text>
+                        <View style={s.notifActions}>
+                            <TouchableOpacity style={s.notifDismissBtn} onPress={dismissInterestNotif} activeOpacity={0.7}>
+                                <Text style={s.notifDismissText}>Later</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={s.notifViewBtn}
+                                activeOpacity={0.85}
+                                onPress={() => {
+                                    dismissInterestNotif();
+                                    navigation.navigate('PendingRequests');
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={[C.primary, C.primaryDark]}
+                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                    style={s.notifViewBtnInner}
+                                >
+                                    <Ionicons name="people" size={16} color="#fff" />
+                                    <Text style={s.notifViewText}>Review Requests</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>

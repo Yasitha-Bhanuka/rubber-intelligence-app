@@ -9,7 +9,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import {
-    getSellingPosts, buyItem, getMyTransactions,
+    getSellingPosts, expressInterest, getMyTransactions,
     getBuyerHistory, uploadInvoice,
 } from '../services/marketplaceService';
 import {
@@ -147,21 +147,17 @@ export default function MarketplaceScreen() {
 
         setConfirmModal({ visible: false, post: null });
         try {
-            const transaction = await buyItem(post.id);
-            setSuccessModal({ visible: true, transactionId: transaction.id, sellerName: post.buyerName });
+            await expressInterest(post.id);
+            setSuccessModal({ visible: true, transactionId: null, sellerName: post.buyerName });
             loadData();
         } catch {
-            Alert.alert('Error', 'Failed to complete request. Item might be unavailable.');
+            Alert.alert('Error', 'Failed to send request. The lot may no longer be available or you may have already requested it.');
             loadData();
         }
     };
 
     const handleSuccessContinue = () => {
-        const txId = successModal.transactionId;
         setSuccessModal({ visible: false, transactionId: null, sellerName: '' });
-        if (txId) {
-            navigation.navigate('OrderReceipt', { transactionId: txId });
-        }
     };
 
     const handleViewBuyerHistory = async (buyerId: string) => {
@@ -920,17 +916,17 @@ export default function MarketplaceScreen() {
                         </View>
                         <Text style={s.successModalTitle}>Request Sent!</Text>
                         <Text style={s.successModalSubtitle}>
-                            Seller <Text style={{fontWeight: '700', color: C.textDark}}>{successModal.sellerName}</Text> was immediately notified.
+                            Seller <Text style={{fontWeight: '700', color: C.textDark}}>{successModal.sellerName}</Text> has been notified of your interest.
                         </Text>
                         <Text style={s.successModalInfoText}>
-                            Please wait for the encrypted invoice to be uploaded to proceed securely.
+                            Once the seller reviews and accepts your request, a transaction will be created and you will be able to proceed.
                         </Text>
 
                         <TouchableOpacity
                             style={s.successContinueBtn}
                             onPress={handleSuccessContinue}
                         >
-                            <Text style={s.successContinueBtnText}>View Receipt</Text>
+                            <Text style={s.successContinueBtnText}>Done</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

@@ -186,6 +186,32 @@ export const getExporterTransactionDpp = async (
 
 // ── INTERESTED EXPORTERS (TRUST-SCORED LEADERBOARD) ───────────────────
 
+/**
+ * POST /api/Marketplace/posts/{id}/express-interest
+ * Exporter signals interest in a buyer’s rubber lot.
+ * The post status changes to REQUESTED so the buyer is notified on next load.
+ */
+export const expressInterest = async (postId: string): Promise<{ message: string; interestId: string }> => {
+    const response = await apiClient.post<{ message: string; interestId: string }>(
+        `/Marketplace/posts/${postId}/express-interest`
+    );
+    return response.data;
+};
+
+/**
+ * GET /api/Marketplace/posts/my-requests
+ * Returns all REQUESTED posts owned by the authenticated buyer.
+ * Used by BuyerDashboard to show the notification badge and PendingRequestsScreen.
+ */
+export const getMyRequestedPosts = async (): Promise<SellingPost[]> => {
+    try {
+        const response = await apiClient.get<SellingPost[]>('/Marketplace/posts/my-requests');
+        return response.data;
+    } catch {
+        return [];
+    }
+};
+
 export const getInterestedExporters = async (
     postId: string
 ): Promise<InterestedExporter[]> => {
