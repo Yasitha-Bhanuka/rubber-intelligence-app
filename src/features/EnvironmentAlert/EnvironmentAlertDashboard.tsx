@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../store';
 
-const ESP32_IP = "http://10.189.36.161";
+const ESP32_IP = "http://192.168.43.188";
 
 export const EnvironmentAlertDashboard = () => {
     const { user } = useStore();
@@ -40,7 +40,10 @@ export const EnvironmentAlertDashboard = () => {
                         `Alert: ${data.alert}\nAdvice: ${data.advice}`
                     );
                 })
-                .catch(err => console.log("ESP32 Fetch Error:", err));
+                .catch(err => {
+                    console.log("ESP32 Fetch Error:", err);
+                    setResultMessage("Cannot connect to ESP32");
+                });
         }, 3000);
 
         return () => clearInterval(interval);
