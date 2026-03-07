@@ -48,7 +48,12 @@ export const DiseaseMapScreen = ({ route }: any) => {
     const loadMapData = async () => {
         try {
             const data = await DiseaseService.getMapData(30);
-            setMapData(data);
+            if (params.diseaseName) {
+                // Filter only markers that match the requested disease
+                setMapData(data.filter(d => d.disease.toLowerCase() === params.diseaseName!.toLowerCase()));
+            } else {
+                setMapData(data);
+            }
         } catch (error) {
             console.error('Failed to load map data:', error);
         } finally {

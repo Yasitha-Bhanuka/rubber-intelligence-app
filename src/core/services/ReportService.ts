@@ -40,9 +40,9 @@ export const ReportService = {
                 destFile.delete();
             }
 
-            // Move temp file to our reports directory
+            // Move temp file to our reports directory with the new name
             const tempFile = new File(tempUri);
-            tempFile.move(reportDir);
+            tempFile.move(destFile);
 
             console.log("Saved PDF to:", destFile.uri);
             return destFile.uri;

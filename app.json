@@ -33,7 +33,14 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-barcode-scanner"
+      "expo-barcode-scanner",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you select images for disease detection analysis.",
+          "cameraPermission": "The app uses the camera to capture photos for disease detection analysis."
+        }
+      ]
     ]
   }
 }
