@@ -19,35 +19,12 @@ const C = {
     card: '#FFFFFF',
     green: '#43A047',
     greenLight: '#E8F5E9',
-    orange: '#FF9800',
-    orangeLight: '#FFF3E0',
     red: '#E53935',
     redLight: '#FFEBEE',
-    blue: '#2196F3',
-    blueLight: '#E3F2FD',
-    purple: '#7E57C2',
-    purpleLight: '#EDE7F6',
-    gold: '#FFD700',
-    silver: '#C0C0C0',
-    bronze: '#CD7F32',
     textDark: '#1C1C1E',
     sub: '#6B7B6E',
     border: '#C8E6C9',
 };
-
-const MEDALS = ['🥇', '🥈', '🥉'];
-
-function getTrustColor(score: number) {
-    if (score >= 80) return C.green;
-    if (score >= 50) return C.orange;
-    return C.red;
-}
-
-function getTrustLabel(score: number) {
-    if (score >= 80) return 'Highly Trusted';
-    if (score >= 50) return 'Moderate';
-    return 'Low Trust';
-}
 
 export default function LotBiddersScreen() {
     const navigation = useNavigation<any>();
@@ -122,23 +99,16 @@ export default function LotBiddersScreen() {
 
     /* ─── Render each exporter row ─────────────────────────────────── */
     const renderExporter = ({ item, index }: { item: InterestedExporter; index: number }) => {
-        const medal = index < 3 ? MEDALS[index] : null;
-        const trustColor = getTrustColor(item.trustScore);
-        const trustLabel = getTrustLabel(item.trustScore);
         const isAccepted = item.status === 'ACCEPTED';
         const isRejected = item.status === 'REJECTED';
 
         return (
-            <View style={[s.bidderCard, index === 0 && s.bidderCardTop]}>
-                {/* Rank + Medal */}
+            <View style={s.bidderCard}>
+                {/* Rank */}
                 <View style={s.rankCol}>
-                    {medal ? (
-                        <Text style={s.medal}>{medal}</Text>
-                    ) : (
-                        <View style={s.rankCircle}>
-                            <Text style={s.rankNum}>#{index + 1}</Text>
-                        </View>
-                    )}
+                    <View style={s.rankCircle}>
+                        <Text style={s.rankNum}>#{index + 1}</Text>
+                    </View>
                 </View>
 
                 {/* Main content */}
@@ -156,25 +126,6 @@ export default function LotBiddersScreen() {
                         )}
                     </View>
 
-                    {/* Trust Score Bar */}
-                    <View style={s.trustRow}>
-                        <Text style={[s.trustScore, { color: trustColor }]}>
-                            {item.trustScore}/100
-                        </Text>
-                        <View style={s.trustBarBg}>
-                            <View
-                                style={[
-                                    s.trustBarFill,
-                                    {
-                                        width: `${item.trustScore}%`,
-                                        backgroundColor: trustColor,
-                                    },
-                                ]}
-                            />
-                        </View>
-                        <Text style={[s.trustLabel, { color: trustColor }]}>{trustLabel}</Text>
-                    </View>
-
                     {/* Stats row */}
                     <View style={s.statsRow}>
                         {item.country && (
@@ -183,14 +134,6 @@ export default function LotBiddersScreen() {
                                 <Text style={s.statText}>{item.country}</Text>
                             </View>
                         )}
-                        <View style={s.statChip}>
-                            <Ionicons name="time-outline" size={12} color={C.sub} />
-                            <Text style={s.statText}>{item.platformTenureMonths}mo</Text>
-                        </View>
-                        <View style={s.statChip}>
-                            <Ionicons name="handshake-outline" size={12} color={C.sub} />
-                            <Text style={s.statText}>{item.successfulCollaborations} deals</Text>
-                        </View>
                     </View>
 
                     {/* Requested date */}
@@ -248,21 +191,7 @@ export default function LotBiddersScreen() {
                 </View>
             </LinearGradient>
 
-            {/* Score Legend */}
-            <View style={s.legend}>
-                <View style={s.legendItem}>
-                    <View style={[s.legendDot, { backgroundColor: C.green }]} />
-                    <Text style={s.legendText}>80-100 Highly Trusted</Text>
-                </View>
-                <View style={s.legendItem}>
-                    <View style={[s.legendDot, { backgroundColor: C.orange }]} />
-                    <Text style={s.legendText}>50-79 Moderate</Text>
-                </View>
-                <View style={s.legendItem}>
-                    <View style={[s.legendDot, { backgroundColor: C.red }]} />
-                    <Text style={s.legendText}>0-49 Low Trust</Text>
-                </View>
-            </View>
+
 
             {/* List */}
             {loading ? (
@@ -304,7 +233,7 @@ export default function LotBiddersScreen() {
                             <Text style={{ fontWeight: '700', color: C.textDark }}>
                                 {confirmModal.exporter?.exporterName}
                             </Text>{' '}
-                            (Trust Score: {confirmModal.exporter?.trustScore}/100) for this lot?
+                            for this lot?
                             {'\n\n'}All other interested exporters will be automatically rejected.
                         </Text>
                         <View style={s.confirmActions}>
@@ -386,20 +315,6 @@ const s = StyleSheet.create({
     },
     countText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
 
-    /* Legend */
-    legend: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        paddingVertical: 10,
-        backgroundColor: C.card,
-        borderBottomWidth: 1,
-        borderBottomColor: C.border,
-        gap: 16,
-    },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    legendDot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { fontSize: 11, color: C.sub },
-
     /* List */
     listContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 30 },
 
@@ -413,19 +328,9 @@ const s = StyleSheet.create({
         borderWidth: 1,
         borderColor: C.border,
     },
-    bidderCardTop: {
-        borderColor: C.gold,
-        borderWidth: 2,
-        shadowColor: C.gold,
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 4,
-    },
 
     /* Rank */
     rankCol: { width: 44, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
-    medal: { fontSize: 28 },
     rankCircle: {
         width: 32,
         height: 32,
@@ -451,18 +356,7 @@ const s = StyleSheet.create({
     },
     verifiedText: { fontSize: 10, fontWeight: '600', color: C.green },
 
-    /* Trust Score */
-    trustRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-    trustScore: { fontSize: 13, fontWeight: '800', minWidth: 42 },
-    trustBarBg: {
-        flex: 1,
-        height: 6,
-        backgroundColor: '#E0E0E0',
-        borderRadius: 3,
-        overflow: 'hidden',
-    },
-    trustBarFill: { height: 6, borderRadius: 3 },
-    trustLabel: { fontSize: 10, fontWeight: '600', minWidth: 60, textAlign: 'right' },
+
 
     /* Stats */
     statsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4 },

@@ -248,9 +248,6 @@ export interface InterestedExporter {
   country: string | null;
   organizationType: string | null;
   isVerified: boolean;
-  platformTenureMonths: number;
-  successfulCollaborations: number;
-  trustScore: number;
   requestedAt: string;
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
 }

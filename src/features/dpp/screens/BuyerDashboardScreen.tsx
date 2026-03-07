@@ -240,16 +240,16 @@ export default function BuyerDashboardScreen() {
             // Reuse ClassificationResultScreen — pass isInvoice:false so header shows "Quality Inspection Report"
             navigation.navigate('ClassificationResult', { result: response, isInvoice: false, isQir: true });
         } catch (error: any) {
-            const status  = error?.response?.status;
-            const apiMsg  = error?.response?.data?.error as string | undefined;
+            const status = error?.response?.status;
+            const apiMsg = error?.response?.data?.error as string | undefined;
             const msg =
                 apiMsg ||
                 (status === 503 ? 'Gemini AI is temporarily unavailable due to high demand. Please try again in a few minutes.' :
-                 status === 429 ? 'Gemini AI is rate-limited. Please wait a moment and try again.' :
-                 status === 500 ? 'Server error during OCR processing. Please try again.' :
-                 !error?.response ? 'Network error — check your connection and ensure the server is running.' :
-                 error?.message ||
-                 'Failed to upload Quality Inspection Report.');
+                    status === 429 ? 'Gemini AI is rate-limited. Please wait a moment and try again.' :
+                        status === 500 ? 'Server error during OCR processing. Please try again.' :
+                            !error?.response ? 'Network error — check your connection and ensure the server is running.' :
+                                error?.message ||
+                                'Failed to upload Quality Inspection Report.');
             Alert.alert('QIR Upload Failed', msg);
         } finally {
             setLoading(false);
@@ -257,16 +257,16 @@ export default function BuyerDashboardScreen() {
     };
     /* ── Helpers ─────────────────────────── */
     const statusColor = (status: string) =>
-        status === 'Completed'      ? C.green
-        : status === 'QirUploaded'  ? C.accent
-        : status === 'InvoiceUploaded' ? C.blue
-        : C.orange;
+        status === 'Completed' ? C.green
+            : status === 'QirUploaded' ? C.accent
+                : status === 'InvoiceUploaded' ? C.blue
+                    : C.orange;
 
     const statusLabel = (status: string) =>
-        status === 'Completed'         ? 'Payment Completed'
-        : status === 'QirUploaded'     ? 'QIR Uploaded'
-        : status === 'PendingInvoice'  ? 'Pending Invoice'
-        : 'Invoice Uploaded';
+        status === 'Completed' ? 'Payment Completed'
+            : status === 'QirUploaded' ? 'QIR Uploaded'
+                : status === 'PendingInvoice' ? 'Pending Invoice'
+                    : 'Invoice Uploaded';
 
     const getInitials = (name?: string) => {
         if (!name) return 'B';
@@ -650,27 +650,26 @@ export default function BuyerDashboardScreen() {
                     <Divider />
                     <StepRow
                         step="2"
-                        icon="document-text-outline"
-                        iconBg={C.primaryLight}
-                        label="Upload & Secure Document"
-                        sublabel="Step A — Gemini extracts, classifies & encrypts"
-                        onPress={() => navigation.navigate('DocumentUpload')}
+                        icon="checkmark-done-outline"
+                        iconBg={C.green}
+                        label="Accept Exporter Sale"
+                        sublabel="Finalize an order from an interested exporter"
                     />
                     <Divider />
                     <StepRow
                         step="3"
-                        icon="eye-outline"
-                        iconBg="#FF9F0A"
-                        label="Review Classification"
-                        sublabel="Verify confidential (red) vs public (green) fields"
+                        icon="document-attach-outline"
+                        iconBg={C.primaryLight}
+                        label="Link DPP to Order"
+                        sublabel="Upload document (Step A — Gemini Extract)"
                     />
                     <Divider />
                     <StepRow
                         step="4"
-                        icon="shield-checkmark-outline"
-                        iconBg={C.green}
-                        label="Generate DPP Passport"
-                        sublabel="Step B — Strips financials, mints SHA-256 hash"
+                        icon="eye-outline"
+                        iconBg="#FF9F0A"
+                        label="Review & Generate Passport"
+                        sublabel="Verify classification & Mint SHA-256 Hash"
                     />
                     <Divider />
                     <StepRow
