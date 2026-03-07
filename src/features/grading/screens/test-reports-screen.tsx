@@ -64,7 +64,8 @@ const ReportsScreen: React.FC<any> = ({ navigation }) => {
     try {
       setLoading(true);
       const savedReports = await ReportService.listSavedReports();
-      setReports(savedReports);
+      const filteredReports = savedReports.filter(report => !report.name.startsWith('Report_Latex_'));
+      setReports(filteredReports);
     } catch (error) {
       console.error("Error loading reports:", error);
       Alert.alert("Error", "Failed to load reports");
