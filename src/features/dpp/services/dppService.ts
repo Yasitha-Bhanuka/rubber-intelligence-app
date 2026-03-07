@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { DppUploadResponse, DppDocument, DigitalProductPassport, DppVerificationResponse } from '../types';
+import { DppUploadResponse, DppDocument, DigitalProductPassport, DppVerificationResponse, EncryptedFileInfo } from '../types';
 
 // ── POST /api/dpp/upload ─────────────────────────────────────────────
 export const uploadDppDocument = async (
@@ -55,6 +55,10 @@ export const getDppFileUrl = (id: string): string =>
 // GET /api/dpp/verify/{lotId} (Buyer, Exporter)
 export const verifyDpp = async (lotId: string): Promise<DppVerificationResponse> => {
     const response = await apiClient.get<DppVerificationResponse>(`/dpp/verify/${lotId}`);
+    return response.data;
+};// ── GET /api/dpp/{id}/encrypted-file-info ──────────────────────────────
+export const getEncryptedFileInfo = async (id: string): Promise<EncryptedFileInfo> => {
+    const response = await apiClient.get<EncryptedFileInfo>(`/dpp/${id}/encrypted-file-info`);
     return response.data;
 };
 // ── PENDING INTEREST REQUESTS (Buyer notification) ─────────────────

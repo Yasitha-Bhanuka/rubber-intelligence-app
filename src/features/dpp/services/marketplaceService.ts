@@ -1,5 +1,5 @@
 import apiClient from '../../../core/api/apiClient';
-import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView, InterestedExporter, AcceptExporterRequest, DualLayerDppResponse } from '../types';
+import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView, InterestedExporter, AcceptExporterRequest, DualLayerDppResponse, LotInterestRequest } from '../types';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -235,8 +235,26 @@ export const acceptExporter = async (
 // ── DUAL-LAYER DPP (Zero-Knowledge Delivery) ─────────────────────────
 
 /**
+ * GET /api/Marketplace/transactions/{transactionId}/my-secret
+ * One-time key claim: Only the purchasing Exporter (ReBAC) can call this.
+ * Returns the SecretRequestId for client-side PBKDF2-AES-256-CBC decryption.
+ * After the Buyer uploads the invoice the key is permanently nullified — claim early.
+ * Returns 410 Gone if the key has already been consumed.
+ */
+export const claimSecret = async (
+    transactionId: string
+): Promise<{ secretRequestId: string }> => {
+    const response = await apiClient.get<{ secretRequestId: string }>(
+        `/Marketplace/transactions/${transactionId}/my-secret`
+    );
+    return response.data;
+};
+
+/**
  * GET /api/Marketplace/transactions/{transactionId}/dual-layer-dpp
- * Returns a dual-layer payload: public summary + RSA-wrapped AES-encrypted vault.
+ * Returns the conditional vault payload for client-side PBKDF2-AES-256-CBC decryption.
+ * documentStatus: "CONFIDENTIAL" | "PUBLIC" | "NOT_UPLOADED"
+ * documentPayload: Base64 ciphertext (CONFIDENTIAL) or Base64 raw bytes (PUBLIC)
  * Only the purchasing Exporter may call this endpoint (ReBAC: 403 otherwise).
  */
 export const getDualLayerDpp = async (
@@ -246,4 +264,45 @@ export const getDualLayerDpp = async (
         `/Marketplace/transactions/${transactionId}/dual-layer-dpp`
     );
     return response.data;
+};
+
+/**
+ * POST /api/Marketplace/transactions/{transactionId}/exporter-docs
+ * Accepted exporter uploads their own supporting documents (shipping certs, origin docs, etc.)
+ * Only the accepted Exporter for this transaction may call this.
+ */
+export const uploadExporterDocs = async (
+    transactionId: string,
+    file: any
+): Promise<{ message: string; fileName: string; uploadedAt: string; transactionId: string }> => {
+    const formData = new FormData();
+    formData.append('file', {
+        uri: file.uri,
+        name: file.name || 'document.pdf',
+        type: file.mimeType || 'application/pdf',
+    } as any);
+
+    const response = await apiClient.post(
+        `/Marketplace/transactions/${transactionId}/exporter-docs`,
+        formData,
+        {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 60000,
+        }
+    );
+    return response.data;
+};
+
+/**
+ * GET /api/Marketplace/posts/my-interest-requests
+ * Returns all interest requests submitted by the calling Exporter.
+ * Used to show "Already Requested" state on marketplace items.
+ */
+export const getMyInterestRequests = async (): Promise<LotInterestRequest[]> => {
+    try {
+        const response = await apiClient.get<LotInterestRequest[]>('/Marketplace/posts/my-interest-requests');
+        return response.data;
+    } catch {
+        return [];
+    }
 };

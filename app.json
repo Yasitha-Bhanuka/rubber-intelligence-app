@@ -12,7 +12,7 @@
       "resizeMode": "cover",
       "backgroundColor": "#000a1a"
     },
-    "ios": {
+    "ios": {    
       "supportsTablet": true
     },
     "android": {
@@ -26,7 +26,8 @@
         "android.permission.CAMERA",
         "android.permission.CAMERA"
       ],
-      "package": "com.anonymous.rubberintelligenceapp"
+      "package": "com.anonymous.rubberintelligenceapp",
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/launch_screen.png"

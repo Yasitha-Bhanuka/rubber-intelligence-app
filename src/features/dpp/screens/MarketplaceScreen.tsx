@@ -10,12 +10,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import {
     getSellingPosts, expressInterest, getMyTransactions,
-    getBuyerHistory, uploadInvoice,
+    getBuyerHistory, uploadExporterDocs, getMyInterestRequests,
 } from '../services/marketplaceService';
 import {
     getPassport, verifyDpp,
 } from '../services/dppService';
-import { SellingPost, BuyerHistory, MarketplaceTransaction } from '../types';
+import { SellingPost, BuyerHistory, MarketplaceTransaction, LotInterestRequest } from '../types';
 import { getUnreadMessageCount } from '../services/messagesService';
 import { useStore } from '../../../store';
 
@@ -61,6 +61,7 @@ export default function MarketplaceScreen() {
     // Data
     const [posts, setPosts] = useState<SellingPost[]>([]);
     const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
+    const [myInterestRequests, setMyInterestRequests] = useState<LotInterestRequest[]>([]);
     const [msgCount, setMsgCount] = useState(0);
 
     // Filters
@@ -83,13 +84,15 @@ export default function MarketplaceScreen() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [postsData, transData, unread] = await Promise.all([
+            const [postsData, transData, interestData, unread] = await Promise.all([
                 getSellingPosts(),
                 getMyTransactions(),
+                getMyInterestRequests(),
                 getUnreadMessageCount().catch(() => 0),
             ]);
             setPosts(postsData);
             setTransactions(transData);
+            setMyInterestRequests(interestData);
             setMsgCount(unread);
         } finally {
             setLoading(false);
@@ -192,27 +195,25 @@ export default function MarketplaceScreen() {
         }
     };
 
-    const handleUploadInvoice = async (transactionId: string) => {
+    const handleUploadExporterDocs = async (transactionId: string) => {
         try {
             const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
             if (result.canceled) return;
             const file = result.assets[0];
             setLoading(true);
-            const response = await uploadInvoice(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
+            await uploadExporterDocs(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
+            Alert.alert('Documents Uploaded', `"${file.name}" has been uploaded successfully.`);
             loadData();
-            navigation.navigate('ClassificationResult', { result: response, isInvoice: true });
         } catch (error: any) {
             const msg =
                 error?.response?.data?.error ||
                 error?.response?.data?.message ||
-                (error?.response?.status === 429 ? 'Gemini API quota exceeded. Please try again later.' : null) ||
                 (error?.response?.status === 403 ? 'Access denied. This transaction does not belong to your account.' : null) ||
                 (error?.response?.status === 404 ? 'Transaction not found.' : null) ||
-                (error?.code === 'ECONNABORTED' ? 'Request timed out. The server is processing — please retry in a moment.' : null) ||
-                (!error?.response ? 'Network error — check your connection and ensure the server is running.' : null) ||
+                (!error?.response ? 'Network error — check your connection.' : null) ||
                 error?.message ||
-                'Failed to upload invoice.';
-            Alert.alert('Invoice Upload Failed', msg);
+                'Failed to upload documents.';
+            Alert.alert('Upload Failed', msg);
         } finally {
             setLoading(false);
         }
@@ -322,42 +323,52 @@ export default function MarketplaceScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Recent Activity Feed */}
-            <Text style={s.sectionTitle}>Recent Activity</Text>
+            {/* Recent Sales */}
+            <Text style={s.sectionTitle}>Recent Sales</Text>
             {transactions.length === 0 ? (
                 <View style={s.emptyCard}>
-                    <Ionicons name="pulse-outline" size={36} color={C.sub} />
-                    <Text style={s.emptyText}>No recent activity yet</Text>
-                    <Text style={s.emptySub}>Browse the marketplace to get started</Text>
+                    <Ionicons name="bag-outline" size={36} color={C.sub} />
+                    <Text style={s.emptyText}>No confirmed lots yet</Text>
+                    <Text style={s.emptySub}>Browse the marketplace and request a lot to get started</Text>
                 </View>
             ) : (
-                <View style={s.activityList}>
-                    {/* Show recent transactions */}
-                    {transactions.slice(0, 3).map(tx => (
+                transactions.slice(0, 3).map(tx => {
+                    const stColor = tx.status === 'Completed' ? C.green
+                        : tx.status === 'QirUploaded' ? C.primaryLight
+                        : tx.status === 'InvoiceUploaded' ? C.blue : C.orange;
+                    const stLabel = tx.status === 'Completed' ? 'Completed'
+                        : tx.status === 'QirUploaded' ? 'QIR Uploaded'
+                        : tx.status === 'InvoiceUploaded' ? 'Invoice Ready' : 'Lot Confirmed';
+                    return (
                         <TouchableOpacity
                             key={tx.id}
-                            style={s.activityItem}
+                            style={s.saleCard}
+                            activeOpacity={0.75}
                             onPress={() => navigation.navigate('OrderReceipt', { transactionId: tx.id })}
                         >
-                            <View style={[s.activityDot, {
-                                backgroundColor: tx.status === 'Completed' ? C.green
-                                    : tx.status === 'QirUploaded' ? C.primaryLight
-                                    : tx.status === 'InvoiceUploaded' ? C.blue : C.orange
-                            }]} />
-                            <View style={s.activityContent}>
-                                <Text style={s.activityText}>
-                                    Order #{tx.id.substring(0, 8)} · LKR {tx.offerPrice}
-                                </Text>
-                                <Text style={s.activityTime}>
-                                    {tx.status === 'Completed' ? 'Payment Completed'
-                                        : tx.status === 'QirUploaded' ? 'QIR Uploaded'
-                                        : tx.status === 'InvoiceUploaded' ? 'Invoice Ready' : 'Pending Invoice'}
-                                </Text>
+                            <View style={[s.saleIconWrap, { backgroundColor: stColor + '18' }]}>
+                                <Ionicons name="checkmark-circle" size={22} color={stColor} />
                             </View>
-                            <Ionicons name="chevron-forward" size={16} color={C.sub} />
+                            <View style={s.saleInfo}>
+                                <Text style={s.saleOrderId}>Order #{tx.id.substring(0, 8)}</Text>
+                                <Text style={s.saleSellerId}>Seller: {tx.buyerId.substring(0, 8)}</Text>
+                            </View>
+                            <View style={s.saleRight}>
+                                <Text style={s.salePrice}>LKR {tx.offerPrice.toLocaleString()}</Text>
+                                <View style={[s.saleBadge, { backgroundColor: stColor + '18' }]}>
+                                    <View style={[s.saleDot, { backgroundColor: stColor }]} />
+                                    <Text style={[s.saleBadgeText, { color: stColor }]}>{stLabel}</Text>
+                                </View>
+                            </View>
                         </TouchableOpacity>
-                    ))}
-                </View>
+                    );
+                })
+            )}
+            {transactions.length > 3 && (
+                <TouchableOpacity style={s.seeMoreBtn} onPress={() => setActiveTab('transactions')}>
+                    <Text style={s.seeMoreText}>See All ({transactions.length})</Text>
+                    <Ionicons name="chevron-forward" size={16} color={C.primary} />
+                </TouchableOpacity>
             )}
             <View style={{ height: 30 }} />
         </ScrollView>
@@ -445,6 +456,11 @@ export default function MarketplaceScreen() {
                         <Ionicons name="people" size={16} color="#FFF" />
                         <Text style={s.purchaseBtnText}>View Bidders</Text>
                     </TouchableOpacity>
+                ) : myInterestRequests.some(r => r.postId === item.id && r.status === 'PENDING') ? (
+                    <View style={[s.purchaseBtn, { backgroundColor: C.orange, opacity: 0.85 }]}>
+                        <Ionicons name="time-outline" size={16} color="#FFF" />
+                        <Text style={s.purchaseBtnText}>Pending Review</Text>
+                    </View>
                 ) : (
                     <TouchableOpacity
                         style={s.purchaseBtn}
@@ -591,11 +607,18 @@ export default function MarketplaceScreen() {
                                 {isPendingInvoice && (
                                     <TouchableOpacity
                                         style={[s.txActionBtn, { backgroundColor: C.orange }]}
-                                        onPress={() => handleUploadInvoice(tx.id)}
+                                        onPress={() => handleUploadExporterDocs(tx.id)}
                                     >
                                         <Ionicons name="cloud-upload" size={15} color="#FFF" />
-                                        <Text style={s.txActionBtnText}>Upload Invoice</Text>
+                                        <Text style={s.txActionBtnText}>Upload Your Docs</Text>
                                     </TouchableOpacity>
+                                )}
+
+                                {tx.exporterDocsUploadedAt && (
+                                    <View style={[s.txActionBtn, { backgroundColor: C.green, opacity: 0.9 }]}>
+                                        <Ionicons name="checkmark-circle" size={15} color="#FFF" />
+                                        <Text style={s.txActionBtnText}>Docs Uploaded</Text>
+                                    </View>
                                 )}
 
                                 {isInvoiceReady && (
@@ -629,11 +652,11 @@ export default function MarketplaceScreen() {
                             </View>
 
                             {/* Encryption Notice */}
-                            {isPendingInvoice && (
+                            {isPendingInvoice && !tx.exporterDocsUploadedAt && (
                                 <View style={s.encryptionNotice}>
-                                    <Ionicons name="lock-closed" size={12} color={C.sub} />
+                                    <Ionicons name="information-circle-outline" size={12} color={C.sub} />
                                     <Text style={s.encryptionNoticeText}>
-                                        Uploaded invoices are secured using AES-256 encryption
+                                        Upload shipping certs, origin docs, or quality certificates to share with the buyer
                                     </Text>
                                 </View>
                             )}
@@ -1437,4 +1460,26 @@ const s = StyleSheet.create({
         alignItems: 'center', marginTop: 12,
     },
     historyCloseBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
+
+    /* ═══ RECENT SALES (Overview) ═══════════ */
+    saleCard: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        backgroundColor: C.card, borderRadius: 14, padding: 14, marginBottom: 10,
+        borderWidth: 1, borderColor: C.border,
+    },
+    saleIconWrap: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    saleInfo: { flex: 1 },
+    saleOrderId: { fontSize: 14, fontWeight: '700', color: C.textDark },
+    saleSellerId: { fontSize: 12, color: C.sub, marginTop: 2 },
+    saleRight: { alignItems: 'flex-end', gap: 4 },
+    salePrice: { fontSize: 15, fontWeight: '800', color: C.textDark },
+    saleBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+    saleDot: { width: 6, height: 6, borderRadius: 3 },
+    saleBadgeText: { fontSize: 10, fontWeight: '700' },
+
+    seeMoreBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 6, paddingVertical: 10, marginBottom: 4,
+    },
+    seeMoreText: { fontSize: 13, fontWeight: '600', color: C.primary },
 });

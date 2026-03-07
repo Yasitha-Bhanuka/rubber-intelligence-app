@@ -17,6 +17,7 @@ export default function ExporterScannerScreen() {
     const [verifying, setVerifying] = useState(false);
     const [verificationResult, setVerificationResult] = useState<DppVerificationResponse | null>(null);
     const [scannedLotId, setScannedLotId] = useState<string | null>(null);
+    const [scannedPhysicalHash, setScannedPhysicalHash] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const navigation = useNavigation<any>();
 
@@ -46,6 +47,7 @@ export default function ExporterScannerScreen() {
         }
 
         setScannedLotId(payload.lotId);
+        setScannedPhysicalHash(payload.hash ?? null);
         setVerifying(true);
         try {
             const result = await verifyDpp(payload.lotId);
@@ -61,6 +63,7 @@ export default function ExporterScannerScreen() {
         setScanned(false);
         setVerificationResult(null);
         setScannedLotId(null);
+        setScannedPhysicalHash(null);
         setError(null);
     };
 
@@ -102,6 +105,29 @@ export default function ExporterScannerScreen() {
                             </>
                         ) : verificationResult ? (
                             <>
+                                {/* ── Physical vs Digital hash comparison ── */}
+                                {scannedPhysicalHash != null && (() => {
+                                    const physicalMatchesDigital = scannedPhysicalHash === verificationResult.storedHash;
+                                    return (
+                                        <View style={[
+                                            styles.physicalCheckBanner,
+                                            { backgroundColor: physicalMatchesDigital ? '#052E16' : '#3B0A0A' },
+                                        ]}>
+                                            <Text style={[styles.physicalCheckIcon]}>
+                                                {physicalMatchesDigital ? '✅' : '❌'}
+                                            </Text>
+                                            <Text style={[
+                                                styles.physicalCheckText,
+                                                { color: physicalMatchesDigital ? '#4ADE80' : '#F87171' },
+                                            ]}>
+                                                {physicalMatchesDigital
+                                                    ? 'PHYSICAL LOT MATCHES DIGITAL PASSPORT'
+                                                    : 'TAMPERING DETECTED: HASH MISMATCH'}
+                                            </Text>
+                                        </View>
+                                    );
+                                })()}
+
                                 <Ionicons
                                     name={verificationResult.isValid ? 'shield-checkmark' : 'shield-outline'}
                                     size={64}
@@ -127,8 +153,19 @@ export default function ExporterScannerScreen() {
                                     Lot: {scannedLotId?.substring(0, 16)}…
                                 </Text>
                                 <ScrollView style={styles.hashBox} nestedScrollEnabled>
-                                    <Text style={styles.hashLabel}>Stored hash</Text>
+                                    <Text style={styles.hashLabel}>Stored hash (digital DPP)</Text>
                                     <Text style={styles.hashValue}>{verificationResult.storedHash}</Text>
+                                    {scannedPhysicalHash != null && (
+                                        <>
+                                            <Text style={[styles.hashLabel, { marginTop: 8 }]}>Physical QR hash</Text>
+                                            <Text style={[
+                                                styles.hashValue,
+                                                { color: scannedPhysicalHash === verificationResult.storedHash ? '#34C759' : '#FF3B30' },
+                                            ]}>
+                                                {scannedPhysicalHash}
+                                            </Text>
+                                        </>
+                                    )}
                                     <Text style={[styles.hashLabel, { marginTop: 8 }]}>Recalculated</Text>
                                     <Text style={[
                                         styles.hashValue,
@@ -221,4 +258,11 @@ const styles = StyleSheet.create({
         width: '100%', justifyContent: 'center',
     },
     rescanText: { color: '#5856D6', fontWeight: '700', fontSize: 15 },
+    physicalCheckBanner: {
+        width: '100%', borderRadius: 14, padding: 16,
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    },
+    physicalCheckIcon: { fontSize: 30 },
+    physicalCheckText: { flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 19 },
 });

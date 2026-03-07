@@ -5,6 +5,8 @@ export interface DppUploadResponse {
   fields: DppFieldSummary[];
   classification: DppClassification;
   supportedFormats: string[];
+  /** True when majority of fields were confidential and the file was stored AES-256-CBC encrypted in the DB */
+  documentEncrypted?: boolean;
 }
 
 /**
@@ -80,6 +82,25 @@ export interface DppDocument {
   extractedTextSummary?: string;
   detectedKeywords: string[];
   contentType: string;
+  /** True when the file was stored as an AES-256-CBC encrypted .enc file */
+  isDocumentEncrypted?: boolean;
+  encryptedFilePath?: string;
+}
+
+// ── Encrypted File Info (GET /api/dpp/{id}/encrypted-file-info) ────────────
+export interface EncryptedFileInfo {
+  dppId: string;
+  originalFileName: string;
+  contentType: string;
+  isEncrypted: boolean;
+  algorithm: string;
+  ivDescription: string;
+  keyManagement: string;
+  encryptedFileName: string;
+  encryptedSizeBytes: number | null;
+  encryptedAt: string;
+  collection: string;
+  decryptAccess: string;
 }
 
 // ── Marketplace ───────────────────────────────────────────────────────
@@ -116,6 +137,10 @@ export interface MarketplaceTransaction {
   /** Safe QIR fields extracted by Gemini. Confidential values are null. */
   qirFields?: Record<string, string | null>;
   qirClassification?: string;
+  /** Exporter's uploaded supporting documents (shipping certs, origin docs, etc.) */
+  exporterDocsPath?: string;
+  exporterDocsOriginalName?: string;
+  exporterDocsUploadedAt?: string;
 }
 
 /**
@@ -234,17 +259,28 @@ export interface AcceptExporterRequest {
   exporterId: string;
 }
 
+// ── Lot Interest Request (Exporter → Buyer) ───────────────────────────
+export interface LotInterestRequest {
+  id: string;
+  postId: string;
+  /** PENDING | ACCEPTED | REJECTED */
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  requestedAt: string;
+  trustScore: number;
+}
+
 // ── Dual-Layer DPP (Zero-Knowledge Delivery) ──────────────────────────
 export interface DualLayerDppResponse {
   publicSummary: {
-    LotId: string;
-    RubberGrade: string;
-    Quantity: number;
-    DppHash: string;
+    lotId: string;
+    rubberGrade: string;
+    quantity: number;
+    dppHash: string;
   };
-  encryptedVault: string;
-  encryptionMetadata: {
-    EncryptedAesKeyBase64: string;
-    IvBase64: string;
-  };
+  /** "CONFIDENTIAL" | "PUBLIC" | "NOT_UPLOADED" */
+  documentStatus: string;
+  /** CONFIDENTIAL: PBKDF2-AES-256-CBC ciphertext (Base64). PUBLIC: raw file bytes (Base64). */
+  documentPayload: string;
+  /** AES IV (Base64) — derived deterministically from PBKDF2 alongside the key */
+  ivBase64: string;
 }
