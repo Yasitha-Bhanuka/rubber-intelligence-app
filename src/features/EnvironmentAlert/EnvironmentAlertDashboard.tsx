@@ -61,20 +61,7 @@ export const EnvironmentAlertDashboard = () => {
         );
     }
 
-    const handleAnalyze = () => {
-        if (!soilMoisture || !humidity || !temperature) {
-            Alert.alert('Missing Data', 'Please fill in all environmental parameters.');
-            return;
-        }
-
-        setResultMessage('Analyzing environmental stress factors...');
-
-        setTimeout(() => {
-            setResultMessage(
-                'Analysis complete: Conditions are currently optimal. No severe stress detected.'
-            );
-        }, 1500);
-    };
+    const isConnected = Number(temperature) > 0 || Number(humidity) > 0 || Number(soilMoisture) > 0;
 
     return (
         <ScrollView style={styles.container}>
@@ -107,44 +94,28 @@ export const EnvironmentAlertDashboard = () => {
                 </Text>
 
                 <View style={styles.inputCard}>
-                    <Text style={styles.inputLabel}>Soil Moisture (%)</Text>
-                    <TextInput
-                        style={styles.inputField}
-                        keyboardType="numeric"
-                        value={soilMoisture}
-                        onChangeText={setSoilMoisture}
-                    />
-
-                    <Text style={styles.inputLabel}>Humidity (%)</Text>
-                    <TextInput
-                        style={styles.inputField}
-                        keyboardType="numeric"
-                        value={humidity}
-                        onChangeText={setHumidity}
-                    />
-
-                    <Text style={styles.inputLabel}>Temperature (°C)</Text>
-                    <TextInput
-                        style={styles.inputField}
-                        keyboardType="numeric"
-                        value={temperature}
-                        onChangeText={setTemperature}
-                    />
-
-                    <TouchableOpacity
-                        style={styles.analyzeBtn}
-                        onPress={handleAnalyze}
-                    >
-                        <Text style={styles.analyzeBtnText}>
-                            Analyze Stress Level
-                        </Text>
-                        <Ionicons
-                            name="analytics-outline"
-                            size={20}
-                            color="#FFF"
-                            style={{ marginLeft: 8 }}
-                        />
-                    </TouchableOpacity>
+                    {isConnected ? (
+                        <View style={styles.readingsContainer}>
+                            <View style={styles.readingRow}>
+                                <Text style={styles.readingLabel}>Soil Moisture</Text>
+                                <Text style={styles.readingValue}>{soilMoisture}%</Text>
+                            </View>
+                            <View style={styles.readingRow}>
+                                <Text style={styles.readingLabel}>Humidity</Text>
+                                <Text style={styles.readingValue}>{humidity}%</Text>
+                            </View>
+                            <View style={styles.readingRow}>
+                                <Text style={styles.readingLabel}>Temperature</Text>
+                                <Text style={styles.readingValue}>{temperature}°C</Text>
+                            </View>
+                        </View>
+                    ) : (
+                        <View style={styles.errorContainer}>
+                            <Ionicons name="warning-outline" size={48} color="#D32F2F" />
+                            <Text style={styles.errorText}>ESP32 Device Offline</Text>
+                            <Text style={styles.errorSubText}>Please check the connection</Text>
+                        </View>
+                    )}
                 </View>
             </View>
 
@@ -154,13 +125,13 @@ export const EnvironmentAlertDashboard = () => {
 
                 <View style={styles.resultCard}>
                     <Ionicons
-                        name="information-circle"
+                        name={resultMessage.includes("Cannot connect") ? "alert-circle" : "information-circle"}
                         size={32}
-                        color="#1565C0"
+                        color={resultMessage.includes("Cannot connect") ? "#D32F2F" : "#1565C0"}
                         style={{ marginBottom: 10 }}
                     />
 
-                    <Text style={styles.resultMessage}>
+                    <Text style={[styles.resultMessage, resultMessage.includes("Cannot connect") && { color: "#D32F2F" }]}>
                         {resultMessage}
                     </Text>
                 </View>
@@ -223,36 +194,42 @@ const styles = StyleSheet.create({
         padding: 20,
         elevation: 4
     },
-    inputLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginTop: 10,
-        color: '#333'
+    readingsContainer: {
+        width: '100%'
     },
-    inputField: {
-        borderWidth: 1,
-        borderColor: '#DCEDC8',
-        backgroundColor: '#F1F8E9',
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        height: 50,
-        fontSize: 16,
-        color: '#2E7D32',
-        marginTop: 6
-    },
-    analyzeBtn: {
-        backgroundColor: '#2E7D32',
+    readingRow: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingVertical: 15,
-        borderRadius: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0'
+    },
+    readingLabel: {
+        fontSize: 16,
+        color: '#555',
+        fontWeight: '500'
+    },
+    readingValue: {
+        fontSize: 18,
+        color: '#2E7D32',
+        fontWeight: 'bold'
+    },
+    errorContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 20
+        paddingVertical: 30
     },
-    analyzeBtnText: {
-        color: '#FFF',
+    errorText: {
+        fontSize: 18,
         fontWeight: 'bold',
-        fontSize: 16
+        color: '#D32F2F',
+        marginTop: 10
+    },
+    errorSubText: {
+        fontSize: 14,
+        color: '#666',
+        marginTop: 5
     },
     resultCard: {
         backgroundColor: '#E3F2FD',
