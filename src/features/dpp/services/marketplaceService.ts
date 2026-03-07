@@ -1,6 +1,6 @@
 import apiClient from '../../../core/api/apiClient';
 import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView, InterestedExporter, AcceptExporterRequest, DualLayerDppResponse, LotInterestRequest } from '../types';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
@@ -96,11 +96,12 @@ export const getInvoiceFileUri = async (transactionId: string): Promise<{ uri: s
         const token = await AsyncStorage.getItem('token');
 
         // Download to a temporary generic path
-        // @ts-ignore
         const tempUri = `${FileSystem.documentDirectory}invoice_${transactionId}_tmp`;
 
+        const cleanToken = token ? token.replace(/['"]+/g, '') : '';
+
         const downloadRes = await FileSystem.downloadAsync(url, tempUri, {
-            headers: !!token ? { Authorization: `Bearer ${token}` } : {}
+            headers: cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}
         });
 
         if (downloadRes.status !== 200) {
@@ -114,7 +115,6 @@ export const getInvoiceFileUri = async (transactionId: string): Promise<{ uri: s
         if (contentType.includes('image/jpeg')) ext = '.jpg';
         if (contentType.includes('image/png')) ext = '.png';
 
-        // @ts-ignore
         const finalUri = `${FileSystem.documentDirectory}invoice_${transactionId}${ext}`;
 
         await FileSystem.moveAsync({

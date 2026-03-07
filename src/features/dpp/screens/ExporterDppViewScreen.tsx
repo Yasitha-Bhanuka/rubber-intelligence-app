@@ -19,14 +19,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
-    TouchableOpacity, ActivityIndicator, Alert,
+    TouchableOpacity, ActivityIndicator, Alert, Modal, Image, Dimensions
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Sharing from 'expo-sharing';
 import { getExporterTransactionDpp, getInvoiceFileUri } from '../services/marketplaceService';
 import { ExporterDppView, ExporterDppField } from '../types';
+import { WebView } from 'react-native-webview';
 
 // ── Palette (matches MarketplaceScreen green theme) ───────────────────
 const C = {
@@ -150,20 +150,18 @@ export default function ExporterDppViewScreen() {
     const [error, setError] = useState<string | null>(null);
     const [downloadingInv, setDownloadingInv] = useState(false);
 
+    // Document Viewer Modal State
+    const [viewerVisible, setViewerVisible] = useState(false);
+    const [viewerUri, setViewerUri] = useState<string | null>(null);
+    const [viewerMime, setViewerMime] = useState<string | null>(null);
+
     const handleViewInvoice = async () => {
         setDownloadingInv(true);
         try {
             const { uri, mimeType } = await getInvoiceFileUri(transactionId);
-            const canShare = await Sharing.isAvailableAsync();
-            if (canShare) {
-                await Sharing.shareAsync(uri, {
-                    mimeType,
-                    dialogTitle: 'View Source Document',
-                    UTI: mimeType.includes('pdf') ? 'com.adobe.pdf' : 'public.image'
-                });
-            } else {
-                Alert.alert('Not Supported', 'Sharing/viewing is not available on this device.');
-            }
+            setViewerUri(uri);
+            setViewerMime(mimeType);
+            setViewerVisible(true);
         } catch (e: any) {
             Alert.alert('Decrypt Failed', e.message || 'Could not fetch or decrypt the document.');
         } finally {
@@ -407,6 +405,44 @@ export default function ExporterDppViewScreen() {
                     </View>
                 </ScrollView>
             ) : null}
+
+            {/* ══ IN-APP DOCUMENT VIEWER MODAL ══ */}
+            <Modal
+                visible={viewerVisible}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setViewerVisible(false)}
+            >
+                <View style={st.viewerContainer}>
+                    <View style={st.viewerHeader}>
+                        <TouchableOpacity style={st.viewerCloseBtn} onPress={() => setViewerVisible(false)}>
+                            <Text style={st.viewerCloseText}>Close</Text>
+                        </TouchableOpacity>
+                        <Text style={st.viewerTitle}>Source Document</Text>
+                        <View style={{ width: 60 }} />
+                    </View>
+
+                    <View style={st.viewerBody}>
+                        {viewerUri && viewerMime ? (
+                            viewerMime.includes('pdf') ? (
+                                <WebView
+                                    style={{ flex: 1 }}
+                                    source={{ uri: viewerUri }}
+                                    allowFileAccess={true}
+                                />
+                            ) : (
+                                <Image
+                                    source={{ uri: viewerUri }}
+                                    style={st.viewerImage}
+                                    resizeMode="contain"
+                                />
+                            )
+                        ) : (
+                            <ActivityIndicator size="large" color="#fff" />
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -564,5 +600,32 @@ const st = StyleSheet.create({
     downloadDocBtnText: {
         flex: 1, marginLeft: 10,
         color: '#1565C0', fontWeight: '700', fontSize: 13
+    },
+
+    /* Viewer Modal */
+    viewerContainer: {
+        flex: 1, backgroundColor: '#000',
+    },
+    viewerHeader: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingTop: 50, paddingBottom: 15, paddingHorizontal: 16,
+        backgroundColor: '#1C1C1E',
+        borderBottomWidth: 1, borderBottomColor: '#333'
+    },
+    viewerTitle: {
+        color: '#fff', fontSize: 16, fontWeight: '600'
+    },
+    viewerCloseBtn: {
+        width: 60, alignItems: 'flex-start'
+    },
+    viewerCloseText: {
+        color: C.blue, fontSize: 16, fontWeight: '600'
+    },
+    viewerBody: {
+        flex: 1, justifyContent: 'center', alignItems: 'center'
+    },
+    viewerImage: {
+        width: Dimensions.get('window').width,
+        height: Dimensions.get('window').height - 100,
     }
 });
