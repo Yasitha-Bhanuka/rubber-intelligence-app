@@ -139,7 +139,16 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
                 <View style={{ flex: 1 }}>
                     <CameraView style={StyleSheet.absoluteFill} ref={cameraRef} />
                     <View style={[styles.overlay, StyleSheet.absoluteFill]}>
-                        <Text style={styles.headerText}>Detecting: {diseaseTypeName}</Text>
+                        <View style={styles.topBar}>
+                            <TouchableOpacity
+                                onPress={() => navigation.goBack()}
+                                style={styles.backBtn}
+                            >
+                                <Ionicons name="arrow-back" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                            <Text style={styles.headerText}>Detecting: {diseaseTypeName}</Text>
+                            <View style={{ width: 44 }} />
+                        </View>
                         <View style={styles.controls}>
                             <TouchableOpacity onPress={pickImage} style={styles.iconBtn}>
                                 <Ionicons name="images-outline" size={30} color="#FFF" />
@@ -160,7 +169,9 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     camera: { flex: 1 },
     overlay: { flex: 1, justifyContent: 'space-between', padding: 20 },
-    headerText: { color: '#FFF', fontSize: 18, textAlign: 'center', marginTop: 40, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 8 },
+    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 40, width: '100%' },
+    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+    headerText: { color: '#FFF', fontSize: 18, textAlign: 'center', fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 8 },
     controls: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginBottom: 30 },
     captureBtn: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
     captureInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: '#000' },

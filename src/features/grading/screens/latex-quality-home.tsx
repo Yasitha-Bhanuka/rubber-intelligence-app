@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from "react-native";
 import React from "react";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,8 +17,10 @@ import {
 } from "@expo/vector-icons";
 import { BarChart } from "react-native-chart-kit";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { colors } from "../../../shared/styles/colors";
+import { ReportService } from "../../../core/services/ReportService";
+import { useState, useCallback } from "react";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 72) / 2;
@@ -93,60 +96,6 @@ const quickActions = [
   },
 ];
 
-// Enhanced Recent Tests with more data
-const recentTests = [
-  {
-    id: "LTX-2026-001",
-    result: "Pass",
-    quality: "Excellent",
-    score: 95,
-    statusColor: "#10B981",
-    icon: "check-circle",
-    time: "2 hours ago",
-    parameters: ["pH: 6.8", "Temp: 28°C", "Turb: -4300 NTU"],
-  },
-  {
-    id: "LTX-2026-002",
-    result: "Warning",
-    quality: "Good",
-    score: 78,
-    statusColor: "#F59E0B",
-    icon: "alert-circle",
-    time: "5 hours ago",
-    parameters: ["pH: 7.2", "Temp: 29°C", "Turb: -3900 NTU"],
-  },
-  {
-    id: "LTX-2026-003",
-    result: "Fail",
-    quality: "Poor",
-    score: 42,
-    statusColor: "#EF4444",
-    icon: "close-circle",
-    time: "1 day ago",
-    parameters: ["pH: 8.1", "Temp: 31°C", "Turb: 1400 NTU"],
-  },
-  {
-    id: "LTX-2026-004",
-    result: "Pass",
-    quality: "Excellent",
-    score: 94,
-    statusColor: "#10B981",
-    icon: "check-circle",
-    time: "2 days ago",
-    parameters: ["pH: 6.7", "Temp: 27°C", "Turb: -4250 NTU"],
-  },
-  {
-    id: "LTX-2026-005",
-    result: "Pass",
-    quality: "Good",
-    score: 81,
-    statusColor: "#10B981",
-    icon: "check-circle",
-    time: "3 days ago",
-    parameters: ["pH: 7.0", "Temp: 28°C", "Turb: -3950 NTU"],
-  },
-];
-
 // Enhanced Alerts with more data
 const alerts = [
   {
@@ -155,7 +104,7 @@ const alerts = [
     urgency: "High",
     color: "#EF4444",
     icon: "thermometer-alert",
-    time: "15 min ago",
+    time: "1 day ago",
     priority: 1,
   },
   {
@@ -164,7 +113,7 @@ const alerts = [
     urgency: "Medium",
     color: "#F59E0B",
     icon: "alert-circle",
-    time: "2 hours ago",
+    time: "4 days ago",
     priority: 2,
   },
   {
@@ -173,7 +122,7 @@ const alerts = [
     urgency: "Medium",
     color: "#F59E0B",
     icon: "water-alert",
-    time: "4 hours ago",
+    time: "6 days ago",
     priority: 2,
   },
   {
@@ -182,7 +131,7 @@ const alerts = [
     urgency: "Low",
     color: "#3498DB",
     icon: "package-variant",
-    time: "1 day ago",
+    time: "8 day ago",
     priority: 3,
   },
   {
@@ -191,20 +140,20 @@ const alerts = [
     urgency: "Info",
     color: "#6366F1",
     icon: "backup-restore",
-    time: "2 days ago",
+    time: "10 days ago",
     priority: 4,
   },
 ];
 
 // Enhanced Quality Trends data with time labels
 const qualityTrends = [
-  { day: "Mon", score: 85, time: "10:00 AM" },
+  { day: "Mon", score: 55, time: "10:00 AM" },
   { day: "Tue", score: 88, time: "11:30 AM" },
-  { day: "Wed", score: 90, time: "09:45 AM" },
+  { day: "Wed", score: 75, time: "09:45 AM" },
   { day: "Thu", score: 92, time: "02:15 PM" },
-  { day: "Fri", score: 91, time: "10:30 AM" },
+  { day: "Fri", score: 58, time: "10:30 AM" },
   { day: "Sat", score: 89, time: "03:00 PM" },
-  { day: "Sun", score: 92, time: "11:00 AM" },
+  { day: "Sun", score: 82, time: "11:00 AM" },
 ];
 
 // Find min and max scores for chart scaling
@@ -237,6 +186,89 @@ const recommendedActions = [
 
 export default function LatexQualityHomeScreen() {
   const navigation = useNavigation<any>();
+  const [recentTestData, setRecentTestData] = useState<any[]>([]);
+
+  const getStatusColor = (status: string) => {
+    if (status === "Pass") return "#10B981";
+    if (status === "Warning") return "#F59E0B";
+    return "#EF4444";
+  };
+
+  const getStatusIcon = (status: string) => {
+    if (status === "Pass") return "check-circle";
+    if (status === "Warning") return "alert-circle";
+    return "close-circle";
+  };
+
+  const handleDeleteReport = (fileUri: string, testId: string) => {
+    Alert.alert(
+      "Delete Report",
+      `Are you sure you want to delete the report for ${testId}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const success = await ReportService.deleteReport(fileUri);
+            if (success) {
+              loadRecentTests();
+            } else {
+              Alert.alert("Error", "Failed to delete report.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const loadRecentTests = async () => {
+    try {
+      const files = await ReportService.listSavedReports();
+      const parsed = files
+        .map((f) => {
+          try {
+            if (!f.name.startsWith("Report_Latex_")) return null;
+            const parts = f.name.replace(".pdf", "").split("_");
+            if (parts.length < 8) return null;
+
+            const testId = parts[2];
+            const score = parseInt(parts[3]);
+            const grade = parts[4];
+            const status = parts[5];
+            const date = parts[6];
+            const time = parts.slice(7).join(":");
+
+            return {
+              id: testId,
+              fileUri: f.uri,
+              result: status,
+              quality: grade,
+              score: score,
+              statusColor: getStatusColor(status),
+              icon: getStatusIcon(status),
+              date: date,
+              time: time,
+              parameters: [],
+            };
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter((r) => r !== null)
+        .slice(0, 5); // Take top 5
+
+      setRecentTestData(parsed);
+    } catch (error) {
+      console.error("Error loading recent tests", error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadRecentTests();
+    }, [])
+  );
 
   const renderQualityScore = (score: number) => {
     if (score >= 90) return { label: "Excellent", color: "#10B981" };
@@ -383,7 +415,7 @@ export default function LatexQualityHomeScreen() {
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>Avg</Text>
-                <Text style={styles.statValue}>89%</Text>
+                <Text style={styles.statValue}>85%</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
@@ -430,15 +462,15 @@ export default function LatexQualityHomeScreen() {
           <View style={styles.legend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendColor, { backgroundColor: '#10B981' }]} />
-              <Text style={styles.legendText}>Excellent (90-100%)</Text>
+              <Text style={styles.legendText}>Excellent</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendColor, { backgroundColor: '#3B82F6' }]} />
-              <Text style={styles.legendText}>Good (70-89%)</Text>
+              <Text style={styles.legendText}>Good</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendColor, { backgroundColor: '#F59E0B' }]} />
-              <Text style={styles.legendText}>Fair (50-69%)</Text>
+              <Text style={styles.legendText}>Average</Text>
             </View>
           </View>
         </View>
@@ -492,7 +524,7 @@ export default function LatexQualityHomeScreen() {
           </View>
           <TouchableOpacity
             style={styles.seeAllButton}
-            onPress={handleButtonPress}
+            onPress={() => navigation.navigate("LatexQualityReports")}
           >
             <Text style={styles.seeAllText}>View All</Text>
             <MaterialIcons
@@ -505,75 +537,61 @@ export default function LatexQualityHomeScreen() {
         </View>
 
         <View style={styles.testsContainer}>
-          {recentTests.map((test, i) => {
+          {recentTestData.length === 0 ? (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <MaterialCommunityIcons name="clipboard-text-outline" size={48} color="#CBD5E1" />
+              <Text style={{ color: "#64748B", marginTop: 12, fontWeight: "500" }}>No recent tests found</Text>
+            </View>
+          ) : recentTestData.map((test, i) => {
             const quality = renderQualityScore(test.score);
             return (
               <LinearGradient
-                key={i}
-                colors={[`${test.statusColor}08`, "#FFFFFF"]}
+                key={test.id || i}
+                colors={[`${test.statusColor}08`, '#FFFFFF']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[
-                  styles.testCard,
-                  { borderLeftColor: test.statusColor, borderLeftWidth: 4 },
-                ]}
+                style={[styles.reportCard, { borderLeftColor: test.statusColor }]}
               >
-                <View style={styles.testHeader}>
-                  <View style={styles.testTitleRow}>
-                    <MaterialCommunityIcons
-                      name={test.icon as any}
-                      size={20}
-                      color={test.statusColor}
-                    />
+                <View style={styles.cardHeader}>
+                  <View style={styles.titleRow}>
+                    <MaterialCommunityIcons name={test.icon as any} size={20} color={test.statusColor} />
                     <Text style={styles.testId}>{test.id}</Text>
-                    <View
-                      style={[
-                        styles.resultBadge,
-                        { backgroundColor: `${test.statusColor}15` },
-                      ]}
-                    >
-                      <Text style={[styles.resultText, { color: test.statusColor }]}>
-                        {test.result}
-                      </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: `${test.statusColor}15` }]}>
+                      <Text style={[styles.statusText, { color: test.statusColor }]}>{test.result}</Text>
                     </View>
                   </View>
-                  <Text style={styles.testTime}>{test.time}</Text>
                 </View>
 
-                <View style={styles.testBody}>
-                  <View style={styles.testScoreRow}>
-                    <Text style={styles.testScore}>{test.score}%</Text>
-                    <Text style={[styles.testQuality, { color: quality.color }]}>
-                      {quality.label} Quality
-                    </Text>
+                <View style={styles.cardBody}>
+                  <View style={styles.scoreBlock}>
+                    <Text style={styles.scoreValue}>{test.score}%</Text>
+                    <Text style={[styles.gradeText, { color: test.statusColor }]}>{test.quality} </Text>
                   </View>
-
-                  <View style={styles.parametersRow}>
-                    {test.parameters.map((param, idx) => (
-                      <View key={idx} style={styles.parameterChip}>
-                        <Text style={styles.parameterText}>{param}</Text>
-                      </View>
-                    ))}
+                  <View style={styles.timeBlock}>
+                    <MaterialCommunityIcons name="clock-outline" size={14} color="#64748B" style={{ marginRight: 4 }} />
+                    <Text style={styles.timeText}>{test.time}</Text>
                   </View>
                 </View>
 
-                <View style={styles.testFooter}>
-                  <TouchableOpacity
-                    style={styles.detailsButton}
-                    onPress={handleButtonPress}
-                  >
-                    <Text style={[styles.detailsButtonText, { color: colors.primary }]}>
-                      View Details
-                    </Text>
-                    <MaterialIcons
-                      name="arrow-forward"
-                      size={16}
-                      color={colors.primary}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.retestButton} onPress={handleButtonPress}>
-                    <Text style={styles.retestButtonText}>Retest</Text>
-                  </TouchableOpacity>
+                <View style={styles.cardFooter}>
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => test.fileUri ? ReportService.sharePDF(test.fileUri) : handleButtonPress()}
+                    >
+                      <Text style={[styles.actionButtonText, { color: colors.primary }]}>Download</Text>
+                      <MaterialIcons name="file-download" size={16} color={colors.primary} style={{ marginLeft: 4 }} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.deleteButton]}
+                      onPress={() => test.fileUri ? handleDeleteReport(test.fileUri, test.id) : handleButtonPress()}
+                    >
+                      <Text style={[styles.actionButtonText, { color: '#EF4444' }]}>Delete</Text>
+                      <MaterialIcons name="delete-outline" size={16} color="#EF4444" style={{ marginLeft: 4 }} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.dateText}>{test.date}</Text>
                 </View>
               </LinearGradient>
             );
@@ -641,8 +659,8 @@ export default function LatexQualityHomeScreen() {
               <Text style={styles.alertMessage}>{alert.message}</Text>
 
               <View style={styles.alertFooter}>
-                <TouchableOpacity style={styles.actionButton} onPress={handleButtonPress}>
-                  <Text style={[styles.actionButtonText, { color: alert.color }]}>
+                <TouchableOpacity style={styles.alertActionButton} onPress={handleButtonPress}>
+                  <Text style={[styles.alertActionButtonText, { color: alert.color }]}>
                     Take Action
                   </Text>
                   <MaterialIcons
@@ -982,111 +1000,105 @@ const styles = StyleSheet.create({
   testsContainer: {
     gap: 12,
   },
-  testCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+  reportCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
     padding: 20,
-    shadowColor: "#000",
+    borderLeftWidth: 4,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    shadowRadius: 12,
+    elevation: 4,
   },
-  testHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  testTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   testId: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#6B7280",
-    marginLeft: 8,
-    marginRight: 12,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1E293B',
   },
-  resultBadge: {
+  statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  resultText: {
+  statusText: {
     fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.5,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
-  testTime: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    fontWeight: "500",
-  },
-  testBody: {
+  cardBody: {
+    paddingBottom: 16,
     marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  testScoreRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: 12,
-  },
-  testScore: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#111827",
-    marginRight: 12,
-  },
-  testQuality: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  parametersRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  parameterChip: {
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
+  scoreBlock: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
     marginBottom: 8,
   },
-  parameterText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#4B5563",
+  scoreValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#333',
+    letterSpacing: -1,
   },
-  testFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  gradeText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
-  detailsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
+  timeBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  detailsButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginRight: 4,
+  timeText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
   },
-  retestButton: {
+  cardFooter: {
+    marginTop: 12,
+    alignItems: 'flex-end',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 6,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  retestButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6B7280",
+  deleteButton: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  dateText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   // Alert Styles
   alertsContainer: {
@@ -1149,12 +1161,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  actionButton: {
+  alertActionButton: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
   },
-  actionButtonText: {
+  alertActionButtonText: {
     fontSize: 14,
     fontWeight: "700",
     marginRight: 4,

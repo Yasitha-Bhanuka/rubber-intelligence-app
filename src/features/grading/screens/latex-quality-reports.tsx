@@ -96,7 +96,7 @@ const LatexQualityReportsScreen = () => {
         setRefreshing(false);
     }, []);
 
-    const handleViewReport = async (uri: string) => {
+    const handleDownloadReport = async (uri: string) => {
         await ReportService.sharePDF(uri);
     };
 
@@ -216,10 +216,10 @@ const LatexQualityReportsScreen = () => {
                                             <View style={styles.actionButtons}>
                                                 <TouchableOpacity
                                                     style={styles.actionButton}
-                                                    onPress={() => handleViewReport(report.fileUri)}
+                                                    onPress={() => handleDownloadReport(report.fileUri)}
                                                 >
-                                                    <Text style={[styles.actionButtonText, { color: colors.primary }]}>View</Text>
-                                                    <MaterialIcons name="visibility" size={16} color={colors.primary} style={{ marginLeft: 4 }} />
+                                                    <Text style={[styles.actionButtonText, { color: colors.primary }]}>Download</Text>
+                                                    <MaterialIcons name="file-download" size={16} color={colors.primary} style={{ marginLeft: 4 }} />
                                                 </TouchableOpacity>
 
                                                 <TouchableOpacity

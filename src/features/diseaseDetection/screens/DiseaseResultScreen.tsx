@@ -7,8 +7,16 @@ export const DiseaseResultScreen = ({ route, navigation }: any) => {
     const { result, imageUri } = route.params;
 
     return (
-        <ScrollView style={styles.container}>
-            <Image source={{ uri: imageUri }} style={styles.image} />
+        <ScrollView style={styles.container} bounces={false}>
+            <View>
+                <Image source={{ uri: imageUri }} style={styles.image} />
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={styles.backBtn}
+                >
+                    <Ionicons name="arrow-back" size={24} color="#FFF" />
+                </TouchableOpacity>
+            </View>
 
             <View style={styles.card}>
                 <View style={styles.headerRow}>
@@ -45,6 +53,7 @@ const getSeverityColor = (severity: string) => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f5f5f5' },
     image: { width: '100%', height: 300 },
+    backBtn: { position: 'absolute', top: 40, left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     card: { backgroundColor: '#FFF', borderRadius: 20, marginTop: -20, padding: 20, flex: 1 },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     label: { fontSize: 24, fontWeight: 'bold', flex: 1 },

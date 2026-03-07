@@ -13,7 +13,7 @@ interface DiseaseMapParams {
     diseaseName?: string;
 }
 
-export const DiseaseMapScreen = ({ route }: any) => {
+export const DiseaseMapScreen = ({ route, navigation }: any) => {
     const { user } = useStore();
     const mapRef = useRef<MapView>(null);
     const [mapData, setMapData] = useState<MapDataPoint[]>([]);
@@ -122,6 +122,9 @@ export const DiseaseMapScreen = ({ route }: any) => {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
+                <TouchableOpacity onPress={() => route?.params?.navigation?.goBack() || navigation.goBack()} style={{ marginRight: 4 }}>
+                    <Ionicons name="arrow-back" size={24} color="#333" />
+                </TouchableOpacity>
                 <Ionicons name="map" size={24} color={colors.primary} />
                 <Text style={styles.headerTitle}>
                     {hasTarget ? `📍 ${params.diseaseName || 'Detection'}` : 'Disease Map'}
