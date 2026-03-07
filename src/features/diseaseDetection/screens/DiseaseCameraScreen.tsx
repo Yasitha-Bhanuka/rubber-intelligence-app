@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -6,38 +6,21 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/styles/colors';
 import { DiseaseService } from '../services/diseaseService';
+import { useStore } from '../../../store';
+
+import * as DocumentPicker from 'expo-document-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 export const DiseaseCameraScreen = ({ navigation, route }: any) => {
+    const { user } = useStore();
     const [permission, requestPermission] = useCameraPermissions();
     const [image, setImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const cameraRef = useRef<any>(null);
 
-    // GPS state
-    const [latitude, setLatitude] = useState<number | undefined>(undefined);
-    const [longitude, setLongitude] = useState<number | undefined>(undefined);
-
     // Default to Leaf Disease (0) if not passed
     const diseaseType = route.params?.type ?? 0;
     const diseaseTypeName = ['Leaf Disease', 'Pest', 'Weed'][diseaseType];
-
-    // Auto-capture GPS on mount
-    useEffect(() => {
-        (async () => {
-            try {
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status === 'granted') {
-                    const loc = await Location.getCurrentPositionAsync({
-                        accuracy: Location.Accuracy.Balanced,
-                    });
-                    setLatitude(loc.coords.latitude);
-                    setLongitude(loc.coords.longitude);
-                }
-            } catch (err) {
-                console.log('GPS unavailable, proceeding without location');
-            }
-        })();
-    }, []);
 
     if (!permission) {
         return <View />;
@@ -63,44 +46,33 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
     const pickImage = async () => {
         try {
-            // Option 1: File Browser (Supports any size, bypasses Photo Picker limit)
-            const docResult = await import('expo-document-picker').then(m => m.getDocumentAsync({
+            // Using standard DocumentPicker per user request
+            // We import it statically at the top to prevent a sudden memory spike 
+            // when pressing the button, which causes the Android background kill
+            const docResult = await DocumentPicker.getDocumentAsync({
                 type: 'image/*',
                 copyToCacheDirectory: true,
-            }));
-            
+            });
+
             if (!docResult.canceled && docResult.assets && docResult.assets.length > 0) {
                 const docUri = docResult.assets[0].uri;
-                
+
                 // Programmatically resize & compress the image so the API accepts it
                 try {
-                    const manipulator = await import('expo-image-manipulator');
-                    const manipResult = await manipulator.manipulateAsync(
+                    const manipResult = await manipulateAsync(
                         docUri,
                         [{ resize: { width: 1080 } }], // Resize width, keep aspect ratio
-                        { compress: 0.5, format: manipulator.SaveFormat.JPEG }
+                        { compress: 0.5, format: SaveFormat.JPEG }
                     );
                     setImage(manipResult.uri);
                 } catch (err) {
                     console.log("Image manipulation failed, using original document uri", err);
                     setImage(docUri);
                 }
-                return;
             }
         } catch (error) {
-            console.log("DocumentPicker failed, falling back to ImagePicker", error);
-            // Option 2: Fallback Photo Picker
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
-                allowsEditing: true, // Only this option actually provides user crop UI
-                aspect: [4, 3],
-                quality: 0.5,
-                selectionLimit: 1,
-            });
-
-            if (!result.canceled) {
-                setImage(result.assets[0].uri);
-            }
+            console.error("DocumentPicker failed", error);
+            Alert.alert("Error", "Could not load the file picker.");
         }
     };
 
@@ -109,7 +81,30 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
         setLoading(true);
         try {
-            const result = await DiseaseService.detect(image, diseaseType, latitude, longitude);
+            // 1. Try live GPS capture at analyze time
+            let lat: number | undefined;
+            let lng: number | undefined;
+
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    const loc = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.Balanced,
+                    });
+                    lat = loc.coords.latitude;
+                    lng = loc.coords.longitude;
+                }
+            } catch {
+                console.log('Live GPS unavailable');
+            }
+
+            // 2. Fallback to user's registered plantation location
+            if (lat === undefined || lng === undefined) {
+                lat = user?.latitude;
+                lng = user?.longitude;
+            }
+
+            const result = await DiseaseService.detect(image, diseaseType, lat, lng);
             if (result.isRejected) {
                 Alert.alert(
                     "Image Rejected",
@@ -144,7 +139,16 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
                 <View style={{ flex: 1 }}>
                     <CameraView style={StyleSheet.absoluteFill} ref={cameraRef} />
                     <View style={[styles.overlay, StyleSheet.absoluteFill]}>
-                        <Text style={styles.headerText}>Detecting: {diseaseTypeName}</Text>
+                        <View style={styles.topBar}>
+                            <TouchableOpacity
+                                onPress={() => navigation.goBack()}
+                                style={styles.backBtn}
+                            >
+                                <Ionicons name="arrow-back" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                            <Text style={styles.headerText}>Detecting: {diseaseTypeName}</Text>
+                            <View style={{ width: 44 }} />
+                        </View>
                         <View style={styles.controls}>
                             <TouchableOpacity onPress={pickImage} style={styles.iconBtn}>
                                 <Ionicons name="images-outline" size={30} color="#FFF" />
@@ -165,7 +169,9 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     camera: { flex: 1 },
     overlay: { flex: 1, justifyContent: 'space-between', padding: 20 },
-    headerText: { color: '#FFF', fontSize: 18, textAlign: 'center', marginTop: 40, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 8 },
+    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 40, width: '100%' },
+    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+    headerText: { color: '#FFF', fontSize: 18, textAlign: 'center', fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 8 },
     controls: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginBottom: 30 },
     captureBtn: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
     captureInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: '#000' },

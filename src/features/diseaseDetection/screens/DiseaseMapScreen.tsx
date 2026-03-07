@@ -13,7 +13,7 @@ interface DiseaseMapParams {
     diseaseName?: string;
 }
 
-export const DiseaseMapScreen = ({ route }: any) => {
+export const DiseaseMapScreen = ({ route, navigation }: any) => {
     const { user } = useStore();
     const mapRef = useRef<MapView>(null);
     const [mapData, setMapData] = useState<MapDataPoint[]>([]);
@@ -48,7 +48,12 @@ export const DiseaseMapScreen = ({ route }: any) => {
     const loadMapData = async () => {
         try {
             const data = await DiseaseService.getMapData(30);
-            setMapData(data);
+            if (params.diseaseName) {
+                // Filter only markers that match the requested disease
+                setMapData(data.filter(d => d.disease.toLowerCase() === params.diseaseName!.toLowerCase()));
+            } else {
+                setMapData(data);
+            }
         } catch (error) {
             console.error('Failed to load map data:', error);
         } finally {
@@ -117,6 +122,9 @@ export const DiseaseMapScreen = ({ route }: any) => {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
+                <TouchableOpacity onPress={() => route?.params?.navigation?.goBack() || navigation.goBack()} style={{ marginRight: 4 }}>
+                    <Ionicons name="arrow-back" size={24} color="#333" />
+                </TouchableOpacity>
                 <Ionicons name="map" size={24} color={colors.primary} />
                 <Text style={styles.headerTitle}>
                     {hasTarget ? `📍 ${params.diseaseName || 'Detection'}` : 'Disease Map'}

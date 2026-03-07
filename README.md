@@ -1,6 +1,6 @@
 # Rubber Intelligence App 🌿📱
 
-The **Rubber Intelligence App** is a comprehensive mobile application designed to modernize and streamline the rubber industry. Built with **React Native** and **Expo**, it empowers farmers, buyers, exporters, researchers, and administrators with advanced tools for grading, disease detection, price forecasting, and supply chain traceability.
+The **Rubber Intelligence App** is a comprehensive mobile application designed to modernize and streamline the rubber industry. Built with **React Native** and **Expo**, it empowers farmers, buyers, exporters, researchers, and administrators with advanced tools for grading, disease detection, price forecasting, and supply chain traceability..
 
 ## 🚀 Key Features
 

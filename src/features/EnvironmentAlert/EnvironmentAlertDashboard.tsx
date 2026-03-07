@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    TextInput,
+    Alert
+} from 'react-native';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../store';
+
+const ESP32_IP = "http://192.168.43.188";
 
 export const EnvironmentAlertDashboard = () => {
     const { user } = useStore();
@@ -11,36 +22,57 @@ export const EnvironmentAlertDashboard = () => {
     const [soilMoisture, setSoilMoisture] = useState('');
     const [humidity, setHumidity] = useState('');
     const [temperature, setTemperature] = useState('');
-    const [resultMessage, setResultMessage] = useState('Stress analysis will appear here');
+    const [resultMessage, setResultMessage] = useState(
+        'Stress analysis will appear here'
+    );
+
+    // ✅ Fetch sensor data from ESP32 every 3 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
+            fetch(`${ESP32_IP}/data`, { signal: controller.signal })
+                .then(res => res.json())
+                .then(data => {
+                    clearTimeout(timeoutId);
+                    setTemperature(String(data.temperature));
+                    setHumidity(String(data.humidity));
+                    setSoilMoisture(String(data.soilMoisture));
+
+                    setResultMessage(
+                        `Alert: ${data.alert}\nAdvice: ${data.advice}`
+                    );
+                })
+                .catch(err => {
+                    clearTimeout(timeoutId);
+                    console.log("ESP32 Fetch Error:", err);
+                    setTemperature("");
+                    setHumidity("");
+                    setSoilMoisture("");
+                    setResultMessage("Cannot connect to ESP32");
+                });
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     // Currently only visible to farmers according to requirement
     if (role !== 'farmer') {
         return (
             <View style={styles.accessDeniedContainer}>
                 <Ionicons name="lock-closed" size={64} color="#ccc" />
-                <Text style={styles.accessDeniedText}>Access Denied. This dashboard is only available to farmers.</Text>
+                <Text style={styles.accessDeniedText}>
+                    Access Denied. This dashboard is only available to farmers.
+                </Text>
             </View>
         );
     }
 
-    const handleAnalyze = () => {
-        if (!soilMoisture || !humidity || !temperature) {
-            Alert.alert('Missing Data', 'Please fill in all environmental parameters.');
-            return;
-        }
-
-        // Future Implementation: Real analysis and sensor integration
-        // Currently setting a placeholder processing message
-        setResultMessage('Analyzing environmental stress factors...');
-
-        setTimeout(() => {
-            setResultMessage('Analysis complete: Conditions are currently optimal. No severe stress detected.');
-        }, 1500);
-    };
+    const isConnected = Number(temperature) > 0 || Number(humidity) > 0 || Number(soilMoisture) > 0;
 
     return (
         <ScrollView style={styles.container}>
-            {/* Header Section */}
             <LinearGradient
                 colors={['#1B5E20', '#4CAF50']}
                 start={{ x: 0, y: 0 }}
@@ -49,9 +81,14 @@ export const EnvironmentAlertDashboard = () => {
             >
                 <View style={styles.headerContent}>
                     <View>
-                        <Text style={styles.greeting}>Environmental Stress Monitor</Text>
-                        <Text style={styles.subtitle}>Track your plantation health</Text>
+                        <Text style={styles.greeting}>
+                            Environmental Stress Monitor
+                        </Text>
+                        <Text style={styles.subtitle}>
+                            Track your plantation health
+                        </Text>
                     </View>
+
                     <View style={styles.iconCircle}>
                         <Ionicons name="leaf" size={24} color="#FFF" />
                     </View>
@@ -60,64 +97,51 @@ export const EnvironmentAlertDashboard = () => {
 
             {/* Input Section */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Real Time Sensor Measurements</Text>
-                <Text style={styles.sectionDescription}>
-                    Enter current readings below.
+                <Text style={styles.sectionTitle}>
+                    Real Time Sensor Measurements
                 </Text>
 
                 <View style={styles.inputCard}>
-                    <Text style={styles.inputLabel}>Soil Moisture (%)</Text>
-                    <View style={styles.inputWrapper}>
-                        <Ionicons name="water-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.inputField}
-                            placeholder="e.g. 45"
-                            keyboardType="numeric"
-                            value={soilMoisture}
-                            onChangeText={setSoilMoisture}
-                            placeholderTextColor="#A5D6A7"
-                        />
-                    </View>
-
-                    <Text style={styles.inputLabel}>Humidity (%)</Text>
-                    <View style={styles.inputWrapper}>
-                        <Ionicons name="cloudy-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.inputField}
-                            placeholder="e.g. 80"
-                            keyboardType="numeric"
-                            value={humidity}
-                            onChangeText={setHumidity}
-                            placeholderTextColor="#A5D6A7"
-                        />
-                    </View>
-
-                    <Text style={styles.inputLabel}>Temperature (°C)</Text>
-                    <View style={styles.inputWrapper}>
-                        <Ionicons name="thermometer-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.inputField}
-                            placeholder="e.g. 28"
-                            keyboardType="numeric"
-                            value={temperature}
-                            onChangeText={setTemperature}
-                            placeholderTextColor="#A5D6A7"
-                        />
-                    </View>
-
-                    <TouchableOpacity style={styles.analyzeBtn} onPress={handleAnalyze}>
-                        <Text style={styles.analyzeBtnText}>Analyze Stress Level</Text>
-                        <Ionicons name="analytics-outline" size={20} color="#FFF" style={{ marginLeft: 8 }} />
-                    </TouchableOpacity>
+                    {isConnected ? (
+                        <View style={styles.readingsContainer}>
+                            <View style={styles.readingRow}>
+                                <Text style={styles.readingLabel}>Soil Moisture</Text>
+                                <Text style={styles.readingValue}>{soilMoisture}%</Text>
+                            </View>
+                            <View style={styles.readingRow}>
+                                <Text style={styles.readingLabel}>Humidity</Text>
+                                <Text style={styles.readingValue}>{humidity}%</Text>
+                            </View>
+                            <View style={styles.readingRow}>
+                                <Text style={styles.readingLabel}>Temperature</Text>
+                                <Text style={styles.readingValue}>{temperature}°C</Text>
+                            </View>
+                        </View>
+                    ) : (
+                        <View style={styles.errorContainer}>
+                            <Ionicons name="warning-outline" size={48} color="#D32F2F" />
+                            <Text style={styles.errorText}>ESP32 Device Offline</Text>
+                            <Text style={styles.errorSubText}>Please check the connection</Text>
+                        </View>
+                    )}
                 </View>
             </View>
 
             {/* Result Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Analysis Result</Text>
+
                 <View style={styles.resultCard}>
-                    <Ionicons name="information-circle" size={32} color="#1565C0" style={{ marginBottom: 10 }} />
-                    <Text style={styles.resultMessage}>{resultMessage}</Text>
+                    <Ionicons
+                        name={resultMessage.includes("Cannot connect") ? "alert-circle" : "information-circle"}
+                        size={32}
+                        color={resultMessage.includes("Cannot connect") ? "#D32F2F" : "#1565C0"}
+                        style={{ marginBottom: 10 }}
+                    />
+
+                    <Text style={[styles.resultMessage, resultMessage.includes("Cannot connect") && { color: "#D32F2F" }]}>
+                        {resultMessage}
+                    </Text>
                 </View>
             </View>
 
@@ -170,63 +194,50 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         color: '#333',
-        marginBottom: 8
-    },
-    sectionDescription: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 15,
-        lineHeight: 20
+        marginBottom: 12
     },
     inputCard: {
         backgroundColor: '#FFF',
         borderRadius: 20,
         padding: 20,
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8
+        elevation: 4
     },
-    inputLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 8
+    readingsContainer: {
+        width: '100%'
     },
-    inputWrapper: {
+    readingRow: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#F1F8E9',
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#DCEDC8'
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0'
     },
-    inputIcon: {
-        marginRight: 10
-    },
-    inputField: {
-        flex: 1,
-        height: 50,
+    readingLabel: {
         fontSize: 16,
-        color: '#2E7D32',
+        color: '#555',
         fontWeight: '500'
     },
-    analyzeBtn: {
-        backgroundColor: '#2E7D32',
-        flexDirection: 'row',
-        paddingVertical: 15,
-        borderRadius: 12,
+    readingValue: {
+        fontSize: 18,
+        color: '#2E7D32',
+        fontWeight: 'bold'
+    },
+    errorContainer: {
         alignItems: 'center',
         justifyContent: 'center',
+        paddingVertical: 30
+    },
+    errorText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#D32F2F',
         marginTop: 10
     },
-    analyzeBtnText: {
-        color: '#FFF',
-        fontWeight: 'bold',
-        fontSize: 16
+    errorSubText: {
+        fontSize: 14,
+        color: '#666',
+        marginTop: 5
     },
     resultCard: {
         backgroundColor: '#E3F2FD',

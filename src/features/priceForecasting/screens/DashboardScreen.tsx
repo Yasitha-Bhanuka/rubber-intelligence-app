@@ -220,9 +220,14 @@ export const DashboardScreen = () => {
                             const cleanStr = auction.endTime.substring(0, 19);
                             let diffS = Math.max(0, Math.floor((new Date(cleanStr + "Z").getTime() - new Date().getTime()) / 1000));
                             if (diffS > 0) {
-                                let m = Math.floor(diffS / 60);
+                                let h = Math.floor(diffS / 3600);
+                                let m = Math.floor((diffS % 3600) / 60);
                                 let s = diffS % 60;
-                                timeBlock = `${m}min ${s < 10 ? '0' : ''}${s}s`;
+                                if (h > 0) {
+                                    timeBlock = `${h}h ${m}m ${s < 10 ? '0' : ''}${s}s`;
+                                } else {
+                                    timeBlock = `${m}m ${s < 10 ? '0' : ''}${s}s`;
+                                }
                             } else {
                                 timeBlock = 'Closed';
                             }

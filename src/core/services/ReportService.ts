@@ -1,7 +1,8 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Directory, File, Paths } from 'expo-file-system/next';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
 
 // Reports directory inside the app's document storage
 const getReportDir = () => new Directory(Paths.document, 'TestReports');
@@ -59,6 +60,29 @@ export const ReportService = {
             await Sharing.shareAsync(uri);
         } else {
             Alert.alert("Error", "Sharing is not available on this device.");
+        }
+    },
+
+    async downloadPDF(uri: string) {
+        const filenameMatch = uri.match(/\/([^\/?#]+)$/i);
+        const filename = filenameMatch ? filenameMatch[1] : 'report.pdf';
+
+        if (Platform.OS === 'android') {
+            try {
+                const permissions = await FileSystemLegacy.StorageAccessFramework.requestDirectoryPermissionsAsync();
+                if (permissions.granted) {
+                    const base64 = await FileSystemLegacy.readAsStringAsync(uri, { encoding: 'base64' });
+                    const newUri = await FileSystemLegacy.StorageAccessFramework.createFileAsync(permissions.directoryUri, filename, 'application/pdf');
+                    await FileSystemLegacy.writeAsStringAsync(newUri, base64, { encoding: 'base64' });
+                    Alert.alert("Success", "Report downloaded successfully!");
+                }
+            } catch (error) {
+                console.error("Error downloading PDF:", error);
+                Alert.alert("Error", "Failed to download report PDF.");
+            }
+        } else {
+            // For iOS, the standard way to 'Save to Files' is via the share sheet
+            await this.sharePDF(uri);
         }
     },
 

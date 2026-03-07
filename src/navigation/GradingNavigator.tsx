@@ -43,6 +43,7 @@ export const GradingNavigator = () => {
             <Stack.Screen name="LatexStorageGuide" component={require('../features/grading/screens/latex-storage-guide').default} />
             <Stack.Screen name="StorageSelection" component={require('../features/grading/screens/storage-selection-screen').default} />
             <Stack.Screen name="ExpertChat" component={require('../features/grading/screens/expert-chat-screen').default} />
+            <Stack.Screen name="LatexQualityReportViewer" component={require('../features/grading/screens/latex-quality-report-viewer').default} />
         </Stack.Navigator>
     );
 };
