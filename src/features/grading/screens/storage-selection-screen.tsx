@@ -97,6 +97,11 @@ export default function StorageSelectionScreen() {
             setConnectionError(false);
             setLastUpdated(new Date().toLocaleTimeString());
 
+            // Auto-fill inputs from live data
+            setHumidity(newData.humidity.toString());
+            setTemperature(newData.temperature.toString());
+            setAirTemperature(newData.airTemperature.toString());
+
         } catch (err: any) {
             if (err.name === "AbortError") {
                 console.warn("Fetch timed out. ESP32 might be slow or offline.");
@@ -549,15 +554,6 @@ export default function StorageSelectionScreen() {
                                     <Text style={styles.liveDataValue}>{liveData.airTemperature.toFixed(1)}°C</Text>
                                 </View>
                             </View>
-
-                            {/* Use Live Data Button */}
-                            <TouchableOpacity
-                                style={styles.useLiveButton}
-                                onPress={useLiveData}
-                            >
-                                <MaterialCommunityIcons name="flash" size={18} color="#FFF" />
-                                <Text style={styles.useLiveButtonText}>Use Live Data</Text>
-                            </TouchableOpacity>
                         </View>
                     )}
 
@@ -600,6 +596,7 @@ export default function StorageSelectionScreen() {
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={5}
+                                editable={false}
                             />
                         </View>
 
@@ -615,6 +612,7 @@ export default function StorageSelectionScreen() {
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={6}
+                                editable={false}
                             />
                         </View> */}
 
@@ -631,6 +629,7 @@ export default function StorageSelectionScreen() {
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={6}
+                                editable={false}
                             />
                         </View>
                     </View>
