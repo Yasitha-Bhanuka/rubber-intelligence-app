@@ -42,6 +42,9 @@ export const EnvironmentAlertDashboard = () => {
                 })
                 .catch(err => {
                     console.log("ESP32 Fetch Error:", err);
+                    setTemperature("");
+                    setHumidity("");
+                    setSoilMoisture("");
                     setResultMessage("Cannot connect to ESP32");
                 });
         }, 3000);
