@@ -29,9 +29,13 @@ export const EnvironmentAlertDashboard = () => {
     // ✅ Fetch sensor data from ESP32 every 3 seconds
     useEffect(() => {
         const interval = setInterval(() => {
-            fetch(`${ESP32_IP}/data`)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
+            fetch(`${ESP32_IP}/data`, { signal: controller.signal })
                 .then(res => res.json())
                 .then(data => {
+                    clearTimeout(timeoutId);
                     setTemperature(String(data.temperature));
                     setHumidity(String(data.humidity));
                     setSoilMoisture(String(data.soilMoisture));
@@ -41,6 +45,7 @@ export const EnvironmentAlertDashboard = () => {
                     );
                 })
                 .catch(err => {
+                    clearTimeout(timeoutId);
                     console.log("ESP32 Fetch Error:", err);
                     setTemperature("");
                     setHumidity("");
