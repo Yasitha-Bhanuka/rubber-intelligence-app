@@ -8,22 +8,23 @@ import { NotificationBell } from '../shared/components/NotificationBell';
 import { NotificationPanel } from '../shared/components/NotificationPanel';
 import { AlertItem } from '../features/diseaseDetection/services/alertService';
 import { useNavigation, CommonActions } from '@react-navigation/native';
+import { withLazy } from '../shared/components/LazyScreen';
 
 const Tab = createBottomTabNavigator();
 
 import { DiseaseNavigator } from '../features/diseaseDetection/DiseaseNavigator';
 import { PriceForecastingNavigator } from '../features/priceForecasting/PriceForecastingNavigator';
 import { GradingNavigator } from './GradingNavigator';
-import { ProfileScreen } from '../features/profile/ProfileScreen';
-import { UserManagementScreen } from '../features/admin/UserManagementScreen';
-
 import DppNavigator from './DppNavigator';
+
+// Lazy-loaded tab screens — only parsed when the user switches to that tab
+const ProfileScreen = withLazy(() => import('../features/profile/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
+const UserManagementScreen = withLazy(() => import('../features/admin/UserManagementScreen').then(m => ({ default: m.UserManagementScreen })));
+const ChatbotScreen = withLazy(() => import('../features/chatbot/screens/ChatbotScreen'));
+const EnvironmentAlertDashboard = withLazy(() => import('../features/EnvironmentAlert/EnvironmentAlertDashboard').then(m => ({ default: m.EnvironmentAlertDashboard })));
 
 // Placeholder screens for features
 const MonitoringScreen = () => <View style={styles.center}><Text>Monitoring Dashboard</Text></View>;
-
-import ChatbotScreen from '../features/chatbot/screens/ChatbotScreen';
-import { EnvironmentAlertDashboard } from '../features/EnvironmentAlert/EnvironmentAlertDashboard';
 
 // Moved outside to prevent re-creation on every render
 const HeaderBellButton = React.memo(({ onPress }: { onPress: () => void }) => (
@@ -31,7 +32,7 @@ const HeaderBellButton = React.memo(({ onPress }: { onPress: () => void }) => (
 ));
 
 export const MainTabNavigator = () => {
-    const { user } = useStore();
+    const user = useStore(s => s.user);
     const role = user?.role;
     const [notifVisible, setNotifVisible] = useState(false);
     const navigation = useNavigation<any>();

@@ -1,22 +1,26 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import DocumentUploadScreen from '../features/dpp/screens/DocumentUploadScreen';
-import ClassificationResultScreen from '../features/dpp/screens/ClassificationResultScreen';
-import BuyerDashboardScreen from '../features/dpp/screens/BuyerDashboardScreen';
-import ExporterScannerScreen from '../features/dpp/screens/ExporterScannerScreen';
-import DppDetailScreen from '../features/dpp/screens/DppDetailScreen';
-import DppPassportScreen from '../features/dpp/screens/DppPassportScreen';
-import CreateSellingPostScreen from '../features/dpp/screens/CreateSellingPostScreen';
-import MarketplaceScreen from '../features/dpp/screens/MarketplaceScreen';
-import OrderReceiptScreen from '../features/dpp/screens/OrderReceiptScreen';
-import PendingRequestsScreen from '../features/dpp/screens/PendingRequestsScreen';
+import { withLazy } from '../shared/components/LazyScreen';
 
-import LotMessagingScreen from '../features/dpp/screens/LotMessagingScreen';
-import InvoiceExtractedFieldsScreen from '../features/dpp/screens/InvoiceExtractedFieldsScreen';
-import QirExtractedFieldsScreen from '../features/dpp/screens/QirExtractedFieldsScreen';
-import ExporterDppViewScreen from '../features/dpp/screens/ExporterDppViewScreen';
-import LotBiddersScreen from '../features/dpp/screens/LotBiddersScreen';
-import DualLayerDppScreen from '../features/dpp/screens/DualLayerDppScreen';
+// Only the initial screen is eagerly loaded
+import BuyerDashboardScreen from '../features/dpp/screens/BuyerDashboardScreen';
+
+// All other screens are lazy-loaded on first navigation
+const DocumentUploadScreen = withLazy(() => import('../features/dpp/screens/DocumentUploadScreen'));
+const ClassificationResultScreen = withLazy(() => import('../features/dpp/screens/ClassificationResultScreen'));
+const ExporterScannerScreen = withLazy(() => import('../features/dpp/screens/ExporterScannerScreen'));
+const DppDetailScreen = withLazy(() => import('../features/dpp/screens/DppDetailScreen'));
+const DppPassportScreen = withLazy(() => import('../features/dpp/screens/DppPassportScreen'));
+const CreateSellingPostScreen = withLazy(() => import('../features/dpp/screens/CreateSellingPostScreen'));
+const MarketplaceScreen = withLazy(() => import('../features/dpp/screens/MarketplaceScreen'));
+const OrderReceiptScreen = withLazy(() => import('../features/dpp/screens/OrderReceiptScreen'));
+const PendingRequestsScreen = withLazy(() => import('../features/dpp/screens/PendingRequestsScreen'));
+const LotMessagingScreen = withLazy(() => import('../features/dpp/screens/LotMessagingScreen'));
+const InvoiceExtractedFieldsScreen = withLazy(() => import('../features/dpp/screens/InvoiceExtractedFieldsScreen'));
+const QirExtractedFieldsScreen = withLazy(() => import('../features/dpp/screens/QirExtractedFieldsScreen'));
+const ExporterDppViewScreen = withLazy(() => import('../features/dpp/screens/ExporterDppViewScreen'));
+const LotBiddersScreen = withLazy(() => import('../features/dpp/screens/LotBiddersScreen'));
+const DualLayerDppScreen = withLazy(() => import('../features/dpp/screens/DualLayerDppScreen'));
 
 const Stack = createNativeStackNavigator();
 
@@ -41,7 +45,7 @@ export default function DppNavigator() {
             <Stack.Screen name="ExporterScanner" component={ExporterScannerScreen} />
 
             {/* Confidential field access */}
-           
+
 
             {/* Marketplace — includes BuyerHistory modal per post */}
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
