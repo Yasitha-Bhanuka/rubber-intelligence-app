@@ -31,13 +31,12 @@ See: [`DualLayerDppScreen.tsx`](./screens/DualLayerDppScreen.tsx)
 - The document is unlocked and viewed entirely locally. The plaintext never travels back over the network.
 
 ### 4. Physical-to-Digital QR Verification
-See: [`ExporterScannerScreen.tsx`](./screens/ExporterScannerScreen.tsx)
 To bridge the physical rubber lot with its digital passport:
-1. The physical lot is tagged with a QR code containing `{ lotId, hash }`.
-2. The Exporter uses the app's camera to scan this QR code at the port/warehouse.
-3. The app fetches the current cryptographic state from the backend (`GET /api/dpp/verify/{lotId}`) which recalculates the SHA-256 hash of the DPP.
-4. The scanner compares the Physical Hash against the Recalculated Digital Hash. 
-5. Any tampering with the physical good (mismatched lot ID) or digital record (altered grade/quantity yielding a different hash) triggers a strict Anti-Fraud visual rejection alert.
+1. **QR Generation:** When a Buyer generates a Digital Product Passport (via `DppPassportScreen.tsx`), the application dynamically renders a QR Code. This QR code encodes a JSON payload structured as `{ lotId, hash: passport.dppHash }`. The buyer attaches this QR code physically to the rubber lot containers at the port or warehouse.
+2. **Exporter Scanning:** The purchasing Exporter accesses the `ExporterDppViewScreen.tsx` for that specific lot, and taps the **"Scan Physical Lot QR Code"** button. This opens the Expo Camera instance (`ExporterScannerScreen.tsx`).
+3. **Cryptographic Validation:** The Exporter scans the QR tag on the physical good. The scanner instantaneously parses the `lotId` and physical `hash`.
+4. **Backend Recalculation:** The app fires a request to `/api/dpp/verify/{lotId}`. The ONNX/Crypto Backend re-fetches the lot data, temporarily strips the stored hash field, and recalculates the SHA-256 digest from scratch based solely on the data structure currently present in the database.
+5. **Anti-Fraud Guard:** The Exporter's scanner compares the `Physical QR Hash` against the `Backend Recalculated Hash` and the `Database Stored Hash`. Any tampering with the physical good (mismatched lot ID) or digital record (altered grade/quantity yielding a different hash) triggers a strict red-screen Anti-Fraud rejection alert. If all match perfectly, it confirms the physical lot represents the exact digital state at generation time.
 
 ## Core Services & Screens
 - **`DualLayerDppScreen`**: The strictly native, on-device Zero-Knowledge decryption vault.

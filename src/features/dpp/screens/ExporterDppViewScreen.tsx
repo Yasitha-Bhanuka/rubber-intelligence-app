@@ -322,6 +322,16 @@ export default function ExporterDppViewScreen() {
                         </View>
                     )}
 
+                    {/* ── SCAN QR VERIFICATION BUTTON ── */}
+                    <TouchableOpacity
+                        style={st.scanQrBtn}
+                        onPress={() => navigation.navigate('ExporterScanner')}
+                    >
+                        <Ionicons name="qr-code-outline" size={24} color={C.white} />
+                        <Text style={st.scanQrBtnText}>Scan Physical Lot QR Code</Text>
+                        <Ionicons name="chevron-forward" size={20} color={C.white} style={{ marginLeft: 'auto' }} />
+                    </TouchableOpacity>
+
                     {/* ════════════════════════════════════════════
                         INVOICE SECTION
                     ════════════════════════════════════════════ */}
@@ -601,6 +611,16 @@ const st = StyleSheet.create({
         flex: 1, marginLeft: 10,
         color: '#1565C0', fontWeight: '700', fontSize: 13
     },
+
+    /* Scan QR Button */
+    scanQrBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        backgroundColor: '#1C1C1E', padding: 16, borderRadius: 16,
+        marginBottom: 20,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
+    },
+    scanQrBtnText: { color: C.white, fontSize: 15, fontWeight: '700' },
 
     /* Viewer Modal */
     viewerContainer: {
