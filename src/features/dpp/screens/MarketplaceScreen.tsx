@@ -335,10 +335,10 @@ export default function MarketplaceScreen() {
                 transactions.slice(0, 3).map(tx => {
                     const stColor = tx.status === 'Completed' ? C.green
                         : tx.status === 'QirUploaded' ? C.primaryLight
-                        : tx.status === 'InvoiceUploaded' ? C.blue : C.orange;
+                            : tx.status === 'InvoiceUploaded' ? C.blue : C.orange;
                     const stLabel = tx.status === 'Completed' ? 'Completed'
                         : tx.status === 'QirUploaded' ? 'QIR Uploaded'
-                        : tx.status === 'InvoiceUploaded' ? 'Invoice Ready' : 'Lot Confirmed';
+                            : tx.status === 'InvoiceUploaded' ? 'Invoice Ready' : 'Lot Confirmed';
                     return (
                         <TouchableOpacity
                             key={tx.id}
@@ -523,6 +523,10 @@ export default function MarketplaceScreen() {
                 contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
                 refreshing={loading}
                 onRefresh={loadData}
+                initialNumToRender={6}
+                maxToRenderPerBatch={8}
+                windowSize={7}
+                removeClippedSubviews={true}
                 ListEmptyComponent={
                     <View style={s.emptyCard}>
                         <Ionicons name="storefront-outline" size={40} color={C.sub} />
@@ -552,20 +556,20 @@ export default function MarketplaceScreen() {
                 </View>
             ) : (
                 transactions.map(tx => {
-                    const isCompleted      = tx.status === 'Completed';
-                    const isInvoiceReady   = tx.status === 'InvoiceUploaded';
-                    const isQirUploaded    = tx.status === 'QirUploaded';
+                    const isCompleted = tx.status === 'Completed';
+                    const isInvoiceReady = tx.status === 'InvoiceUploaded';
+                    const isQirUploaded = tx.status === 'QirUploaded';
                     const isPendingInvoice = tx.status === 'PendingInvoice';
-                    const hasDpp           = isInvoiceReady || isQirUploaded || isCompleted;
+                    const hasDpp = isInvoiceReady || isQirUploaded || isCompleted;
                     const stColor = isCompleted ? C.green
-                        : isQirUploaded    ? C.primaryLight
-                        : isInvoiceReady   ? C.blue : C.orange;
-                    const stBg = isCompleted    ? C.greenLight
-                        : isQirUploaded    ? C.primaryPale
-                        : isInvoiceReady   ? C.blueLight : C.orangeLight;
-                    const stLabel = isCompleted    ? 'Completed'
-                        : isQirUploaded    ? 'QIR Uploaded'
-                        : isInvoiceReady   ? 'Invoice Ready' : 'Pending Invoice';
+                        : isQirUploaded ? C.primaryLight
+                            : isInvoiceReady ? C.blue : C.orange;
+                    const stBg = isCompleted ? C.greenLight
+                        : isQirUploaded ? C.primaryPale
+                            : isInvoiceReady ? C.blueLight : C.orangeLight;
+                    const stLabel = isCompleted ? 'Completed'
+                        : isQirUploaded ? 'QIR Uploaded'
+                            : isInvoiceReady ? 'Invoice Ready' : 'Pending Invoice';
 
                     return (
                         <View key={tx.id} style={s.txCard}>
@@ -909,7 +913,7 @@ export default function MarketplaceScreen() {
                         </View>
                         <Text style={s.confirmModalTitle}>Confirm Request</Text>
                         <Text style={s.confirmModalSubtitle}>
-                            Are you sure you want to request the lot of <Text style={{fontWeight: '700', color: C.textDark}}>{confirmModal.post?.grade}</Text> ({confirmModal.post?.quantityKg}kg) for <Text style={{fontWeight: '700', color: C.textDark}}>LKR {confirmModal.post?.pricePerKg}/kg</Text>?
+                            Are you sure you want to request the lot of <Text style={{ fontWeight: '700', color: C.textDark }}>{confirmModal.post?.grade}</Text> ({confirmModal.post?.quantityKg}kg) for <Text style={{ fontWeight: '700', color: C.textDark }}>LKR {confirmModal.post?.pricePerKg}/kg</Text>?
                         </Text>
 
                         <View style={s.confirmModalActions}>
@@ -939,7 +943,7 @@ export default function MarketplaceScreen() {
                         </View>
                         <Text style={s.successModalTitle}>Request Sent!</Text>
                         <Text style={s.successModalSubtitle}>
-                            Seller <Text style={{fontWeight: '700', color: C.textDark}}>{successModal.sellerName}</Text> has been notified of your interest.
+                            Seller <Text style={{ fontWeight: '700', color: C.textDark }}>{successModal.sellerName}</Text> has been notified of your interest.
                         </Text>
                         <Text style={s.successModalInfoText}>
                             Once the seller reviews and accepts your request, a transaction will be created and you will be able to proceed.

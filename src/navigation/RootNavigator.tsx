@@ -6,7 +6,9 @@ import { MainTabNavigator } from './MainTabNavigator';
 import { ActivityIndicator, View } from 'react-native';
 
 export const RootNavigator = () => {
-    const { isAuthenticated, isLoading, checkAuth } = useStore();
+    const isAuthenticated = useStore(s => s.isAuthenticated);
+    const isLoading = useStore(s => s.isLoading);
+    const checkAuth = useStore(s => s.checkAuth);
 
     React.useEffect(() => {
         checkAuth();
