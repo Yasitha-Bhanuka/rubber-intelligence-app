@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 // Find it with: ipconfig (Windows) → look for "Wireless LAN adapter WiFi" → IPv4 Address.
 
 const MACHINE_IP = '10.148.43.12';
-
+//192.168.43.188
 function getApiUrl(): string {
     const envUrl = process.env.EXPO_PUBLIC_API_URL;
     if (Platform.OS === 'android') {
