@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../store';
 
-const ESP32_IP = "http://10.148.43.161";
+const ESP32_IP = "http://10.189.36.161";
 
 export const EnvironmentAlertDashboard = () => {
     const { user } = useStore();
