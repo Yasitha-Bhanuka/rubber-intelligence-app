@@ -22,7 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { latexQualityService, LatexQualityRequest } from "../../../core/services/latexQualityService";
 
-const ESP32_IP = "http://10.148.43.34"; // Replace with your ESP32 IP
+const ESP32_IP = "http://10.189.36.34"; // Replace with your ESP32 IP
 const { width } = Dimensions.get("window");
 
 // Define types for sensor data
