@@ -898,6 +898,7 @@ export default function StorageSelectionScreen() {
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={5}
+                                editable={false}
                             />
                         </View>
 
@@ -914,6 +915,7 @@ export default function StorageSelectionScreen() {
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={6}
+                                editable={false}
                             />
                         </View>
                     </View>
