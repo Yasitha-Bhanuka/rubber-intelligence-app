@@ -37,23 +37,23 @@ import { DualLayerDppResponse } from '../types';
 
 // ── Palette ────────────────────────────────────────────────────────────
 const C = {
-    primary:      '#2E7D32',
-    primaryDark:  '#1B5E20',
-    primaryPale:  '#E8F5E9',
-    teal:         '#00BCD4',
-    amber:        '#FF9500',
-    green:        '#34C759',
-    red:          '#FF3B30',
-    blue:         '#2196F3',
-    purple:       '#7E57C2',
-    gold:         '#F59E0B',
-    bg:           '#F1F8E9',
-    white:        '#FFFFFF',
-    textPrimary:  '#1C1C1E',
-    textSub:      '#6B7B6E',
-    border:       '#C8E6C9',
-    vaultBg:      '#0D1B2A',
-    vaultCard:    '#1B2838',
+    primary: '#2E7D32',
+    primaryDark: '#1B5E20',
+    primaryPale: '#E8F5E9',
+    teal: '#00BCD4',
+    amber: '#FF9500',
+    green: '#34C759',
+    red: '#FF3B30',
+    blue: '#2196F3',
+    purple: '#7E57C2',
+    gold: '#F59E0B',
+    bg: '#F1F8E9',
+    white: '#FFFFFF',
+    textPrimary: '#1C1C1E',
+    textSub: '#6B7B6E',
+    border: '#C8E6C9',
+    vaultBg: '#0D1B2A',
+    vaultCard: '#1B2838',
 };
 
 // ── PBKDF2-AES-256-CBC client-side decryption (crypto-js) ──────────────
@@ -83,7 +83,7 @@ function decryptWithPbkdf2(
     });
 
     const key = CryptoJS.lib.WordArray.create(derived.words.slice(0, 8));   // 32 bytes
-    const iv  = CryptoJS.lib.WordArray.create(derived.words.slice(8, 12));  // 16 bytes
+    const iv = CryptoJS.lib.WordArray.create(derived.words.slice(8, 12));  // 16 bytes
 
     const decrypted = CryptoJS.AES.decrypt(ciphertextBase64, key, {
         iv,
@@ -100,20 +100,20 @@ function decryptWithPbkdf2(
 
 // ── Component ──────────────────────────────────────────────────────────
 export default function DualLayerDppScreen() {
-    const route      = useRoute<any>();
+    const route = useRoute<any>();
     const navigation = useNavigation<any>();
     const { transactionId } = route.params as { transactionId: string };
 
-    const [loading, setLoading]           = useState(true);
-    const [fetchError, setFetchError]     = useState<string | null>(null);
-    const [payload, setPayload]           = useState<DualLayerDppResponse | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+    const [payload, setPayload] = useState<DualLayerDppResponse | null>(null);
 
-    const [secretKey, setSecretKey]               = useState('');
-    const [decrypting, setDecrypting]             = useState(false);
+    const [secretKey, setSecretKey] = useState('');
+    const [decrypting, setDecrypting] = useState(false);
     const [decryptedContent, setDecryptedContent] = useState<string | null>(null);
-    const [decryptError, setDecryptError]         = useState<string | null>(null);
+    const [decryptError, setDecryptError] = useState<string | null>(null);
     const [showDecryptModal, setShowDecryptModal] = useState(false);
-    const [claimingKey, setClaimingKey]            = useState(false);
+    const [claimingKey, setClaimingKey] = useState(false);
 
     // ── Fetch DPP payload ────────────────────────────────────────────────
     const fetchPayload = useCallback(async () => {
@@ -216,8 +216,8 @@ export default function DualLayerDppScreen() {
 
     const { publicSummary, documentStatus, documentPayload } = payload;
     const isConfidential = documentStatus === 'CONFIDENTIAL';
-    const isPublic       = documentStatus === 'PUBLIC';
-    const notUploaded    = documentStatus === 'NOT_UPLOADED';
+    const isPublic = documentStatus === 'PUBLIC';
+    const notUploaded = documentStatus === 'NOT_UPLOADED';
 
     const qrValue = JSON.stringify({ lotId: transactionId, hash: publicSummary.dppHash });
 
@@ -246,10 +246,10 @@ export default function DualLayerDppScreen() {
 
             {/* ── Public Summary ─────────────────────────────────────────── */}
             <Section title="Public Summary" icon="globe-outline" badgeText="Layer 1 — Cleartext">
-                <SummaryRow icon="cube-outline"  label="Lot ID"       value={publicSummary.lotId} mono />
-                <SummaryRow icon="leaf-outline"  label="Rubber Grade" value={publicSummary.rubberGrade || '—'} />
-                <SummaryRow icon="scale-outline" label="Quantity"     value={`${publicSummary.quantity} kg`} />
-                <SummaryRow icon="finger-print"  label="DPP Hash"     value={publicSummary.dppHash || '(not generated yet)'} mono />
+                <SummaryRow icon="cube-outline" label="Lot ID" value={publicSummary.lotId} mono />
+                <SummaryRow icon="leaf-outline" label="Rubber Grade" value={publicSummary.rubberGrade || '—'} />
+                <SummaryRow icon="scale-outline" label="Quantity" value={`${publicSummary.quantity} kg`} />
+                <SummaryRow icon="finger-print" label="DPP Hash" value={publicSummary.dppHash || '(not generated yet)'} mono />
             </Section>
 
             {/* ── DPP Hash QR Code ───────────────────────────────────────── */}
@@ -278,7 +278,7 @@ export default function DualLayerDppScreen() {
             >
                 <View style={[st.infoCard, {
                     backgroundColor: isConfidential ? '#2D1B69' : '#E8F5E9',
-                    borderColor:     isConfidential ? '#4C1D95' : C.border,
+                    borderColor: isConfidential ? '#4C1D95' : C.border,
                 }]}>
                     <Ionicons
                         name={isConfidential ? 'lock-closed' : 'information-circle'}
@@ -310,7 +310,7 @@ export default function DualLayerDppScreen() {
                         onPress={() => {
                             try {
                                 const bytes = CryptoJS.enc.Base64.parse(documentPayload);
-                                const text  = bytes.toString(CryptoJS.enc.Utf8);
+                                const text = bytes.toString(CryptoJS.enc.Utf8);
                                 setDecryptedContent(text || '[Binary file — cannot be displayed as text]');
                             } catch {
                                 setDecryptedContent('[Binary file — cannot be displayed as text]');
@@ -342,16 +342,16 @@ export default function DualLayerDppScreen() {
 
                         {/* Locked card → opens decrypt modal */}
                         <TouchableOpacity style={st.lockedCard} onPress={() => setShowDecryptModal(true)}>
-                        <Ionicons name="lock-closed" size={40} color="#A78BFA" />
-                        <Text style={st.lockedTitle}>🔒 Locked Document</Text>
-                        <Text style={st.lockedHint}>
-                            Tap to enter your SecretRequestId and unlock this invoice on-device.
-                        </Text>
-                        <View style={st.unlockBtn}>
-                            <Ionicons name="key-outline" size={16} color={C.white} />
-                            <Text style={st.unlockBtnText}>Enter Decryption Key</Text>
-                        </View>
-                    </TouchableOpacity>
+                            <Ionicons name="lock-closed" size={40} color="#A78BFA" />
+                            <Text style={st.lockedTitle}>🔒 Locked Document</Text>
+                            <Text style={st.lockedHint}>
+                                Tap to enter your SecretRequestId and unlock this invoice on-device.
+                            </Text>
+                            <View style={st.unlockBtn}>
+                                <Ionicons name="key-outline" size={16} color={C.white} />
+                                <Text style={st.unlockBtnText}>Enter Decryption Key</Text>
+                            </View>
+                        </TouchableOpacity>
                     </View>
                 )}
 
@@ -383,9 +383,9 @@ export default function DualLayerDppScreen() {
             {/* ── Scan Physical QR button ─────────────────────────────────── */}
             <TouchableOpacity
                 style={st.scanPhysicalBtn}
-                onPress={() => navigation.navigate('ExporterScanner')}
+                onPress={() => navigation.navigate('ExporterScanner', { expectedLotId: transactionId })}
             >
-                <Ionicons name="scan-outline" size={20} color={C.white} />
+                <Ionicons name="scan-circle-outline" size={24} color={C.white} />
                 <Text style={st.scanPhysicalBtnText}>Scan Physical Lot QR Code</Text>
             </TouchableOpacity>
 
@@ -504,80 +504,80 @@ function SummaryRow({
 
 // ── Styles ─────────────────────────────────────────────────────────────
 const st = StyleSheet.create({
-    container:          { flex: 1, backgroundColor: C.bg },
-    center:             { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, backgroundColor: C.bg },
-    loadingText:        { marginTop: 12, color: C.textSub, fontSize: 14 },
-    errorText:          { marginTop: 12, color: C.red, fontSize: 15, textAlign: 'center', lineHeight: 22 },
-    retryBtn:           { flexDirection: 'row', alignItems: 'center', marginTop: 20, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, gap: 6 },
-    retryBtnText:       { color: C.white, fontWeight: '600', fontSize: 14 },
+    container: { flex: 1, backgroundColor: C.bg },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, backgroundColor: C.bg },
+    loadingText: { marginTop: 12, color: C.textSub, fontSize: 14 },
+    errorText: { marginTop: 12, color: C.red, fontSize: 15, textAlign: 'center', lineHeight: 22 },
+    retryBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 20, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, gap: 6 },
+    retryBtnText: { color: C.white, fontWeight: '600', fontSize: 14 },
 
-    header:             { paddingTop: Platform.OS === 'ios' ? 52 : 40, paddingBottom: 28, paddingHorizontal: 20, alignItems: 'center', gap: 6 },
-    backBtn:            { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 8 },
-    headerTitle:        { fontSize: 22, fontWeight: '800', color: C.white },
-    headerSub:          { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginBottom: 4 },
-    statusBadge:        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginTop: 4 },
-    statusBadgeText:    { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+    header: { paddingTop: Platform.OS === 'ios' ? 52 : 40, paddingBottom: 28, paddingHorizontal: 20, alignItems: 'center', gap: 6 },
+    backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 8 },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: C.white },
+    headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginBottom: 4 },
+    statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginTop: 4 },
+    statusBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
 
-    section:            { margin: 14, marginBottom: 6, backgroundColor: C.white, borderRadius: 16, padding: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, gap: 10 },
-    sectionHeader:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    sectionTitle:       { flex: 1, fontSize: 15, fontWeight: '700' },
-    badge:              { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-    badgeText:          { fontSize: 10, fontWeight: '700' },
+    section: { margin: 14, marginBottom: 6, backgroundColor: C.white, borderRadius: 16, padding: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, gap: 10 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    sectionTitle: { flex: 1, fontSize: 15, fontWeight: '700' },
+    badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    badgeText: { fontSize: 10, fontWeight: '700' },
 
-    summaryRow:         { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    summaryIconBox:     { width: 30, height: 30, borderRadius: 15, backgroundColor: C.primaryPale, justifyContent: 'center', alignItems: 'center' },
-    summaryLabel:       { fontSize: 12, color: C.textSub, width: 88 },
-    summaryValue:       { flex: 1, fontSize: 13, fontWeight: '600', color: C.textPrimary },
-    monoText:           { fontFamily: 'monospace', fontSize: 11, color: '#555' },
+    summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    summaryIconBox: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.primaryPale, justifyContent: 'center', alignItems: 'center' },
+    summaryLabel: { fontSize: 12, color: C.textSub, width: 88 },
+    summaryValue: { flex: 1, fontSize: 13, fontWeight: '600', color: C.textPrimary },
+    monoText: { fontFamily: 'monospace', fontSize: 11, color: '#555' },
 
-    qrCard:             { margin: 14, marginBottom: 6, backgroundColor: C.white, borderRadius: 16, padding: 16, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
-    qrHeader:           { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginBottom: 6 },
-    qrTitle:            { fontSize: 15, fontWeight: '700', color: C.textPrimary },
-    qrHint:             { fontSize: 11, color: C.textSub, textAlign: 'center', lineHeight: 16, marginBottom: 12 },
-    qrBox:              { backgroundColor: '#FFF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: C.border },
-    qrLotId:            { marginTop: 8, fontSize: 11, color: C.textSub, fontFamily: 'monospace' },
+    qrCard: { margin: 14, marginBottom: 6, backgroundColor: C.white, borderRadius: 16, padding: 16, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+    qrHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginBottom: 6 },
+    qrTitle: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+    qrHint: { fontSize: 11, color: C.textSub, textAlign: 'center', lineHeight: 16, marginBottom: 12 },
+    qrBox: { backgroundColor: '#FFF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: C.border },
+    qrLotId: { marginTop: 8, fontSize: 11, color: C.textSub, fontFamily: 'monospace' },
 
-    infoCard:           { flexDirection: 'row', gap: 8, borderRadius: 10, padding: 12, borderWidth: 1 },
-    infoText:           { flex: 1, fontSize: 12, lineHeight: 18 },
+    infoCard: { flexDirection: 'row', gap: 8, borderRadius: 10, padding: 12, borderWidth: 1 },
+    infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
 
-    pendingCard:        { alignItems: 'center', padding: 24, gap: 8 },
-    pendingTitle:       { fontSize: 16, fontWeight: '700', color: C.amber },
-    pendingHint:        { fontSize: 13, color: C.textSub, textAlign: 'center', lineHeight: 19 },
+    pendingCard: { alignItems: 'center', padding: 24, gap: 8 },
+    pendingTitle: { fontSize: 16, fontWeight: '700', color: C.amber },
+    pendingHint: { fontSize: 13, color: C.textSub, textAlign: 'center', lineHeight: 19 },
 
-    viewDocBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 12 },
-    viewDocBtnText:     { color: C.white, fontWeight: '700', fontSize: 15 },
+    viewDocBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 12 },
+    viewDocBtnText: { color: C.white, fontWeight: '700', fontSize: 15 },
 
-    claimKeyBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#0EA5E9', paddingVertical: 13, borderRadius: 12 },
-    claimKeyBtnText:    { color: C.white, fontWeight: '700', fontSize: 14 },
-    lockedCard:         { alignItems: 'center', padding: 28, gap: 10, backgroundColor: '#0F0A23', borderRadius: 14, borderWidth: 1, borderColor: '#4C1D95' },
-    lockedTitle:        { fontSize: 18, fontWeight: '800', color: '#C4B5FD' },
-    lockedHint:         { fontSize: 12, color: '#94A3B8', textAlign: 'center', lineHeight: 18 },
-    unlockBtn:          { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, backgroundColor: '#7C3AED', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10 },
-    unlockBtnText:      { color: C.white, fontWeight: '700', fontSize: 14 },
+    claimKeyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#0EA5E9', paddingVertical: 13, borderRadius: 12 },
+    claimKeyBtnText: { color: C.white, fontWeight: '700', fontSize: 14 },
+    lockedCard: { alignItems: 'center', padding: 28, gap: 10, backgroundColor: '#0F0A23', borderRadius: 14, borderWidth: 1, borderColor: '#4C1D95' },
+    lockedTitle: { fontSize: 18, fontWeight: '800', color: '#C4B5FD' },
+    lockedHint: { fontSize: 12, color: '#94A3B8', textAlign: 'center', lineHeight: 18 },
+    unlockBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, backgroundColor: '#7C3AED', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10 },
+    unlockBtnText: { color: C.white, fontWeight: '700', fontSize: 14 },
 
-    decryptedBlock:     { gap: 10 },
+    decryptedBlock: { gap: 10 },
     decryptedRowHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    decryptedTitle:     { fontSize: 16, fontWeight: '700', color: C.green },
-    decryptedHint:      { fontSize: 11, color: C.textSub, fontStyle: 'italic' },
-    decryptedScroll:    { backgroundColor: '#F0FFF4', borderRadius: 10, padding: 12, maxHeight: 280, borderWidth: 1, borderColor: C.border },
-    decryptedText:      { fontFamily: 'monospace', fontSize: 11, color: C.textPrimary, lineHeight: 18 },
-    clearBtn:           { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', paddingVertical: 8 },
-    clearBtnText:       { color: C.textSub, fontSize: 13 },
+    decryptedTitle: { fontSize: 16, fontWeight: '700', color: C.green },
+    decryptedHint: { fontSize: 11, color: C.textSub, fontStyle: 'italic' },
+    decryptedScroll: { backgroundColor: '#F0FFF4', borderRadius: 10, padding: 12, maxHeight: 280, borderWidth: 1, borderColor: C.border },
+    decryptedText: { fontFamily: 'monospace', fontSize: 11, color: C.textPrimary, lineHeight: 18 },
+    clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', paddingVertical: 8 },
+    clearBtnText: { color: C.textSub, fontSize: 13 },
 
-    scanPhysicalBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 14, marginTop: 8, backgroundColor: C.teal, paddingVertical: 14, borderRadius: 14 },
-    scanPhysicalBtnText:{ color: C.white, fontWeight: '700', fontSize: 15 },
+    scanPhysicalBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 14, marginTop: 8, backgroundColor: C.teal, paddingVertical: 14, borderRadius: 14 },
+    scanPhysicalBtnText: { color: C.white, fontWeight: '700', fontSize: 15 },
 
-    modalBackdrop:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-    modalCard:          { backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: Platform.OS === 'ios' ? 36 : 24, gap: 14 },
-    modalHeader:        { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    modalTitle:         { fontSize: 20, fontWeight: '800', color: C.textPrimary },
-    modalHint:          { fontSize: 13, color: C.textSub, lineHeight: 19 },
-    keyInput:           { backgroundColor: '#1E1E2E', color: '#E2E8F0', fontFamily: 'monospace', fontSize: 13, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#334155' },
-    errorBanner:        { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF2F2', padding: 10, borderRadius: 8 },
-    errorBannerText:    { flex: 1, color: C.red, fontSize: 12, lineHeight: 17 },
-    modalButtons:       { flexDirection: 'row', gap: 10 },
-    cancelBtn:          { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: 12, borderWidth: 1, borderColor: C.border },
-    cancelBtnText:      { color: C.textSub, fontWeight: '600', fontSize: 15 },
-    decryptBtn:         { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.gold, paddingVertical: 13, borderRadius: 12 },
-    decryptBtnText:     { color: C.white, fontWeight: '700', fontSize: 15 },
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+    modalCard: { backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: Platform.OS === 'ios' ? 36 : 24, gap: 14 },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    modalTitle: { fontSize: 20, fontWeight: '800', color: C.textPrimary },
+    modalHint: { fontSize: 13, color: C.textSub, lineHeight: 19 },
+    keyInput: { backgroundColor: '#1E1E2E', color: '#E2E8F0', fontFamily: 'monospace', fontSize: 13, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#334155' },
+    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF2F2', padding: 10, borderRadius: 8 },
+    errorBannerText: { flex: 1, color: C.red, fontSize: 12, lineHeight: 17 },
+    modalButtons: { flexDirection: 'row', gap: 10 },
+    cancelBtn: { flex: 1, alignItems: 'center', paddingVertical: 13, borderRadius: 12, borderWidth: 1, borderColor: C.border },
+    cancelBtnText: { color: C.textSub, fontWeight: '600', fontSize: 15 },
+    decryptBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.gold, paddingVertical: 13, borderRadius: 12 },
+    decryptBtnText: { color: C.white, fontWeight: '700', fontSize: 15 },
 });

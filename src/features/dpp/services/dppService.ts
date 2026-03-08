@@ -53,8 +53,11 @@ export const getDppFileUrl = (id: string): string =>
 // ── HASH VERIFICATION ─────────────────────────────────────────────────
 
 // GET /api/dpp/verify/{lotId} (Buyer, Exporter)
-export const verifyDpp = async (lotId: string): Promise<DppVerificationResponse> => {
-    const response = await apiClient.get<DppVerificationResponse>(`/dpp/verify/${lotId}`);
+export const verifyDpp = async (lotId: string, expectedLotId?: string): Promise<DppVerificationResponse> => {
+    const url = expectedLotId
+        ? `/dpp/verify/${lotId}?expectedLotId=${expectedLotId}`
+        : `/dpp/verify/${lotId}`;
+    const response = await apiClient.get<DppVerificationResponse>(url);
     return response.data;
 };// ── GET /api/dpp/{id}/encrypted-file-info ──────────────────────────────
 export const getEncryptedFileInfo = async (id: string): Promise<EncryptedFileInfo> => {
