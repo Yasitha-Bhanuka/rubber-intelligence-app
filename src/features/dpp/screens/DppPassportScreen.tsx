@@ -123,8 +123,8 @@ export default function DppPassportScreen() {
         if (!passport || !qrRef.current) return;
 
         try {
-            // Request permissions first
-            const { status } = await MediaLibrary.requestPermissionsAsync();
+            // Request write-only permissions first so Android doesn't ask for AUDIO
+            const { status } = await MediaLibrary.requestPermissionsAsync(true);
             if (status !== 'granted') {
                 Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to save the QR code.');
                 return;
