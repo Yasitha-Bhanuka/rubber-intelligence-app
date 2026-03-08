@@ -12,7 +12,7 @@
       "resizeMode": "cover",
       "backgroundColor": "#000a1a"
     },
-    "ios": {    
+    "ios": {
       "supportsTablet": true
     },
     "android": {
@@ -40,6 +40,14 @@
         {
           "photosPermission": "The app accesses your photos to let you select images for disease detection analysis.",
           "cameraPermission": "The app uses the camera to capture photos for disease detection analysis."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow RubberIntelligence to save the Digital Product Passport QR tag to your photo gallery.",
+          "savePhotosPermission": "Allow RubberIntelligence to save the Digital Product Passport QR tag.",
+          "isAccessMediaLocationEnabled": false
         }
       ]
     ]
