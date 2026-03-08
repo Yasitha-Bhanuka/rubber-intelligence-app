@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, Alert, KeyboardAvoidingView,
-    Platform, ScrollView, TouchableOpacity
+    Platform, ScrollView, TouchableOpacity, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle } from 'react-native-maps';
@@ -125,23 +125,31 @@ export const SignupScreen = ({ navigation }: any) => {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
-                <ScrollView contentContainerStyle={styles.scrollContent}>
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={styles.header}>
+                        <Image
+                            source={require('../../../../assets/launch_icon_new.png')}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
                         <Text style={styles.title}>RubberEX</Text>
                         <Text style={styles.subtitle}>Create Account</Text>
                         <View style={styles.stepIndicator}>
                             <View style={[styles.stepDot, step >= 1 && styles.stepDotActive]}>
-                                <Text style={[styles.stepText, step >= 1 && styles.stepTextActive]}>1</Text>
+                                <Ionicons name="person" size={16} color={step >= 1 ? '#FFF' : '#999'} />
                             </View>
-                            <View style={styles.stepLine} />
+                            <View style={[styles.stepLine, step >= 2 && styles.stepLineActive]} />
                             <View style={[styles.stepDot, step >= 2 && styles.stepDotActive]}>
-                                <Text style={[styles.stepText, step >= 2 && styles.stepTextActive]}>2</Text>
+                                <Ionicons name="location" size={16} color={step >= 2 ? '#FFF' : '#999'} />
                             </View>
                         </View>
                     </View>
 
                     {step === 1 ? (
-                        <View style={styles.form}>
+                        <View style={styles.formCard}>
+                            <Text style={styles.welcomeText}>Create an Account</Text>
+                            <Text style={styles.instructionText}>Enter your details below</Text>
+
                             <AppTextInput
                                 label="Full Name"
                                 placeholder="e.g. John Planter"
@@ -175,20 +183,32 @@ export const SignupScreen = ({ navigation }: any) => {
                                 error={errors.confirmPassword}
                             />
 
-                            {/* Role Selector */}
                             <Text style={styles.label}>Role</Text>
                             <View style={styles.roleRow}>
-                                {roles.map((r) => (
-                                    <TouchableOpacity
-                                        key={r}
-                                        style={[styles.roleChip, role === r && styles.roleChipActive]}
-                                        onPress={() => setRole(r)}
-                                    >
-                                        <Text style={[styles.roleText, role === r && styles.roleTextActive]}>
-                                            {r}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
+                                {roles.map((r) => {
+                                    const iconName: any = r === 'Farmer' ? 'leaf-outline'
+                                        : r === 'Buyer' ? 'cart-outline'
+                                            : r === 'Exporter' ? 'boat-outline'
+                                                : 'flask-outline';
+
+                                    return (
+                                        <TouchableOpacity
+                                            key={r}
+                                            style={[styles.roleChip, role === r && styles.roleChipActive]}
+                                            onPress={() => setRole(r)}
+                                        >
+                                            <Ionicons
+                                                name={iconName}
+                                                size={16}
+                                                color={role === r ? '#FFF' : '#666'}
+                                                style={{ marginRight: 6 }}
+                                            />
+                                            <Text style={[styles.roleText, role === r && styles.roleTextActive]}>
+                                                {r}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
                             </View>
                             {!isFarmer && (
                                 <Text style={styles.helperSmall}>
@@ -205,7 +225,10 @@ export const SignupScreen = ({ navigation }: any) => {
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        <View style={styles.form}>
+                        <View style={styles.formCard}>
+                            <Text style={styles.welcomeText}>Plantation Details</Text>
+                            <Text style={styles.instructionText}>Tell us about your location</Text>
+
                             <TouchableOpacity onPress={() => setStep(1)} style={styles.backBtn}>
                                 <Ionicons name="arrow-back" size={20} color={colors.primary} />
                                 <Text style={styles.backText}>Back to account details</Text>
@@ -287,10 +310,11 @@ export const SignupScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.lightGray,
     },
     scrollContent: {
         flexGrow: 1,
+        justifyContent: 'center',
         padding: 24,
     },
     header: {
@@ -298,30 +322,43 @@ const styles = StyleSheet.create({
         marginBottom: 32,
         marginTop: 16,
     },
+    logo: {
+        width: 100,
+        height: 100,
+        marginBottom: 16,
+    },
     title: {
-        fontSize: 32,
+        fontSize: 34,
         fontWeight: 'bold',
         color: colors.primary,
         marginBottom: 4,
+        letterSpacing: 1,
     },
     subtitle: {
-        fontSize: 18,
-        color: '#666',
+        fontSize: 16,
+        color: colors.gray,
         marginBottom: 16,
+        letterSpacing: 0.5,
     },
     stepIndicator: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 8,
     },
     stepDot: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: colors.lightGray,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: '#ddd',
+        borderColor: '#eee',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 2,
     },
     stepDotActive: {
         backgroundColor: colors.primary,
@@ -337,12 +374,35 @@ const styles = StyleSheet.create({
     },
     stepLine: {
         width: 60,
-        height: 2,
-        backgroundColor: '#ddd',
+        height: 3,
+        backgroundColor: '#eee',
         marginHorizontal: 8,
+        borderRadius: 2,
     },
-    form: {
+    stepLineActive: {
+        backgroundColor: colors.primary,
+    },
+    formCard: {
+        backgroundColor: colors.background,
+        borderRadius: 24,
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
+        elevation: 5,
         width: '100%',
+    },
+    welcomeText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: colors.text,
+        marginBottom: 4,
+    },
+    instructionText: {
+        fontSize: 14,
+        color: colors.gray,
+        marginBottom: 24,
     },
     label: {
         fontSize: 14,
@@ -354,20 +414,29 @@ const styles = StyleSheet.create({
     roleRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 10,
-        marginBottom: 12,
+        gap: 12,
+        marginBottom: 16,
     },
     roleChip: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-        backgroundColor: colors.lightGray,
-        borderWidth: 1,
-        borderColor: '#ddd',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 24,
+        backgroundColor: colors.background,
+        borderWidth: 1.5,
+        borderColor: '#eee',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 2,
     },
     roleChipActive: {
         backgroundColor: colors.primary,
         borderColor: colors.primary,
+        shadowOpacity: 0.2,
+        elevation: 4,
     },
     roleText: {
         color: '#666',
@@ -409,11 +478,16 @@ const styles = StyleSheet.create({
     },
     mapContainer: {
         height: 250,
-        borderRadius: 12,
+        borderRadius: 16,
         overflow: 'hidden',
-        marginBottom: 8,
+        marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#ddd',
+        borderColor: '#eee',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
     map: {
         flex: 1,
