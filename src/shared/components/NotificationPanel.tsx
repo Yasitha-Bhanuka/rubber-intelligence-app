@@ -19,7 +19,10 @@ interface NotificationPanelProps {
 }
 
 export const NotificationPanel = ({ visible, onClose, onViewOnMap }: NotificationPanelProps) => {
-    const { alerts, alertsLoading, fetchAlerts, markAlertRead } = useStore();
+    const alerts = useStore(s => s.alerts);
+    const alertsLoading = useStore(s => s.alertsLoading);
+    const fetchAlerts = useStore(s => s.fetchAlerts);
+    const markAlertRead = useStore(s => s.markAlertRead);
     const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
 
     useEffect(() => {
