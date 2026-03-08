@@ -106,8 +106,11 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
 
             const result = await DiseaseService.detect(image, diseaseType, lat, lng);
             if (result.isRejected) {
-                // Return to camera view silently without alert as per user request
-                setImage(null);
+                Alert.alert(
+                    "Image Rejected",
+                    result.rejectionReason || "The image could not be processed. Please try a different photo.",
+                    [{ text: "OK" }]
+                );
             } else {
                 navigation.navigate('DiseaseResult', { result, imageUri: image });
             }
