@@ -325,7 +325,7 @@ export default function ExporterDppViewScreen() {
                     {/* ── SCAN QR VERIFICATION BUTTON ── */}
                     <TouchableOpacity
                         style={st.scanQrBtn}
-                        onPress={() => navigation.navigate('ExporterScanner')}
+                        onPress={() => navigation.navigate('ExporterScanner', { expectedLotId: transactionId })}
                     >
                         <Ionicons name="qr-code-outline" size={24} color={C.white} />
                         <Text style={st.scanQrBtnText}>Scan Physical Lot QR Code</Text>

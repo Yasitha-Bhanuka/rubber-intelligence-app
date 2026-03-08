@@ -4,7 +4,7 @@ import {
     ActivityIndicator, Modal, ScrollView
 } from 'react-native';
 import { CameraView, Camera } from 'expo-camera';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { verifyDpp } from '../services/dppService';
 import { DppVerificationResponse } from '../types';
@@ -20,6 +20,8 @@ export default function ExporterScannerScreen() {
     const [scannedPhysicalHash, setScannedPhysicalHash] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const navigation = useNavigation<any>();
+    const route = useRoute<any>();
+    const expectedLotId = route.params?.expectedLotId as string | undefined;
 
     useEffect(() => {
         Camera.requestCameraPermissionsAsync().then(({ status }) =>
@@ -50,7 +52,14 @@ export default function ExporterScannerScreen() {
         setScannedPhysicalHash(payload.hash ?? null);
         setVerifying(true);
         try {
-            const result = await verifyDpp(payload.lotId);
+            if (expectedLotId && expectedLotId !== payload.lotId) {
+                // Client-side quick rejection if we already know they don't match
+                setError(`Lot Mismatch: You scanned a QR code for Lot ${payload.lotId.substring(0, 8)}…, but you are verifying Lot ${expectedLotId.substring(0, 8)}…`);
+                setVerifying(false);
+                return;
+            }
+
+            const result = await verifyDpp(payload.lotId, expectedLotId);
             setVerificationResult(result);
         } catch (e: any) {
             setError(e?.response?.data?.error ?? 'Hash verification request failed.');
