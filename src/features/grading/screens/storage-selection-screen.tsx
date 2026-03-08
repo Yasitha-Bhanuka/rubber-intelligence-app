@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -64,6 +64,7 @@ export default function StorageSelectionScreen() {
     const [liveDataLoading, setLiveDataLoading] = useState(true);
     const [connectionError, setConnectionError] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<string>("");
+    const failCount = useRef(0);
 
     // Animation value for fade-in effect
     const fadeAnim = useState(new Animated.Value(0))[0];
@@ -89,6 +90,7 @@ export default function StorageSelectionScreen() {
                 airTemperature: Number(data.airtemp ?? 0),
             };
 
+            failCount.current = 0;
             setLiveData(newData);
             setConnectionError(false);
             setLastUpdated(new Date().toLocaleTimeString());
@@ -103,7 +105,10 @@ export default function StorageSelectionScreen() {
             } else {
                 console.error("Error fetching sensor data:", err);
             }
-            setConnectionError(true);
+            failCount.current += 1;
+            if (failCount.current >= 3) {
+                setConnectionError(true);
+            }
         } finally {
             setLiveDataLoading(false);
         }
@@ -158,7 +163,7 @@ export default function StorageSelectionScreen() {
         const locations: StorageLocation[] = [];
 
         // ==================== COLD STORAGE CONDITIONS (Below 15°C Air Temperature) ====================
-        
+
         // Freezer Storage (Below 0°C Air Temperature) - Emergency Only
         if (airTemp < 0) {
             locations.push({
@@ -225,7 +230,7 @@ export default function StorageSelectionScreen() {
         }
 
         // ==================== MODERATE STORAGE CONDITIONS (15-25°C Air Temperature) ====================
-        
+
         // Optimal Climate-Controlled (15-20°C Air Temperature)
         if (airTemp >= 15 && airTemp < 20) {
             locations.push({
@@ -279,7 +284,7 @@ export default function StorageSelectionScreen() {
         }
 
         // ==================== WARM STORAGE CONDITIONS (25-30°C Air Temperature) ====================
-        
+
         // Tropical Storage (25-28°C Air Temperature)
         if (airTemp >= 25 && airTemp < 28) {
             locations.push({
@@ -314,7 +319,7 @@ export default function StorageSelectionScreen() {
         }
 
         // ==================== HIGH TEMPERATURE CONDITIONS (Above 30°C Air Temperature) ====================
-        
+
         // Hot Climate Storage (30-35°C Air Temperature)
         if (airTemp > 30 && airTemp <= 35) {
             locations.push({
@@ -349,7 +354,7 @@ export default function StorageSelectionScreen() {
         }
 
         // ==================== HUMIDITY-SPECIFIC LOCATIONS ====================
-        
+
         // Very Dry Conditions (Below 40%)
         if (hum < 40) {
             locations.push({
@@ -464,7 +469,7 @@ export default function StorageSelectionScreen() {
         }
 
         // ==================== COMBINATION CONDITIONS ====================
-        
+
         // Perfect Storm Conditions (Optimal Air Temp + Optimal Humidity)
         if (airTemp >= 18 && airTemp <= 22 && hum >= 60 && hum <= 70) {
             locations.push({
@@ -531,7 +536,7 @@ export default function StorageSelectionScreen() {
         }
 
         // ==================== SPECIALIZED STORAGE TYPES ====================
-        
+
         // Mobile/Transport Storage
         if (airTemp >= 15 && airTemp <= 30) {
             locations.push({

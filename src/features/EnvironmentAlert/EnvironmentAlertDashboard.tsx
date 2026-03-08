@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -26,6 +26,7 @@ export const EnvironmentAlertDashboard = () => {
     const [resultMessage, setResultMessage] = useState(
         'Stress analysis will appear here'
     );
+    const failCount = useRef(0);
 
     // ✅ Fetch sensor data from ESP32 every 3 seconds ONLY when screen is focused
     useFocusEffect(
@@ -38,6 +39,7 @@ export const EnvironmentAlertDashboard = () => {
                     .then(res => res.json())
                     .then(data => {
                         clearTimeout(timeoutId);
+                        failCount.current = 0;
                         setTemperature(String(data.temperature));
                         setHumidity(String(data.humidity));
                         setSoilMoisture(String(data.soilMoisture));
@@ -49,10 +51,13 @@ export const EnvironmentAlertDashboard = () => {
                     .catch(err => {
                         clearTimeout(timeoutId);
                         console.log("ESP32 Fetch Error:", err);
-                        setTemperature("");
-                        setHumidity("");
-                        setSoilMoisture("");
-                        setResultMessage("Cannot connect to ESP32");
+                        failCount.current += 1;
+                        if (failCount.current >= 3) {
+                            setTemperature("");
+                            setHumidity("");
+                            setSoilMoisture("");
+                            setResultMessage("Cannot connect to ESP32");
+                        }
                     });
             }, 3000);
 
