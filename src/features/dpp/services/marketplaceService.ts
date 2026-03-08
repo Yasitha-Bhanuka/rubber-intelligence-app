@@ -1,7 +1,7 @@
 import apiClient from '../../../core/api/apiClient';
 import { SellingPost, MarketplaceTransaction, BuyerHistory, InvoiceUploadResponse, InvoiceDecryptedField, QirUploadResponse, QirDecryptedField, ExporterDppView, InterestedExporter, AcceptExporterRequest, DualLayerDppResponse, LotInterestRequest } from '../types';
 import * as FileSystem from 'expo-file-system/legacy';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getToken } from '../../../core/auth/tokenStorage';
 
 export const createSellingPost = async (postData: Partial<SellingPost>): Promise<SellingPost> => {
     try {
@@ -93,12 +93,12 @@ export const getInvoiceFileUri = async (transactionId: string): Promise<{ uri: s
     try {
         const baseURL = apiClient.defaults.baseURL;
         const url = `${baseURL}/Marketplace/transactions/${transactionId}/invoice`;
-        const token = await AsyncStorage.getItem('token');
+        const token = await getToken();
 
         // Download to a temporary generic path
         const tempUri = `${FileSystem.documentDirectory}invoice_${transactionId}_tmp`;
 
-        const cleanToken = token ? token.replace(/['"]+/g, '') : '';
+        const cleanToken = token ?? '';
 
         const downloadRes = await FileSystem.downloadAsync(url, tempUri, {
             headers: cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}
