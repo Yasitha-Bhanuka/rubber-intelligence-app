@@ -42,13 +42,11 @@ interface Prediction {
     icon: string;
     details: StorageDetails;
     humidity: number;
-    temperature: number;
-    airTemperature?: number;
+    airTemperature: number;
     recommendedLocations?: StorageLocation[];
 }
 
 interface LiveSensorData {
-    temperature: number;
     humidity: number;
     airTemperature: number;
 }
@@ -56,7 +54,6 @@ interface LiveSensorData {
 export default function StorageSelectionScreen() {
     const navigation = useNavigation();
     const [humidity, setHumidity] = useState('');
-    const [temperature, setTemperature] = useState('');
     const [airTemperature, setAirTemperature] = useState('');
     const [prediction, setPrediction] = useState<Prediction | null>(null);
     const [storageType, setStorageType] = useState<string | null>(null);
@@ -88,7 +85,6 @@ export default function StorageSelectionScreen() {
 
             const data = await response.json();
             const newData = {
-                temperature: Number(data.temp ?? 0),
                 humidity: Number(data.hum ?? 0),
                 airTemperature: Number(data.airtemp ?? 0),
             };
@@ -99,7 +95,6 @@ export default function StorageSelectionScreen() {
 
             // Auto-fill inputs from live data
             setHumidity(newData.humidity.toString());
-            setTemperature(newData.temperature.toString());
             setAirTemperature(newData.airTemperature.toString());
 
         } catch (err: any) {
@@ -133,27 +128,21 @@ export default function StorageSelectionScreen() {
     }, [prediction]);
 
     const validateInputs = () => {
-        if (!humidity.trim() || !temperature.trim() || !airTemperature.trim()) {
-            Alert.alert('Missing Information', 'Please enter humidity, temperature, and air temperature values');
+        if (!humidity.trim() || !airTemperature.trim()) {
+            Alert.alert('Missing Information', 'Please enter humidity and air temperature values');
             return false;
         }
 
         const hum = parseFloat(humidity);
-        const temp = parseFloat(temperature);
         const airTemp = parseFloat(airTemperature);
 
-        if (isNaN(hum) || isNaN(temp) || isNaN(airTemp)) {
+        if (isNaN(hum) || isNaN(airTemp)) {
             Alert.alert('Invalid Input', 'Please enter valid numbers');
             return false;
         }
 
         if (hum < 0 || hum > 100) {
             Alert.alert('Invalid Humidity', 'Humidity must be between 0% and 100%');
-            return false;
-        }
-
-        if (temp < 0 || temp > 40) {
-            Alert.alert('Invalid Temperature', 'Rubber latex temperature must be between 0°C and 40°C');
             return false;
         }
 
@@ -165,143 +154,446 @@ export default function StorageSelectionScreen() {
         return true;
     };
 
-    const getRecommendedLocations = (hum: number, temp: number): StorageLocation[] => {
+    const getRecommendedLocations = (hum: number, airTemp: number): StorageLocation[] => {
         const locations: StorageLocation[] = [];
 
-        // Temperature-Controlled Storage Facilities
-        if (temp >= 15 && temp <= 25 && hum >= 60 && hum <= 75) {
+        // ==================== COLD STORAGE CONDITIONS (Below 15°C Air Temperature) ====================
+        
+        // Freezer Storage (Below 0°C Air Temperature) - Emergency Only
+        if (airTemp < 0) {
             locations.push({
-                name: 'Climate-Controlled Latex Warehouse',
-                type: 'Premium Storage',
-                description: 'Specialized facility with precise temperature and humidity control',
+                name: 'Emergency Freezer Storage',
+                type: 'Critical Storage',
+                description: 'Below freezing air temperature - NOT recommended for standard latex',
+                recommended: false,
+                advantages: [
+                    'Can preserve latex temporarily',
+                    'Prevents bacterial growth',
+                    'Emergency backup option'
+                ],
+                注意事项: 'Risk of freezing damage; ensure latex is properly preserved; test viscosity before use'
+            });
+        }
+
+        // Cold Room Storage (0-5°C Air Temperature)
+        if (airTemp >= 0 && airTemp < 5) {
+            locations.push({
+                name: 'Industrial Cold Room',
+                type: 'Cold Storage',
+                description: 'Refrigerated facility for short-term preservation',
+                recommended: false,
+                advantages: [
+                    'Slows bacterial activity',
+                    'Reduces ammonia evaporation',
+                    'Good for concentrated latex'
+                ],
+                注意事项: 'Monitor for cold-induced thickening; warm before processing'
+            });
+        }
+
+        // Chilled Storage (5-10°C Air Temperature)
+        if (airTemp >= 5 && airTemp < 10) {
+            locations.push({
+                name: 'Chilled Latex Warehouse',
+                type: 'Cold Storage',
+                description: 'Temperature-controlled environment for extended preservation',
+                recommended: airTemp >= 7 && airTemp <= 9,
+                advantages: [
+                    'Extended storage up to 8 months',
+                    'Minimal coagulation risk',
+                    'Energy efficient cooling'
+                ],
+                注意事项: 'Maintain consistent temperature; avoid temperature fluctuations'
+            });
+        }
+
+        // Cool Cellar (10-15°C Air Temperature)
+        if (airTemp >= 10 && airTemp < 15) {
+            locations.push({
+                name: 'Traditional Latex Cellar',
+                type: 'Cool Storage',
+                description: 'Underground or basement storage with natural cooling',
+                recommended: airTemp >= 12 && airTemp <= 14,
+                advantages: [
+                    'Natural temperature stability',
+                    'Low energy costs',
+                    'Traditional preservation method',
+                    'Good for field latex'
+                ],
+                注意事项: 'Ensure proper ventilation; monitor humidity levels'
+            });
+        }
+
+        // ==================== MODERATE STORAGE CONDITIONS (15-25°C Air Temperature) ====================
+        
+        // Optimal Climate-Controlled (15-20°C Air Temperature)
+        if (airTemp >= 15 && airTemp < 20) {
+            locations.push({
+                name: 'Premium Climate-Controlled Warehouse',
+                type: 'Optimal Storage',
+                description: 'State-of-the-art facility with precise environmental control',
                 recommended: true,
                 advantages: [
-                    'Automated temperature regulation (±1°C)',
-                    'Humidity control systems',
-                    'Ammonia monitoring equipment',
-                    'Emergency backup systems'
+                    'Ideal for long-term storage',
+                    'Automated monitoring systems',
+                    'Backup power supply',
+                    'Ammonia level automation'
                 ],
-                注意事项: 'Regular maintenance of HVAC systems required'
+                注意事项: 'Regular calibration of sensors required'
             });
         }
 
-        // Underground Storage
-        if (temp >= 18 && temp <= 22 && hum >= 65 && hum <= 70) {
+        // Standard Indoor Storage (20-25°C Air Temperature)
+        if (airTemp >= 20 && airTemp <= 25) {
             locations.push({
-                name: 'Underground Latex Cellar',
-                type: 'Natural Climate Storage',
-                description: 'Below-ground storage with natural temperature stability',
-                recommended: temp >= 18 && temp <= 22,
+                name: 'Standard Processing Facility Storage',
+                type: 'Indoor Storage',
+                description: 'Covered area within latex processing plant',
+                recommended: airTemp >= 21 && airTemp <= 24,
                 advantages: [
-                    'Natural temperature insulation',
-                    'Minimal temperature fluctuation',
-                    'Energy efficient',
-                    'Protection from external elements'
-                ],
-                注意事项: 'Ensure proper ventilation and moisture control'
-            });
-        }
-
-        // Indoor Storage Areas
-        if (temp >= 20 && temp <= 28 && hum >= 50 && hum <= 70) {
-            locations.push({
-                name: 'Indoor Processing Facility Storage',
-                type: 'Standard Indoor Storage',
-                description: 'Covered storage area within processing facility',
-                recommended: temp >= 20 && temp <= 25,
-                advantages: [
-                    'Easy access for processing',
+                    'Convenient for processing',
                     'Basic climate control',
-                    'Security monitoring',
-                    'Quick material transfer'
+                    'Security systems',
+                    'Easy material handling'
                 ],
-                注意事项: 'Monitor for temperature spikes during peak hours'
+                注意事项: 'Monitor afternoon temperature spikes'
             });
         }
 
-        // Cold Storage
-        if (temp >= 2 && temp <= 10 && hum >= 70 && hum <= 85) {
+        // High-End Premium Storage (18-22°C Air Temperature) - Best Conditions
+        if (airTemp >= 18 && airTemp <= 22 && hum >= 60 && hum <= 70) {
             locations.push({
-                name: 'Refrigerated Latex Storage Unit',
-                type: 'Cold Storage',
-                description: 'Temperature-controlled cold room for extended preservation',
-                recommended: temp >= 4 && temp <= 8,
+                name: 'Premium Latex Storage Vault',
+                type: 'Elite Storage',
+                description: 'Specialized facility with double-walled insulation and backup systems',
+                recommended: true,
                 advantages: [
-                    'Extended storage duration',
-                    'Reduced bacterial growth',
-                    'Minimal coagulation risk',
-                    'Ideal for concentrated latex'
+                    'Precision temperature control (±0.5°C)',
+                    'Humidity stabilization systems',
+                    'Nitrogen blanketing option',
+                    '24/7 monitoring with alerts',
+                    'Earthquake-resistant construction'
                 ],
-                注意事项: 'Prevent freezing; allow gradual warming before use'
+                注意事项: 'Highest cost but best preservation; ideal for premium latex grades'
             });
         }
 
-        // Tropical Climate Storage
-        if (temp >= 25 && temp <= 32 && hum >= 60 && hum <= 80) {
+        // ==================== WARM STORAGE CONDITIONS (25-30°C Air Temperature) ====================
+        
+        // Tropical Storage (25-28°C Air Temperature)
+        if (airTemp >= 25 && airTemp < 28) {
             locations.push({
-                name: 'Tropical Climate Storage Shed',
-                type: 'Ventilated Storage',
-                description: 'Well-ventilated structure designed for warm climates',
-                recommended: temp <= 30 && hum <= 75,
+                name: 'Tropical Climate Warehouse',
+                type: 'Warm Storage',
+                description: 'Designed for hot and humid tropical conditions',
+                recommended: airTemp <= 27 && hum <= 75,
                 advantages: [
-                    'Natural ventilation',
-                    'Shaded from direct sunlight',
-                    'Cost-effective for tropical regions',
-                    'Adapted to local conditions'
+                    'High-volume ventilation',
+                    'Solar-reflective roofing',
+                    'Shaded loading areas',
+                    'Natural air circulation'
                 ],
-                注意事项: 'Increase ammonia levels; avoid afternoon heat'
+                注意事项: 'Increase preservation chemicals; avoid afternoon loading'
             });
         }
 
-        // High-Temperature Storage
-        if (temp > 30 && temp <= 35) {
+        // Ventilated Shed (28-30°C Air Temperature)
+        if (airTemp >= 28 && airTemp <= 30) {
             locations.push({
-                name: 'High-Temperature Storage Zone',
-                type: 'Emergency/Short-term Storage',
-                description: 'Designated area with enhanced cooling measures',
+                name: 'High-Ceiling Ventilated Shed',
+                type: 'Warm Storage',
+                description: 'Open structure with forced ventilation',
                 recommended: false,
                 advantages: [
-                    'Quick access for emergency storage',
-                    'Equipped with cooling fans',
-                    'Regular monitoring protocols'
+                    'Good air circulation',
+                    'Cost-effective construction',
+                    'Quick access for short-term storage'
                 ],
-                注意事项: 'Limit storage to maximum 2 weeks; use maximum preservation'
+                注意事项: 'Limit storage to 1 month; use maximum ammonia levels'
             });
         }
 
-        // Humidity-Controlled Areas
-        if (hum < 40 || hum > 90) {
+        // ==================== HIGH TEMPERATURE CONDITIONS (Above 30°C Air Temperature) ====================
+        
+        // Hot Climate Storage (30-35°C Air Temperature)
+        if (airTemp > 30 && airTemp <= 35) {
             locations.push({
-                name: 'Humidity-Contained Storage Chamber',
+                name: 'Hot Climate Storage Zone',
+                type: 'High-Temperature Storage',
+                description: 'Designated area with cooling fans and reflective barriers',
+                recommended: false,
+                advantages: [
+                    'Emergency storage capability',
+                    'Cooling fan systems',
+                    'Heat-reflective coatings',
+                    'Quick material turnover'
+                ],
+                注意事项: 'Absolute maximum 2 weeks storage; daily quality checks required'
+            });
+        }
+
+        // Extreme Heat Storage (>35°C Air Temperature)
+        if (airTemp > 35) {
+            locations.push({
+                name: 'Extreme Temperature Alert Zone',
+                type: 'Emergency Only',
+                description: 'CRITICAL: Unsafe for latex storage without immediate action',
+                recommended: false,
+                advantages: [
+                    'Temporary holding only',
+                    'Emergency cooling available',
+                    'Immediate processing required'
+                ],
+                注意事项: 'DO NOT STORE LATEX HERE - Process immediately or use portable cooling'
+            });
+        }
+
+        // ==================== HUMIDITY-SPECIFIC LOCATIONS ====================
+        
+        // Very Dry Conditions (Below 40%)
+        if (hum < 40) {
+            locations.push({
+                name: 'Humidity-Controlled Dry Chamber',
                 type: 'Specialized Storage',
-                description: 'Sealed environment with humidity control',
+                description: 'Sealed environment with humidification system',
                 recommended: false,
                 advantages: [
-                    'Prevents extreme humidity effects',
-                    'Protected from external moisture',
-                    'Ideal for sensitive latex grades'
+                    'Prevents surface skinning',
+                    'Controlled moisture addition',
+                    'Protects container seals'
                 ],
-                注意事项: hum < 40 ? 'Use humidifiers to prevent skinning' : 'Install dehumidifiers and antifungal systems'
+                注意事项: 'Use humidifiers; consider sealed intermediate bulk containers (IBCs)'
             });
         }
 
-        // Open Storage Areas (with protection)
-        if (temp >= 22 && temp <= 28 && hum >= 55 && hum <= 75) {
+        // Low Humidity (40-50%)
+        if (hum >= 40 && hum < 50) {
             locations.push({
-                name: 'Covered Open-Air Storage',
-                type: 'Basic Protection Storage',
-                description: 'Roofed area with open sides for ventilation',
+                name: 'Semi-Arid Storage Area',
+                type: 'Low Humidity Storage',
+                description: 'Covered storage with moisture retention systems',
                 recommended: false,
                 advantages: [
-                    'Low infrastructure cost',
-                    'Good natural ventilation',
-                    'Easy access for large containers'
+                    'Reduced bacterial growth',
+                    'Lower ammonia loss',
+                    'Good for short-term storage'
                 ],
-                注意事项: 'Ensure roof protection from rain; monitor for pest infiltration'
+                注意事项: 'Monitor for surface evaporation; use floating lids if possible'
             });
         }
 
-        return locations;
+        // Moderate Humidity (50-60%)
+        if (hum >= 50 && hum < 60) {
+            locations.push({
+                name: 'Standard Humidity Warehouse',
+                type: 'General Storage',
+                description: 'Typical storage conditions with basic humidity control',
+                recommended: hum >= 55,
+                advantages: [
+                    'Balanced conditions',
+                    'Suitable for most latex grades',
+                    'Standard preservation effective'
+                ],
+                注意事项: 'Regular monitoring sufficient; standard ammonia levels'
+            });
+        }
+
+        // Optimal Humidity (60-70%)
+        if (hum >= 60 && hum <= 70) {
+            locations.push({
+                name: 'Optimal Humidity Storage Chamber',
+                type: 'Premium Humidity Control',
+                description: 'Ideal humidity range for long-term latex preservation',
+                recommended: true,
+                advantages: [
+                    'Perfect for natural rubber latex',
+                    'Minimal evaporation',
+                    'Optimal bacterial control',
+                    'Best preservation results'
+                ],
+                注意事项: 'Maintain this range for premium quality retention'
+            });
+        }
+
+        // High Humidity (70-80%)
+        if (hum > 70 && hum <= 80) {
+            locations.push({
+                name: 'High Humidity Storage Zone',
+                type: 'Moisture-Controlled Storage',
+                description: 'Area with enhanced antifungal measures',
+                recommended: hum <= 75 && airTemp <= 25,
+                advantages: [
+                    'Good for concentrated latex',
+                    'Reduces surface drying',
+                    'Compatible with cold storage'
+                ],
+                注意事项: 'Increase antifungal agents; monitor for mold growth'
+            });
+        }
+
+        // Very High Humidity (80-90%)
+        if (hum > 80 && hum <= 90) {
+            locations.push({
+                name: 'High-Moisture Storage Facility',
+                type: 'Special Handling Required',
+                description: 'Controlled area with dehumidification backup',
+                recommended: false,
+                advantages: [
+                    'Emergency storage capability',
+                    'Dehumidifier equipped',
+                    'Antifungal treatment ready'
+                ],
+                注意事项: 'Critical: Must use fungicides; limit storage to 2 weeks'
+            });
+        }
+
+        // Extreme Humidity (>90%)
+        if (hum > 90) {
+            locations.push({
+                name: 'Extreme Humidity Containment Zone',
+                type: 'Crisis Management',
+                description: 'ALERT: Extreme moisture risk - immediate action required',
+                recommended: false,
+                advantages: [
+                    'Emergency containment only',
+                    'Rapid response protocols',
+                    'Immediate transfer capability'
+                ],
+                注意事项: 'DO NOT STORE - Risk of rapid bacterial growth and putrefaction'
+            });
+        }
+
+        // ==================== COMBINATION CONDITIONS ====================
+        
+        // Perfect Storm Conditions (Optimal Air Temp + Optimal Humidity)
+        if (airTemp >= 18 && airTemp <= 22 && hum >= 60 && hum <= 70) {
+            locations.push({
+                name: 'Perfect Storage Conditions Chamber',
+                type: 'Reference Standard Storage',
+                description: 'Theoretical ideal conditions for latex preservation',
+                recommended: true,
+                advantages: [
+                    'Maximum storage life (12+ months)',
+                    'Zero coagulation risk',
+                    'Minimal preservation needed',
+                    'Best quality retention'
+                ],
+                注意事项: 'These conditions represent the global standard for premium latex storage'
+            });
+        }
+
+        // Hot and Humid (Tropical Storm Conditions)
+        if (airTemp > 28 && hum > 80) {
+            locations.push({
+                name: 'Tropical Storm Storage Protocol Area',
+                type: 'Emergency Response Storage',
+                description: 'Critical conditions requiring immediate intervention',
+                recommended: false,
+                advantages: [
+                    'Rapid cooling capability',
+                    'Emergency chemical dosing',
+                    'Quick transfer systems'
+                ],
+                注意事项: 'HIGHEST ALERT: Immediate action required - risk of complete coagulation'
+            });
+        }
+
+        // Cool and Dry
+        if (airTemp < 15 && hum < 50) {
+            locations.push({
+                name: 'Cool & Dry Storage Cellar',
+                type: 'Extended Preservation Storage',
+                description: 'Combination of cool temperature and low humidity',
+                recommended: airTemp >= 10 && hum >= 40,
+                advantages: [
+                    'Extended preservation possible',
+                    'Reduced chemical usage',
+                    'Good for ammoniated latex'
+                ],
+                注意事项: 'Check for cold thickening; gradual warming before use'
+            });
+        }
+
+        // Warm and Dry
+        if (airTemp > 25 && airTemp <= 30 && hum < 50) {
+            locations.push({
+                name: 'Arid Warm Storage Facility',
+                type: 'Desert Climate Storage',
+                description: 'Specialized for hot, dry conditions',
+                recommended: false,
+                advantages: [
+                    'Low bacterial risk',
+                    'Good for short-term',
+                    'Low corrosion risk'
+                ],
+                注意事项: 'Risk of surface skinning; use sealed containers'
+            });
+        }
+
+        // ==================== SPECIALIZED STORAGE TYPES ====================
+        
+        // Mobile/Transport Storage
+        if (airTemp >= 15 && airTemp <= 30) {
+            locations.push({
+                name: 'Mobile Storage Tank Farm',
+                type: 'Transport/Transfer Storage',
+                description: 'Modular tanks for temporary or transport storage',
+                recommended: airTemp <= 25 && hum <= 75,
+                advantages: [
+                    'Flexible deployment',
+                    'Ideal for harvest collection',
+                    'Quick setup capability',
+                    'Scalable capacity'
+                ],
+                注意事项: 'Ensure proper insulation; monitor during transport'
+            });
+        }
+
+        // Underground Cave Storage (Constant Conditions)
+        if (airTemp >= 16 && airTemp <= 20 && hum >= 65 && hum <= 75) {
+            locations.push({
+                name: 'Natural Cave Storage System',
+                type: 'Geological Storage',
+                description: 'Utilizing natural underground formations',
+                recommended: true,
+                advantages: [
+                    'Naturally stable temperature',
+                    'Minimal energy costs',
+                    'Protected from external events',
+                    'Large capacity possible'
+                ],
+                注意事项: 'Assess geological stability; ensure proper access and ventilation'
+            });
+        }
+
+        // High-Altitude Storage
+        if (airTemp <= 20 && hum <= 65) {
+            locations.push({
+                name: 'High-Altitude Storage Facility',
+                type: 'Mountain Climate Storage',
+                description: 'Located at elevation for natural cooling',
+                recommended: airTemp >= 12 && airTemp <= 18,
+                advantages: [
+                    'Natural cool temperatures',
+                    'Lower humidity typically',
+                    'Energy efficient',
+                    'Good air quality'
+                ],
+                注意事项: 'Consider transportation costs; monitor for temperature fluctuations'
+            });
+        }
+
+        // Remove duplicates based on location name
+        const uniqueLocations = locations.filter((location, index, self) =>
+            index === self.findIndex((l) => l.name === location.name)
+        );
+
+        // Sort by recommended status first, then by name
+        return uniqueLocations.sort((a, b) => {
+            if (a.recommended && !b.recommended) return -1;
+            if (!a.recommended && b.recommended) return 1;
+            return a.name.localeCompare(b.name);
+        });
     };
 
     const predictStorage = () => {
@@ -312,13 +604,12 @@ export default function StorageSelectionScreen() {
         // Simulate loading for better UX
         setTimeout(() => {
             const hum = parseFloat(humidity);
-            const temp = parseFloat(temperature);
             const airTemp = parseFloat(airTemperature);
 
             // Get recommended locations based on conditions
-            const recommendedLocations = getRecommendedLocations(hum, temp);
+            const recommendedLocations = getRecommendedLocations(hum, airTemp);
 
-            // Rubber Latex specific storage conditions
+            // Rubber Latex specific storage conditions based on air temperature and humidity
             let type = '';
             let confidence = '';
             let recommendation = '';
@@ -332,68 +623,68 @@ export default function StorageSelectionScreen() {
                 locations: recommendedLocations
             };
 
-            // Optimal conditions for rubber latex storage
-            if (temp >= 15 && temp <= 25 && hum >= 60 && hum <= 75) {
+            // Optimal conditions for rubber latex storage based on air temperature
+            if (airTemp >= 15 && airTemp <= 25 && hum >= 60 && hum <= 75) {
                 type = 'Optimal Latex Storage';
                 confidence = 'High';
                 icon = 'check-circle';
-                recommendation = 'Ideal conditions for preserving natural rubber latex';
+                recommendation = 'Ideal air temperature and humidity for preserving natural rubber latex';
                 details = {
                     suitability: 'Natural Rubber Latex - Field Grade, Concentrated Latex',
                     duration: '3-6 months with proper preservation',
-                    tips: `Maintain ammonia levels at 0.6-0.7% for preservation. Air temperature: ${airTemp}°C`,
+                    tips: `Maintain ammonia levels at 0.6-0.7% for preservation. Air temperature: ${airTemp}°C, Humidity: ${hum}%`,
                     ammoniaLevel: '0.6% - 0.7% recommended',
                     coagulation: 'Low risk of coagulation',
                     locations: recommendedLocations
                 };
-            } else if (temp >= 10 && temp < 15 && hum >= 65 && hum <= 80) {
-                type = 'Cool Latex Storage';
+            } else if (airTemp >= 10 && airTemp < 15 && hum >= 65 && hum <= 80) {
+                type = 'Cool Air Storage';
                 confidence = 'High';
                 icon = 'thermometer-chevron-down';
-                recommendation = 'Cool conditions suitable for short-term latex storage';
+                recommendation = 'Cool air conditions suitable for short-term latex storage';
                 details = {
                     suitability: 'Preserved Latex Concentrate, Field Latex',
                     duration: '2-4 months',
-                    tips: `Monitor viscosity regularly; consider gentle warming before use. Air temperature: ${airTemp}°C`,
+                    tips: `Monitor viscosity regularly; consider gentle warming before use. Air temperature: ${airTemp}°C, Humidity: ${hum}%`,
                     ammoniaLevel: '0.7% - 0.8% recommended',
                     coagulation: 'Minimal coagulation risk',
                     locations: recommendedLocations
                 };
-            } else if (temp >= 25 && temp <= 30 && hum >= 55 && hum <= 70) {
-                type = 'Warm Climate Storage';
+            } else if (airTemp >= 25 && airTemp <= 30 && hum >= 55 && hum <= 70) {
+                type = 'Warm Air Storage';
                 confidence = 'Medium';
                 icon = 'weather-sunny';
-                recommendation = 'Higher temperatures require additional preservation measures';
+                recommendation = 'Higher air temperatures require additional preservation measures';
                 details = {
                     suitability: 'Stabilized Latex with enhanced preservation',
                     duration: '1-2 months',
-                    tips: `Increase ammonia to 0.8%; store in shaded area; avoid direct sunlight. Air temperature: ${airTemp}°C`,
+                    tips: `Increase ammonia to 0.8%; store in shaded area; avoid direct sunlight. Air temperature: ${airTemp}°C, Humidity: ${hum}%`,
                     ammoniaLevel: '0.8% - 0.9% recommended',
                     coagulation: 'Moderate coagulation risk',
                     locations: recommendedLocations
                 };
-            } else if (temp >= 2 && temp < 10 && hum >= 70 && hum <= 85) {
-                type = 'Chilled Latex Storage';
+            } else if (airTemp >= 2 && airTemp < 10 && hum >= 70 && hum <= 85) {
+                type = 'Cold Air Storage';
                 confidence = 'Medium';
                 icon = 'snowflake';
-                recommendation = 'Cold storage suitable for extended preservation';
+                recommendation = 'Cold air suitable for extended preservation';
                 details = {
                     suitability: 'Long-term latex concentrate storage',
                     duration: '6-8 months',
-                    tips: `Prevent freezing; warm gradually before use; check for pre-coagulation. Air temperature: ${airTemp}°C`,
+                    tips: `Prevent freezing; warm gradually before use; check for pre-coagulation. Air temperature: ${airTemp}°C, Humidity: ${hum}%`,
                     ammoniaLevel: '0.5% - 0.6% sufficient',
                     coagulation: 'Low risk but check for thickening',
                     locations: recommendedLocations
                 };
-            } else if (temp > 30 && temp <= 35 && hum >= 40 && hum <= 60) {
-                type = 'High Temperature Storage';
+            } else if (airTemp > 30 && airTemp <= 35 && hum >= 40 && hum <= 60) {
+                type = 'High Air Temperature Storage';
                 confidence = 'Low';
                 icon = 'alert';
-                recommendation = 'Elevated temperatures accelerate latex degradation';
+                recommendation = 'Elevated air temperatures accelerate latex degradation';
                 details = {
                     suitability: 'Emergency/Short-term only',
                     duration: '< 2 weeks',
-                    tips: `Use maximum preservation (1.0% ammonia); frequent quality checks; consider cooling. Air temperature: ${airTemp}°C`,
+                    tips: `Use maximum preservation (1.0% ammonia); frequent quality checks; consider cooling. Air temperature: ${airTemp}°C, Humidity: ${hum}%`,
                     ammoniaLevel: '0.9% - 1.0% required',
                     coagulation: 'High coagulation risk',
                     locations: recommendedLocations
@@ -407,8 +698,8 @@ export default function StorageSelectionScreen() {
                     suitability: 'Not recommended for standard latex',
                     duration: 'Temporary only',
                     tips: hum < 40
-                        ? `Risk of surface skinning; increase humidity or use sealed containers. Air temperature: ${airTemp}°C`
-                        : `Risk of bacterial growth; increase ammonia and antifungal agents. Air temperature: ${airTemp}°C`,
+                        ? `Risk of surface skinning; increase humidity or use sealed containers. Air temperature: ${airTemp}°C, Humidity: ${hum}%`
+                        : `Risk of bacterial growth; increase ammonia and antifungal agents. Air temperature: ${airTemp}°C, Humidity: ${hum}%`,
                     ammoniaLevel: hum < 40 ? '0.6% minimum' : '0.8% - 1.0% recommended',
                     coagulation: hum < 40 ? 'Surface coagulation risk' : 'Bacterial coagulation risk',
                     locations: recommendedLocations
@@ -421,7 +712,7 @@ export default function StorageSelectionScreen() {
                 details = {
                     suitability: 'Consult latex technical specialist',
                     duration: 'Not recommended for long-term',
-                    tips: `Consider immediate processing or enhanced preservation. Air temperature: ${airTemp}°C`,
+                    tips: `Consider immediate processing or enhanced preservation. Air temperature: ${airTemp}°C, Humidity: ${hum}%`,
                     ammoniaLevel: 'Consult preservation guidelines',
                     coagulation: 'High risk - monitor closely',
                     locations: recommendedLocations
@@ -436,7 +727,6 @@ export default function StorageSelectionScreen() {
                 icon,
                 details,
                 humidity: hum,
-                temperature: temp,
                 airTemperature: airTemp,
                 recommendedLocations
             });
@@ -458,8 +748,8 @@ export default function StorageSelectionScreen() {
         if (type.includes('Optimal')) return 'check-decagram';
         if (type.includes('Cool')) return 'thermometer-chevron-down';
         if (type.includes('Warm')) return 'weather-sunny';
-        if (type.includes('Chilled')) return 'snowflake';
-        if (type.includes('High Temperature')) return 'thermometer-alert';
+        if (type.includes('Cold')) return 'snowflake';
+        if (type.includes('High Air Temperature')) return 'thermometer-alert';
         if (type.includes('Humidity')) return 'water-alert';
         if (type.includes('Non-Standard')) return 'alert-circle';
         return 'barrel';
@@ -467,7 +757,6 @@ export default function StorageSelectionScreen() {
 
     const clearInputs = () => {
         setHumidity('');
-        setTemperature('');
         setAirTemperature('');
         setPrediction(null);
         setStorageType(null);
@@ -482,12 +771,22 @@ export default function StorageSelectionScreen() {
         if (locationName.includes('High-Temperature')) return 'thermometer-alert';
         if (locationName.includes('Humidity')) return 'water-circle';
         if (locationName.includes('Open-Air')) return 'tent';
+        if (locationName.includes('Freezer')) return 'snowflake';
+        if (locationName.includes('Cold Room')) return 'fridge-industrial';
+        if (locationName.includes('Cellar')) return 'stairs';
+        if (locationName.includes('Ventilated')) return 'fan';
+        if (locationName.includes('Mobile')) return 'truck';
+        if (locationName.includes('Cave')) return 'excavator';
+        if (locationName.includes('Altitude')) return 'mountain';
+        if (locationName.includes('Perfect')) return 'star';
+        if (locationName.includes('Tropical Storm')) return 'weather-hurricane';
+        if (locationName.includes('Arid')) return 'sun-wireless';
+        if (locationName.includes('Premium')) return 'crown';
         return 'warehouse';
     };
 
     const useLiveData = () => {
         if (liveData) {
-            setTemperature(liveData.temperature.toString());
             setHumidity(liveData.humidity.toString());
             setAirTemperature(liveData.airTemperature.toString());
         } else {
@@ -519,7 +818,7 @@ export default function StorageSelectionScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.content}>
-                    {/* Live Data Display - Temperature, Humidity, and Air Temperature */}
+                    {/* Live Data Display - Humidity and Air Temperature */}
                     {liveData && !connectionError && (
                         <View style={styles.liveDataContainer}>
                             <View style={styles.liveDataHeader}>
@@ -533,13 +832,6 @@ export default function StorageSelectionScreen() {
                             </View>
 
                             <View style={styles.liveDataGrid}>
-                                {/* Latex Temperature Display */}
-                                {/* <View style={styles.liveDataItem}>
-                                    <MaterialCommunityIcons name="thermometer" size={24} color={colors.primary} />
-                                    <Text style={styles.liveDataLabel}>Latex Temp</Text>
-                                    <Text style={styles.liveDataValue}>{liveData.temperature.toFixed(1)}°C</Text>
-                                </View> */}
-
                                 {/* Humidity Display */}
                                 <View style={styles.liveDataItem}>
                                     <MaterialCommunityIcons name="water-percent" size={24} color={colors.primary} />
@@ -554,6 +846,11 @@ export default function StorageSelectionScreen() {
                                     <Text style={styles.liveDataValue}>{liveData.airTemperature.toFixed(1)}°C</Text>
                                 </View>
                             </View>
+
+                            <TouchableOpacity style={styles.useLiveButton} onPress={useLiveData}>
+                                <MaterialCommunityIcons name="refresh" size={18} color="#FFF" />
+                                <Text style={styles.useLiveButtonText}>Use Live Data</Text>
+                            </TouchableOpacity>
                         </View>
                     )}
 
@@ -581,7 +878,7 @@ export default function StorageSelectionScreen() {
                     </View>
 
                     <Text style={styles.sectionTitle}>Storage Conditions</Text>
-                    <Text style={styles.sectionSubtitle}>Enter humidity, temperature, and air temperature for rubber latex</Text>
+                    <Text style={styles.sectionSubtitle}>Enter humidity and air temperature for rubber latex storage analysis</Text>
 
                     <View style={styles.inputWrapper}>
                         <View style={styles.inputContainer}>
@@ -596,25 +893,8 @@ export default function StorageSelectionScreen() {
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={5}
-                                editable={false}
                             />
                         </View>
-
-                        {/* <View style={styles.inputContainer}>
-                            <View style={styles.inputIconContainer}>
-                                <MaterialCommunityIcons name="thermometer" size={24} color={colors.primary} />
-                            </View>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Latex Temperature (°C)"
-                                value={temperature}
-                                onChangeText={setTemperature}
-                                keyboardType="numeric"
-                                placeholderTextColor="#9CA3AF"
-                                maxLength={6}
-                                editable={false}
-                            />
-                        </View> */}
 
                         {/* Air Temperature Input Field */}
                         <View style={styles.inputContainer}>
@@ -629,7 +909,6 @@ export default function StorageSelectionScreen() {
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={6}
-                                editable={false}
                             />
                         </View>
                     </View>
@@ -684,7 +963,7 @@ export default function StorageSelectionScreen() {
                                     <View style={styles.statItem}>
                                         <Text style={styles.statLabel}>Conditions</Text>
                                         <Text style={styles.statValue}>
-                                            {prediction.humidity}% / {prediction.temperature}°C
+                                            {prediction.humidity}% / {prediction.airTemperature}°C
                                         </Text>
                                     </View>
                                 </View>
@@ -693,7 +972,7 @@ export default function StorageSelectionScreen() {
                                     <View style={styles.airTempContainer}>
                                         <MaterialCommunityIcons name="weather-sunny" size={18} color={colors.primary} />
                                         <Text style={styles.airTempText}>
-                                            Air Temperature: {prediction.airTemperature}°C
+                                            Air Temperature: {prediction.airTemperature}°C | Humidity: {prediction.humidity}%
                                         </Text>
                                     </View>
                                 )}
@@ -1172,6 +1451,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#0369A1',
         marginLeft: 8,
+        flex: 1,
     },
     detailsSection: {
         marginBottom: 16,
