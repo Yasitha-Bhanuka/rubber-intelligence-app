@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
     Alert
 } from 'react-native';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../store';
@@ -26,36 +27,38 @@ export const EnvironmentAlertDashboard = () => {
         'Stress analysis will appear here'
     );
 
-    // ✅ Fetch sensor data from ESP32 every 3 seconds
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+    // ✅ Fetch sensor data from ESP32 every 3 seconds ONLY when screen is focused
+    useFocusEffect(
+        React.useCallback(() => {
+            const interval = setInterval(() => {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
 
-            fetch(`${ESP32_IP}/data`, { signal: controller.signal })
-                .then(res => res.json())
-                .then(data => {
-                    clearTimeout(timeoutId);
-                    setTemperature(String(data.temperature));
-                    setHumidity(String(data.humidity));
-                    setSoilMoisture(String(data.soilMoisture));
+                fetch(`${ESP32_IP}/data`, { signal: controller.signal })
+                    .then(res => res.json())
+                    .then(data => {
+                        clearTimeout(timeoutId);
+                        setTemperature(String(data.temperature));
+                        setHumidity(String(data.humidity));
+                        setSoilMoisture(String(data.soilMoisture));
 
-                    setResultMessage(
-                        `Alert: ${data.alert}\nAdvice: ${data.advice}`
-                    );
-                })
-                .catch(err => {
-                    clearTimeout(timeoutId);
-                    console.log("ESP32 Fetch Error:", err);
-                    setTemperature("");
-                    setHumidity("");
-                    setSoilMoisture("");
-                    setResultMessage("Cannot connect to ESP32");
-                });
-        }, 3000);
+                        setResultMessage(
+                            `Alert: ${data.alert}\nAdvice: ${data.advice}`
+                        );
+                    })
+                    .catch(err => {
+                        clearTimeout(timeoutId);
+                        console.log("ESP32 Fetch Error:", err);
+                        setTemperature("");
+                        setHumidity("");
+                        setSoilMoisture("");
+                        setResultMessage("Cannot connect to ESP32");
+                    });
+            }, 3000);
 
-        return () => clearInterval(interval);
-    }, []);
+            return () => clearInterval(interval);
+        }, [])
+    );
 
     // Currently only visible to farmers according to requirement
     if (role !== 'farmer') {
