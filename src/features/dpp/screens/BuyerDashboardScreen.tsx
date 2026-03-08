@@ -547,13 +547,13 @@ export default function BuyerDashboardScreen() {
                                         <Text style={s.txBtnText}>Receipt</Text>
                                     </TouchableOpacity>
 
-                                    {/* ── PRINT DPP QR SCAN TAG ── */}
+                                    {/* ── DOWNLOAD DPP QR SCAN TAG ── */}
                                     <TouchableOpacity
                                         style={[s.txBtn, { backgroundColor: '#1C1C1E' }]}
                                         onPress={() => navigation.navigate('DppPassport', { dppId: t.id })}
                                     >
-                                        <Ionicons name="qr-code-outline" size={14} color="#FFF" />
-                                        <Text style={s.txBtnText}>Print QR</Text>
+                                        <Ionicons name="download-outline" size={14} color="#FFF" />
+                                        <Text style={s.txBtnText}>Download QR</Text>
                                     </TouchableOpacity>
                                 </View>
                             </SectionCard>

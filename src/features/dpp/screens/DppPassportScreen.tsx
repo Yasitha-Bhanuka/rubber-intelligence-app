@@ -6,7 +6,8 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
-import * as Print from 'expo-print';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import { DigitalProductPassport } from '../types';
 import { generatePassport, getPassport } from '../services/dppService';
 
@@ -118,41 +119,37 @@ export default function DppPassportScreen() {
         }
     };
 
-    const handlePrint = async () => {
+    const handleDownloadImage = async () => {
         if (!passport || !qrRef.current) return;
+
         try {
+            // Request permissions first
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to save the QR code.');
+                return;
+            }
+
+            // Get Base64 image representation from the QR component
             qrRef.current.toDataURL(async (dataUrl: string) => {
-                const html = `
-                    <html>
-                    <head>
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-                        <style>
-                            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-align: center; padding: 40px; margin: 0; }
-                            h1 { font-size: 24px; color: #1C1C1E; margin-bottom: 8px; }
-                            .lot-id { font-size: 16px; color: #636366; font-family: monospace; margin-bottom: 40px; }
-                            .qr-container { display: inline-block; padding: 20px; border: 2px dashed #E5E5EA; border-radius: 16px; margin-bottom: 30px; }
-                            img { width: 300px; height: 300px; }
-                            .instructions { font-size: 14px; color: #8E8E93; max-width: 400px; margin: 0 auto; line-height: 1.5; }
-                        </style>
-                    </head>
-                    <body>
-                        <h1>Digital Product Passport QR Tag</h1>
-                        <div class="lot-id">Lot ID: ${passport.lotId}</div>
-                        <div class="qr-container">
-                            <img src="data:image/png;base64,${dataUrl}" />
-                        </div>
-                        <div class="instructions">
-                            Attach this QR Tag to the physical rubber lot containers. 
-                            The purchasing exporter will scan this physical tag upon arrival 
-                            to cryptographically verify the digital passport constraints.
-                        </div>
-                    </body>
-                    </html>
-                `;
-                await Print.printAsync({ html });
+                // Remove the data UI prefix (data:image/png;base64,) to get raw base64 data
+                const base64Data = dataUrl.replace('data:image/png;base64,', '');
+
+                // Write to a temporary file locally
+                const tempUri = FileSystem.documentDirectory + `DPP_QR_${passport.lotId}.png`;
+                await FileSystem.writeAsStringAsync(tempUri, base64Data, {
+                    encoding: 'base64',
+                });
+
+                // Save from the temporary file down to the device gallery
+                const asset = await MediaLibrary.createAssetAsync(tempUri);
+                await MediaLibrary.createAlbumAsync('Rubber Intelligence', asset, false);
+
+                Alert.alert('Success', 'QR Code image saved to your gallery!');
             });
         } catch (error) {
-            Alert.alert('Error', 'Failed to generate print document.');
+            console.error('Download error:', error);
+            Alert.alert('Error', 'Failed to save QR code image.');
         }
     };
 
@@ -277,9 +274,9 @@ export default function DppPassportScreen() {
                 <Text style={styles.shareBtnText}>Share Passport</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.printBtn} onPress={handlePrint}>
-                <Ionicons name="print-outline" size={20} color="white" />
-                <Text style={styles.printBtnText}>Print Physical QR Tag</Text>
+            <TouchableOpacity style={styles.printBtn} onPress={handleDownloadImage}>
+                <Ionicons name="download-outline" size={20} color="white" />
+                <Text style={styles.printBtnText}>Download QR Image</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('BuyerDashboard')}>
