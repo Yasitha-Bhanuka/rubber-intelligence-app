@@ -1,374 +1,196 @@
 /**
- * PendingRequestsScreen — BUYER ONLY
+ * PendingRequestsScreen
  *
- * Shows all PENDING access requests from exporters.
- * Buyer can tap "View Exporter Profile" to see ExporterContext before approving.
+ * Shown to Buyers when exporters have expressed interest in their lots.
+ * Lists all REQUESTED lots and lets the buyer navigate to LotBidders
+ * to review trust-scored exporters and accept one.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-    View, Text, StyleSheet, FlatList,
-    TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, ScrollView
+    View, Text, StyleSheet, FlatList, TouchableOpacity,
+    ActivityIndicator, StatusBar,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getPendingAccessRequests, approveAccessRequest, rejectAccessRequest, getExporterContext } from '../services/dppService';
-import { AccessRequest, ExporterContext } from '../types';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { getMyRequestedPosts } from '../services/marketplaceService';
+import { SellingPost } from '../types';
+
+const C = {
+    primary: '#2E7D32',
+    primaryLight: '#4CAF50',
+    primaryPale: '#E8F5E9',
+    primaryDark: '#1B5E20',
+    bg: '#F1F8E9',
+    card: '#FFFFFF',
+    orange: '#FF9800',
+    orangeLight: '#FFF3E0',
+    text: '#1C1C1E',
+    sub: '#6B7B6E',
+    border: '#C8E6C9',
+};
 
 export default function PendingRequestsScreen() {
     const navigation = useNavigation<any>();
-
-    const [requests, setRequests] = useState<AccessRequest[]>([]);
+    const [posts, setPosts] = useState<SellingPost[]>([]);
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [approving, setApproving] = useState<string | null>(null);
-    const [rejecting, setRejecting] = useState<string | null>(null);
 
-    // ExporterContext modal state
-    const [contextModal, setContextModal] = useState(false);
-    const [contextLoading, setContextLoading] = useState(false);
-    const [exporterContext, setExporterContext] = useState<ExporterContext | null>(null);
-
-    const load = useCallback(async () => {
+    const loadPosts = useCallback(async () => {
+        setLoading(true);
         try {
-            const data = await getPendingAccessRequests();
-            setRequests(data);
-        } catch (e) {
-            console.error('Failed to load requests', e);
+            const data = await getMyRequestedPosts();
+            setPosts(data);
         } finally {
             setLoading(false);
-            setRefreshing(false);
         }
     }, []);
 
-    useEffect(() => { load(); }, [load]);
+    useFocusEffect(
+        useCallback(() => { loadPosts(); }, [loadPosts])
+    );
 
-    const handleViewContext = async (exporterId: string) => {
-        setExporterContext(null);
-        setContextModal(true);
-        setContextLoading(true);
-        try {
-            const ctx = await getExporterContext(exporterId);
-            setExporterContext(ctx);
-        } catch {
-            setExporterContext(null);
-        } finally {
-            setContextLoading(false);
-        }
-    };
-
-    const handleApprove = async (requestId: string) => {
-        Alert.alert(
-            'Approve Access',
-            'Grant this exporter access to view the confidential fields for this lot? This cannot be undone.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Approve',
-                    style: 'default',
-                    onPress: async () => {
-                        try {
-                            setApproving(requestId);
-                            await approveAccessRequest(requestId);
-                            setRequests(prev => prev.filter(r => r.id !== requestId));
-                            Alert.alert('Approved', 'The exporter can now view confidential fields for this lot.');
-                        } catch (e: any) {
-                            Alert.alert('Error', e?.response?.data?.error ?? 'Failed to approve request.');
-                        } finally {
-                            setApproving(null);
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
-    const handleReject = async (requestId: string) => {
-        Alert.alert(
-            'Reject Access',
-            'Deny this exporter access to the confidential fields for this lot? They will be notified.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Reject',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            setRejecting(requestId);
-                            await rejectAccessRequest(requestId);
-                            setRequests(prev => prev.filter(r => r.id !== requestId));
-                            Alert.alert('Rejected', 'Access has been denied for this request.');
-                        } catch (e: any) {
-                            Alert.alert('Error', e?.response?.data?.error ?? 'Failed to reject request.');
-                        } finally {
-                            setRejecting(null);
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
-    const renderItem = ({ item }: { item: AccessRequest }) => (
-        <View style={styles.card}>
-            <View style={styles.cardHeader}>
-                <View style={styles.iconWrap}>
-                    <Ionicons name="person" size={20} color="#4F46E5" />
+    const renderItem = ({ item }: { item: SellingPost }) => (
+        <TouchableOpacity
+            style={s.card}
+            activeOpacity={0.8}
+            onPress={() =>
+                navigation.navigate('LotBidders', {
+                    postId: item.id,
+                    grade: item.grade,
+                    quantityKg: item.quantityKg,
+                })
+            }
+        >
+            <View style={s.cardLeft}>
+                <View style={s.gradeBadge}>
+                    <Text style={s.gradeText}>{item.grade}</Text>
                 </View>
-                <View style={styles.cardMeta}>
-                    <Text style={styles.cardTitle}>Exporter Request</Text>
-                    <Text style={styles.cardSub} numberOfLines={1}>
-                        ID: {item.exporterId.substring(0, 16)}…
-                    </Text>
-                </View>
-                <View style={styles.pendingBadge}>
-                    <Text style={styles.pendingBadgeText}>PENDING</Text>
+                <View style={s.cardInfo}>
+                    <Text style={s.lotTitle}>{item.quantityKg} kg · {item.location}</Text>
+                    <Text style={s.lotPrice}>LKR {item.pricePerKg}/kg</Text>
+                    <View style={s.requestedBadge}>
+                        <Ionicons name="people" size={12} color={C.orange} />
+                        <Text style={s.requestedText}>Exporters Interested</Text>
+                    </View>
                 </View>
             </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.cardRow}>
-                <Ionicons name="document-text-outline" size={14} color="#9CA3AF" />
-                <Text style={styles.cardDetail} numberOfLines={1}>Lot: {item.lotId}</Text>
+            <View style={s.cardRight}>
+                <Ionicons name="chevron-forward" size={20} color={C.primary} />
             </View>
-            <View style={styles.cardRow}>
-                <Ionicons name="time-outline" size={14} color="#9CA3AF" />
-                <Text style={styles.cardDetail}>
-                    Requested: {new Date(item.requestedAt).toLocaleString()}
-                </Text>
-            </View>
-
-            {/* Exporter profile context button */}
-            <TouchableOpacity
-                style={styles.profileBtn}
-                onPress={() => handleViewContext(item.exporterId)}
-            >
-                <Ionicons name="information-circle-outline" size={16} color="#4F46E5" />
-                <Text style={styles.profileBtnText}>View Exporter Profile</Text>
-            </TouchableOpacity>
-
-            <View style={styles.actionRow}>
-                <TouchableOpacity
-                    style={[styles.approveBtn, { flex: 1 }]}
-                    onPress={() => handleApprove(item.id)}
-                    disabled={approving === item.id || rejecting === item.id}
-                >
-                    {approving === item.id
-                        ? <ActivityIndicator color="white" />
-                        : <>
-                            <Ionicons name="checkmark-circle" size={18} color="white" />
-                            <Text style={styles.approveBtnText}>Approve</Text>
-                        </>
-                    }
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.rejectBtn, { flex: 1 }]}
-                    onPress={() => handleReject(item.id)}
-                    disabled={approving === item.id || rejecting === item.id}
-                >
-                    {rejecting === item.id
-                        ? <ActivityIndicator color="white" />
-                        : <>
-                            <Ionicons name="close-circle" size={18} color="white" />
-                            <Text style={styles.rejectBtnText}>Reject</Text>
-                        </>
-                    }
-                </TouchableOpacity>
-            </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (
-        <View style={styles.container}>
-            <LinearGradient colors={['#1a1a2e', '#16213e']} style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color="white" />
+        <View style={s.root}>
+            <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
+
+            {/* Header */}
+            <LinearGradient
+                colors={[C.primaryDark, C.primary, C.primaryLight]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={s.header}
+            >
+                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="arrow-back" size={22} color="#fff" />
                 </TouchableOpacity>
-                <View style={styles.headerContent}>
-                    <Ionicons name="shield-checkmark" size={34} color="#10B981" />
-                    <Text style={styles.headerTitle}>Access Requests</Text>
-                    <Text style={styles.headerSub}>
-                        {requests.length} pending approval{requests.length !== 1 ? 's' : ''}
-                    </Text>
+                <View style={s.headerCenter}>
+                    <Ionicons name="notifications" size={28} color="#fff" />
+                    <Text style={s.headerTitle}>Exporter Requests</Text>
+                    <Text style={s.headerSub}>Exporters interested in your lots</Text>
                 </View>
             </LinearGradient>
 
             {loading ? (
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#4F46E5" />
+                <View style={s.center}>
+                    <ActivityIndicator size="large" color={C.primary} />
                 </View>
-            ) : requests.length === 0 ? (
-                <View style={styles.center}>
-                    <Ionicons name="checkmark-done-circle" size={64} color="#D1FAE5" />
-                    <Text style={styles.emptyTitle}>All Clear</Text>
-                    <Text style={styles.emptyDesc}>No pending access requests from exporters.</Text>
+            ) : posts.length === 0 ? (
+                <View style={s.center}>
+                    <Ionicons name="notifications-off-outline" size={52} color={C.sub} />
+                    <Text style={s.emptyTitle}>No Pending Requests</Text>
+                    <Text style={s.emptySub}>
+                        When exporters express interest in your lots, they'll appear here.
+                    </Text>
                 </View>
             ) : (
                 <FlatList
-                    data={requests}
+                    data={posts}
                     keyExtractor={item => item.id}
                     renderItem={renderItem}
-                    contentContainerStyle={{ padding: 16 }}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={() => { setRefreshing(true); load(); }}
-                            tintColor="#4F46E5"
-                        />
-                    }
+                    contentContainerStyle={s.list}
+                    onRefresh={loadPosts}
+                    refreshing={loading}
                 />
             )}
-
-            {/* Exporter Context Modal */}
-            <Modal visible={contextModal} transparent animationType="slide">
-                <View style={styles.modalBackdrop}>
-                    <View style={styles.contextCard}>
-                        <View style={styles.ctxHeader}>
-                            <Ionicons name="person-circle-outline" size={36} color="#4F46E5" />
-                            <Text style={styles.contextTitle}>Exporter Profile</Text>
-                            <TouchableOpacity onPress={() => setContextModal(false)} style={styles.closeBtn}>
-                                <Ionicons name="close" size={22} color="#9CA3AF" />
-                            </TouchableOpacity>
-                        </View>
-
-                        {contextLoading ? (
-                            <ActivityIndicator size="large" color="#4F46E5" style={{ marginVertical: 32 }} />
-                        ) : exporterContext ? (
-                            <ScrollView>
-                                <ContextRow icon="person-outline" label="Name" value={exporterContext.name} />
-                                <ContextRow icon="location-outline" label="Country" value={exporterContext.country ?? 'Not specified'} />
-                                <ContextRow icon="business-outline" label="Organization" value={exporterContext.organizationType ?? 'Not specified'} />
-                                <ContextRow icon="calendar-outline" label="On Platform" value={`${exporterContext.platformTenureMonths} months`} />
-                                <ContextRow
-                                    icon="people-outline"
-                                    label="Collaborations with you"
-                                    value={exporterContext.totalCollaborationsWithBuyer.toString()}
-                                />
-                                {exporterContext.lastCollaborationDate && (
-                                    <ContextRow
-                                        icon="time-outline"
-                                        label="Last Collaboration"
-                                        value={new Date(exporterContext.lastCollaborationDate).toLocaleDateString()}
-                                    />
-                                )}
-                                <View style={[
-                                    styles.verifiedBadge,
-                                    { backgroundColor: exporterContext.isVerified ? '#ECFDF5' : '#FEF2F2' }
-                                ]}>
-                                    <Ionicons
-                                        name={exporterContext.isVerified ? 'shield-checkmark' : 'shield-outline'}
-                                        size={16}
-                                        color={exporterContext.isVerified ? '#10B981' : '#EF4444'}
-                                    />
-                                    <Text style={[
-                                        styles.verifiedText,
-                                        { color: exporterContext.isVerified ? '#10B981' : '#EF4444' }
-                                    ]}>
-                                        {exporterContext.isVerified ? 'Verified on Platform' : 'Not Yet Verified'}
-                                    </Text>
-                                </View>
-                            </ScrollView>
-                        ) : (
-                            <Text style={styles.contextError}>Could not load exporter profile.</Text>
-                        )}
-
-                        <TouchableOpacity style={styles.closeFullBtn} onPress={() => setContextModal(false)}>
-                            <Text style={styles.closeFullBtnText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
         </View>
     );
 }
 
-function ContextRow({ icon, label, value }: { icon: string; label: string; value: string }) {
-    return (
-        <View style={styles.ctxRow}>
-            <Ionicons name={icon as any} size={16} color="#6B7280" />
-            <View style={styles.ctxRowText}>
-                <Text style={styles.ctxLabel}>{label}</Text>
-                <Text style={styles.ctxValue}>{value}</Text>
-            </View>
-        </View>
-    );
-}
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F3F4F6' },
-    header: { paddingTop: 60, paddingBottom: 30, paddingHorizontal: 20 },
-    backBtn: { marginBottom: 16 },
-    headerContent: { alignItems: 'center', gap: 6 },
-    headerTitle: { fontSize: 22, fontWeight: 'bold', color: 'white', marginTop: 8 },
-    headerSub: { color: 'rgba(255,255,255,0.6)', fontSize: 13 },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+    header: {
+        paddingTop: 52,
+        paddingBottom: 24,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+    },
+    backBtn: {
+        position: 'absolute',
+        left: 16,
+        top: 52,
+        zIndex: 10,
+        padding: 4,
+    },
+    headerCenter: { alignItems: 'center', marginTop: 4 },
+    headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700', marginTop: 8 },
+    headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 4 },
+    list: { padding: 16 },
     card: {
-        backgroundColor: 'white', borderRadius: 16, padding: 16,
-        marginBottom: 14, shadowColor: '#000', shadowOpacity: 0.06,
-        shadowRadius: 8, elevation: 3
+        backgroundColor: C.card,
+        borderRadius: 14,
+        marginBottom: 12,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 2,
     },
-    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-    iconWrap: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center'
+    cardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    gradeBadge: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        backgroundColor: C.primaryPale,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
     },
-    cardMeta: { flex: 1 },
-    cardTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
-    cardSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-    pendingBadge: {
-        backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8
+    gradeText: { color: C.primary, fontWeight: '800', fontSize: 13 },
+    cardInfo: { flex: 1 },
+    lotTitle: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 2 },
+    lotPrice: { fontSize: 13, color: C.sub, marginBottom: 4 },
+    requestedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: C.orangeLight,
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        alignSelf: 'flex-start',
     },
-    pendingBadgeText: { fontSize: 10, fontWeight: '800', color: '#D97706' },
-    divider: { height: 1, backgroundColor: '#F3F4F6', marginBottom: 10 },
-    cardRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 },
-    cardDetail: { flex: 1, fontSize: 12, color: '#6B7280' },
-
-    profileBtn: {
-        flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center',
-        borderWidth: 1, borderColor: '#4F46E5', borderRadius: 10, padding: 10, marginTop: 10
+    requestedText: { fontSize: 11, color: C.orange, fontWeight: '600', marginLeft: 4 },
+    cardRight: { paddingLeft: 8 },
+    center: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
     },
-    profileBtnText: { color: '#4F46E5', fontWeight: '600', fontSize: 13 },
-    approveBtn: {
-        backgroundColor: '#10B981', borderRadius: 12, padding: 14,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 8, marginTop: 10
-    },
-    approveBtnText: { color: 'white', fontWeight: '700', fontSize: 15 },
-    actionRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
-    rejectBtn: {
-        backgroundColor: '#EF4444', borderRadius: 12, padding: 14,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 8
-    },
-    rejectBtnText: { color: 'white', fontWeight: '700', fontSize: 15 },
-
-    emptyTitle: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 16 },
-    emptyDesc: { color: '#9CA3AF', textAlign: 'center', marginTop: 8, lineHeight: 20 },
-
-    // Modal
-    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-    contextCard: {
-        backgroundColor: 'white', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-        padding: 24, maxHeight: '72%'
-    },
-    ctxHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
-    contextTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#111827' },
-    closeBtn: { padding: 4 },
-    ctxRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
-    ctxRowText: { flex: 1 },
-    ctxLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase' },
-    ctxValue: { fontSize: 15, color: '#111827', fontWeight: '600', marginTop: 2 },
-    verifiedBadge: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        padding: 12, borderRadius: 12, marginTop: 6, marginBottom: 10
-    },
-    verifiedText: { fontWeight: '700', fontSize: 14 },
-    contextError: { color: '#9CA3AF', textAlign: 'center', marginVertical: 24 },
-    closeFullBtn: {
-        backgroundColor: '#4F46E5', borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 8
-    },
-    closeFullBtnText: { color: 'white', fontWeight: '700', fontSize: 15 },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginTop: 16 },
+    emptySub: { fontSize: 14, color: C.sub, textAlign: 'center', marginTop: 8 },
 });

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
-    TouchableOpacity, ActivityIndicator, Alert
+    TouchableOpacity, ActivityIndicator, Alert, Modal, Pressable
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { DppUploadResponse } from '../types';
-import { generatePassport } from '../services/dppService';
+import { DppUploadResponse, EncryptedFileInfo } from '../types';
+import { generatePassport, getEncryptedFileInfo } from '../services/dppService';
 
 const COLORS = {
     primary: '#007AFF',
@@ -26,7 +26,11 @@ export default function ClassificationResultScreen() {
     const navigation = useNavigation<any>();
     const result: DppUploadResponse = route.params?.result;
     const isInvoice: boolean = route.params?.isInvoice ?? false;
+    const isQir: boolean = route.params?.isQir ?? false;
     const [generating, setGenerating] = useState(false);
+    const [showEncryptModal, setShowEncryptModal] = useState(false);
+    const [encryptedInfo, setEncryptedInfo] = useState<EncryptedFileInfo | null>(null);
+    const [loadingInfo, setLoadingInfo] = useState(false);
 
     if (!result) return (
         <View style={styles.fallback}>
@@ -35,7 +39,7 @@ export default function ClassificationResultScreen() {
         </View>
     );
 
-    const { classification, dppId, fields, fieldsExtracted, supportedFormats } = result;
+    const { classification, dppId, fields, fieldsExtracted, supportedFormats, documentEncrypted } = result;
     const isConfidential = classification.classification === 'CONFIDENTIAL';
     const themeColor = isConfidential ? COLORS.red : COLORS.green;
 
@@ -61,10 +65,165 @@ export default function ClassificationResultScreen() {
         }
     };
 
+    const handleInvoiceDone = () => {
+        if (documentEncrypted) {
+            setEncryptedInfo(null);
+            setShowEncryptModal(true);
+        } else {
+            navigation.goBack();
+        }
+    };
+
+    const handleFetchFileInfo = async () => {
+        if (loadingInfo) return;
+        setLoadingInfo(true);
+        try {
+            const info = await getEncryptedFileInfo(dppId);
+            setEncryptedInfo(info);
+        } catch {
+            Alert.alert('Error', 'Could not load encrypted file details.');
+        } finally {
+            setLoadingInfo(false);
+        }
+    };
+
     return (
+        <>
+        {/* ── Encryption Success Modal ── */}
+        <Modal
+            visible={showEncryptModal}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowEncryptModal(false)}
+        >
+            <Pressable style={modal.overlay} onPress={() => setShowEncryptModal(false)}>
+                <Pressable style={modal.sheet} onPress={e => e.stopPropagation()}>
+                    {/* Header */}
+                    <View style={modal.header}>
+                        <View style={modal.iconRing}>
+                            <Ionicons name="shield-checkmark" size={32} color="#fff" />
+                        </View>
+                        <Text style={modal.title}>File Encrypted &amp; Saved</Text>
+                        <Text style={modal.subtitle}>Your document is protected end-to-end</Text>
+                    </View>
+
+                    {/* How encryption works */}
+                    <View style={modal.section}>
+                        <Text style={modal.sectionLabel}>HOW IT WORKS</Text>
+                        <View style={modal.infoRow}>
+                            <Ionicons name="key-outline" size={16} color={COLORS.purple} />
+                            <Text style={modal.infoText}>
+                                <Text style={modal.infoBold}>Algorithm: </Text>AES-256-CBC
+                            </Text>
+                        </View>
+                        <View style={modal.infoRow}>
+                            <Ionicons name="shuffle-outline" size={16} color={COLORS.purple} />
+                            <Text style={modal.infoText}>
+                                <Text style={modal.infoBold}>IV: </Text>16-byte CSPRNG, unique per upload — prepended to the file
+                            </Text>
+                        </View>
+                        <View style={modal.infoRow}>
+                            <Ionicons name="server-outline" size={16} color={COLORS.purple} />
+                            <Text style={modal.infoText}>
+                                <Text style={modal.infoBold}>Key: </Text>Resolved from env-var → appsettings → dev-fallback
+                            </Text>
+                        </View>
+                        <View style={modal.infoRow}>
+                            <Ionicons name="lock-closed-outline" size={16} color={COLORS.red} />
+                            <Text style={modal.infoText}>
+                                <Text style={modal.infoBold}>Plaintext deleted: </Text>The original file was permanently removed
+                            </Text>
+                        </View>
+                        <View style={modal.infoRow}>
+                            <Ionicons name="person-outline" size={16} color={COLORS.sub} />
+                            <Text style={modal.infoText}>
+                                <Text style={modal.infoBold}>Decrypt access: </Text>Exporter &amp; Admin only
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Stats */}
+                    <View style={modal.statsRow}>
+                        <View style={modal.statChip}>
+                            <Ionicons name="lock-closed" size={14} color={COLORS.red} />
+                            <Text style={[modal.statChipText, { color: COLORS.red }]}>{encCount} encrypted fields</Text>
+                        </View>
+                        <View style={[modal.statChip, { backgroundColor: '#E5FFE5' }]}>
+                            <Ionicons name="save-outline" size={14} color={COLORS.green} />
+                            <Text style={[modal.statChipText, { color: COLORS.green }]}>Saved → DppDocuments</Text>
+                        </View>
+                    </View>
+
+                    {/* DPP ID */}
+                    <View style={modal.idRow}>
+                        <Ionicons name="finger-print-outline" size={14} color={COLORS.purple} />
+                        <Text style={modal.idLabel}>DPP ID: </Text>
+                        <Text style={modal.idValue} numberOfLines={1}>{dppId}</Text>
+                    </View>
+
+                    {/* View encrypted file details */}
+                    {!encryptedInfo ? (
+                        <TouchableOpacity style={modal.detailsBtn} onPress={handleFetchFileInfo} disabled={loadingInfo}>
+                            {loadingInfo
+                                ? <ActivityIndicator size="small" color={COLORS.purple} />
+                                : <Ionicons name="information-circle-outline" size={18} color={COLORS.purple} />}
+                            <Text style={modal.detailsBtnText}>
+                                {loadingInfo ? 'Loading…' : 'View Encrypted File Details'}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={modal.fileInfoBox}>
+                            <Text style={modal.fileInfoHeader}>📁 Encrypted File Details</Text>
+                            <View style={modal.fileInfoRow}>
+                                <Text style={modal.fileInfoKey}>File Name</Text>
+                                <Text style={modal.fileInfoVal} numberOfLines={1}>{encryptedInfo.encryptedFileName}</Text>
+                            </View>
+                            <View style={modal.fileInfoRow}>
+                                <Text style={modal.fileInfoKey}>Original</Text>
+                                <Text style={modal.fileInfoVal} numberOfLines={1}>{encryptedInfo.originalFileName}</Text>
+                            </View>
+                            <View style={modal.fileInfoRow}>
+                                <Text style={modal.fileInfoKey}>Size</Text>
+                                <Text style={modal.fileInfoVal}>
+                                    {encryptedInfo.encryptedSizeBytes
+                                        ? `${(encryptedInfo.encryptedSizeBytes / 1024).toFixed(1)} KB (encrypted)`
+                                        : 'Unknown'}
+                                </Text>
+                            </View>
+                            <View style={modal.fileInfoRow}>
+                                <Text style={modal.fileInfoKey}>Algorithm</Text>
+                                <Text style={modal.fileInfoVal}>{encryptedInfo.algorithm}</Text>
+                            </View>
+                            <View style={modal.fileInfoRow}>
+                                <Text style={modal.fileInfoKey}>IV</Text>
+                                <Text style={modal.fileInfoVal}>{encryptedInfo.ivDescription}</Text>
+                            </View>
+                            <View style={modal.fileInfoRow}>
+                                <Text style={modal.fileInfoKey}>Collection</Text>
+                                <Text style={modal.fileInfoVal}>{encryptedInfo.collection}</Text>
+                            </View>
+                            <View style={[modal.fileInfoRow, { borderBottomWidth: 0 }]}>
+                                <Text style={modal.fileInfoKey}>Decrypt Access</Text>
+                                <Text style={[modal.fileInfoVal, { color: COLORS.red }]}>{encryptedInfo.decryptAccess}</Text>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Done button */}
+                    <TouchableOpacity
+                        style={modal.doneBtn}
+                        onPress={() => { setShowEncryptModal(false); navigation.goBack(); }}
+                    >
+                        <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                        <Text style={modal.doneBtnText}>OK, Done</Text>
+                    </TouchableOpacity>
+                </Pressable>
+            </Pressable>
+        </Modal>
+
         <ScrollView style={styles.container} contentContainerStyle={styles.inner}>
-            {/* ── Pipeline Progress (DPP only) ── */}
-            {!isInvoice && (
+            {/* ── Pipeline Progress ── */}
+            {!isInvoice && !isQir && (
                 <View style={styles.pipelineBar}>
                     <View style={styles.pipelineStep}>
                         <View style={[styles.stepDot, styles.stepDone]}>
@@ -83,6 +242,17 @@ export default function ClassificationResultScreen() {
                     </View>
                 </View>
             )}
+            {isQir && (
+                <View style={styles.pipelineBar}>
+                    <View style={styles.pipelineStep}>
+                        <View style={[styles.stepDot, styles.stepDone]}>
+                            <Ionicons name="checkmark" size={14} color="white" />
+                        </View>
+                        <Text style={styles.stepLabelDone}>QIR Processed</Text>
+                        <Text style={styles.stepSubDone}>Extracted · Classified · Encrypted</Text>
+                    </View>
+                </View>
+            )}
             {isInvoice && (
                 <View style={styles.pipelineBar}>
                     <View style={styles.pipelineStep}>
@@ -91,6 +261,31 @@ export default function ClassificationResultScreen() {
                         </View>
                         <Text style={styles.stepLabelDone}>Invoice Processed</Text>
                         <Text style={styles.stepSubDone}>Extracted · Classified · Encrypted</Text>
+                    </View>
+                </View>
+            )}
+
+            {/* ── Encrypted Document Saved Banner ── */}
+            {documentEncrypted && (
+                <View style={styles.encryptedSavedBanner}>
+                    <View style={styles.encryptedSavedIconRow}>
+                        <Ionicons name="shield-checkmark" size={22} color="#fff" />
+                        <Text style={styles.encryptedSavedTitle}>Encrypted Document Saved to DB</Text>
+                    </View>
+                    <Text style={styles.encryptedSavedBody}>
+                        Majority of fields were confidential. The original file was AES-256-CBC encrypted and stored
+                        in the <Text style={{ fontWeight: '800' }}>DppDocuments</Text> collection.
+                        The plaintext file was permanently deleted from the server.
+                    </Text>
+                    <View style={styles.encryptedSavedRow}>
+                        <View style={styles.encryptedSavedChip}>
+                            <Ionicons name="lock-closed" size={12} color={COLORS.red} />
+                            <Text style={styles.encryptedSavedChipText}>.enc file in SecureDocuments/</Text>
+                        </View>
+                        <View style={[styles.encryptedSavedChip, { backgroundColor: '#E5FFE5' }]}>
+                            <Ionicons name="checkmark-circle" size={12} color={COLORS.green} />
+                            <Text style={[styles.encryptedSavedChipText, { color: COLORS.green }]}>Saved → DppDocuments</Text>
+                        </View>
                     </View>
                 </View>
             )}
@@ -345,7 +540,7 @@ export default function ClassificationResultScreen() {
             </View>
 
             {/* ── Glass Box Review Panel (DPP only) ── */}
-            {!isInvoice && (
+            {!isInvoice && !isQir && (
                 <View style={styles.reviewPanel}>
                     <View style={styles.reviewPanelHeader}>
                         <Ionicons name="eye" size={18} color={COLORS.purple} />
@@ -377,8 +572,8 @@ export default function ClassificationResultScreen() {
                 </View>
             )}
 
-            {/* Actions — DPP: Approve & Generate Passport | Invoice: Done */}
-            {!isInvoice ? (
+            {/* Actions — DPP: Approve & Generate Passport | QIR: View Fields | Invoice: Done */}
+            {!isInvoice && !isQir ? (
                 <TouchableOpacity
                     style={[styles.primaryBtn, { backgroundColor: COLORS.purple }, generating && styles.disabled]}
                     onPress={handleGeneratePassport}
@@ -396,26 +591,37 @@ export default function ClassificationResultScreen() {
                         </>
                     )}
                 </TouchableOpacity>
+            ) : isQir ? (
+                <TouchableOpacity
+                    style={[styles.primaryBtn, { backgroundColor: '#2E7D32' }]}
+                    onPress={() => navigation.navigate('QirExtractedFields', { transactionId: dppId })}
+                >
+                    <Ionicons name="analytics" size={22} color="white" />
+                    <Text style={styles.primaryBtnText}>View QIR Fields</Text>
+                </TouchableOpacity>
             ) : (
                 <TouchableOpacity
                     style={[styles.primaryBtn, { backgroundColor: COLORS.green }]}
-                    onPress={() => navigation.goBack()}
+                    onPress={handleInvoiceDone}
                 >
                     <Ionicons name="checkmark-circle" size={22} color="white" />
-                    <Text style={styles.primaryBtnText}>Invoice Secured — Done</Text>
+                    <Text style={styles.primaryBtnText}>
+                        {documentEncrypted ? 'Encrypted & Saved — Done' : 'Invoice Secured — Done'}
+                    </Text>
                 </TouchableOpacity>
             )}
 
             <TouchableOpacity
                 style={styles.secondaryBtn}
-                onPress={() => isInvoice ? navigation.goBack() : navigation.navigate('DocumentUpload')}
+                onPress={() => (isInvoice || isQir) ? navigation.goBack() : navigation.navigate('DocumentUpload')}
             >
-                <Ionicons name={isInvoice ? 'arrow-back-outline' : 'add-circle-outline'} size={20} color={COLORS.primary} />
+                <Ionicons name={(isInvoice || isQir) ? 'arrow-back-outline' : 'add-circle-outline'} size={20} color={COLORS.primary} />
                 <Text style={styles.secondaryBtnText}>
-                    {isInvoice ? 'Back to Dashboard' : 'Process Another Document'}
+                    {(isInvoice || isQir) ? 'Back to Dashboard' : 'Process Another Document'}
                 </Text>
             </TouchableOpacity>
         </ScrollView>
+        </>
     );
 }
 
@@ -579,6 +785,33 @@ const styles = StyleSheet.create({
     fieldExtractedVal: {
         fontSize: 11, color: COLORS.sub, marginTop: 2, lineHeight: 16,
     },
+    // ── Encrypted Document Saved Banner ──
+    encryptedSavedBanner: {
+        marginHorizontal: 16, marginBottom: 16, marginTop: 4,
+        backgroundColor: '#1A1A2E',
+        borderRadius: 16, padding: 16,
+        borderWidth: 1.5, borderColor: '#E53935',
+    },
+    encryptedSavedIconRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8,
+    },
+    encryptedSavedTitle: {
+        fontSize: 14, fontWeight: '800', color: '#fff', flex: 1,
+    },
+    encryptedSavedBody: {
+        fontSize: 12, color: '#CCCCDD', lineHeight: 18, marginBottom: 10,
+    },
+    encryptedSavedRow: {
+        flexDirection: 'row', gap: 8, flexWrap: 'wrap',
+    },
+    encryptedSavedChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        backgroundColor: '#FFE5E5', paddingHorizontal: 10, paddingVertical: 5,
+        borderRadius: 20,
+    },
+    encryptedSavedChipText: {
+        fontSize: 11, fontWeight: '700', color: COLORS.red,
+    },
 });
 
 // ── Side-by-Side Comparison Table styles ───────────────────────────────────
@@ -628,4 +861,75 @@ const sbTable = StyleSheet.create({
         alignItems: 'center', gap: 3,
     },
     outcomeTxt: { fontSize: 10, fontWeight: '800', textAlign: 'center', lineHeight: 14 },
+});
+
+// ── Encryption Modal styles ────────────────────────────────────────────────
+const modal = StyleSheet.create({
+    overlay: {
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'flex-end',
+    },
+    sheet: {
+        backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        paddingHorizontal: 20, paddingBottom: 36, paddingTop: 8,
+        maxHeight: '92%',
+    },
+    header: {
+        alignItems: 'center', paddingVertical: 20,
+        borderBottomWidth: 1, borderBottomColor: '#E5E5EA', marginBottom: 16,
+    },
+    iconRing: {
+        width: 64, height: 64, borderRadius: 32,
+        backgroundColor: '#E53935',
+        justifyContent: 'center', alignItems: 'center', marginBottom: 10,
+    },
+    title: { fontSize: 20, fontWeight: '800', color: '#1C1C1E', marginBottom: 4 },
+    subtitle: { fontSize: 13, color: '#636366' },
+    section: { marginBottom: 14 },
+    sectionLabel: {
+        fontSize: 10, fontWeight: '800', color: '#8E8E93',
+        textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+    },
+    infoRow: {
+        flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8,
+    },
+    infoText: { flex: 1, fontSize: 13, color: '#3A3A4A', lineHeight: 18 },
+    infoBold: { fontWeight: '700', color: '#1C1C1E' },
+    statsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+    statChip: {
+        flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: '#FFE5E5', paddingHorizontal: 10, paddingVertical: 7,
+        borderRadius: 12,
+    },
+    statChipText: { fontSize: 11, fontWeight: '700' },
+    idRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: '#EEF0FF', padding: 10, borderRadius: 10, marginBottom: 12,
+    },
+    idLabel: { fontSize: 12, fontWeight: '700', color: COLORS.purple },
+    idValue: { flex: 1, fontSize: 11, color: COLORS.sub, fontFamily: 'monospace' },
+    detailsBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        borderWidth: 1.5, borderColor: COLORS.purple, borderRadius: 12,
+        paddingVertical: 10, marginBottom: 14,
+    },
+    detailsBtnText: { color: COLORS.purple, fontSize: 14, fontWeight: '700' },
+    fileInfoBox: {
+        backgroundColor: '#F8F8FF', borderRadius: 12,
+        padding: 12, marginBottom: 14,
+        borderWidth: 1, borderColor: '#C7C5E8',
+    },
+    fileInfoHeader: { fontSize: 12, fontWeight: '800', color: COLORS.purple, marginBottom: 8 },
+    fileInfoRow: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+        paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#E5E5EA', gap: 8,
+    },
+    fileInfoKey: { fontSize: 11, fontWeight: '700', color: '#8E8E93', width: 88 },
+    fileInfoVal: { flex: 1, fontSize: 11, color: '#1C1C1E', lineHeight: 16, textAlign: 'right' },
+    doneBtn: {
+        backgroundColor: COLORS.green, borderRadius: 14,
+        paddingVertical: 14, flexDirection: 'row',
+        alignItems: 'center', justifyContent: 'center', gap: 8,
+    },
+    doneBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

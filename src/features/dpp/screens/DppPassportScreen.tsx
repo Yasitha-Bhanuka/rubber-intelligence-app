@@ -6,6 +6,8 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import { DigitalProductPassport } from '../types';
 import { generatePassport, getPassport } from '../services/dppService';
 
@@ -64,6 +66,7 @@ export default function DppPassportScreen() {
 
     const [passport, setPassport] = useState<DigitalProductPassport | null>(initialPassport || null);
     const [loading, setLoading] = useState(!initialPassport);
+    const qrRef = React.useRef<any>(null);
 
     // If opened without passport (e.g. deep link), auto-generate
     React.useEffect(() => {
@@ -106,16 +109,48 @@ export default function DppPassportScreen() {
 
     const handleShare = async () => {
         if (!passport) return;
-        await Share.share({
-            title: `DPP — Lot ${passport.lotId.substring(0, 8)}`,
-            message:
-                `Digital Product Passport\n` +
-                `Rubber Grade: ${passport.rubberGrade}\n` +
-                `Quantity: ${passport.quantity} kg\n` +
-                `Dispatch: ${passport.dispatchDetails}\n` +
-                `Hash: ${passport.dppHash}\n` +
-                `Confidential data excluded from this passport.`,
-        });
+        try {
+            await Share.share({
+                message: `Digital Product Passport for Lot ${passport.lotId}\nOpen in App: ris-app://dpp/${passport.lotId}`,
+                title: 'Rubber Intelligence Passport'
+            });
+        } catch (error) {
+            console.error('Share failed', error);
+        }
+    };
+
+    const handleDownloadImage = async () => {
+        if (!passport || !qrRef.current) return;
+
+        try {
+            // Request write-only permissions first so Android doesn't ask for AUDIO
+            const { status } = await MediaLibrary.requestPermissionsAsync(true);
+            if (status !== 'granted') {
+                Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to save the QR code.');
+                return;
+            }
+
+            // Get Base64 image representation from the QR component
+            qrRef.current.toDataURL(async (dataUrl: string) => {
+                // Remove the data UI prefix (data:image/png;base64,) to get raw base64 data
+                const base64Data = dataUrl.replace('data:image/png;base64,', '');
+
+                // Write to a temporary file locally
+                const tempUri = FileSystem.documentDirectory + `DPP_QR_${passport.lotId}.png`;
+                await FileSystem.writeAsStringAsync(tempUri, base64Data, {
+                    encoding: 'base64',
+                });
+
+                // Save from the temporary file down to the device gallery
+                const asset = await MediaLibrary.createAssetAsync(tempUri);
+                await MediaLibrary.createAlbumAsync('Rubber Intelligence', asset, false);
+
+                Alert.alert('Success', 'QR Code image saved to your gallery!');
+            });
+        } catch (error) {
+            console.error('Download error:', error);
+            Alert.alert('Error', 'Failed to save QR code image.');
+        }
     };
 
     if (loading) {
@@ -201,11 +236,11 @@ export default function DppPassportScreen() {
                 </View>
             </View>
 
-            {/* QR Code */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>QR Code — Public Scan</Text>
                 <View style={styles.qrCard}>
                     <QRCode
+                        getRef={(c) => (qrRef.current = c)}
                         value={JSON.stringify({ lotId: passport.lotId, hash: passport.dppHash })}
                         size={180}
                         color="#1C1C1E"
@@ -237,6 +272,11 @@ export default function DppPassportScreen() {
             <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
                 <Ionicons name="share-outline" size={20} color="white" />
                 <Text style={styles.shareBtnText}>Share Passport</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.printBtn} onPress={handleDownloadImage}>
+                <Ionicons name="download-outline" size={20} color="white" />
+                <Text style={styles.printBtnText}>Download QR Image</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('BuyerDashboard')}>
@@ -321,6 +361,14 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
     },
     shareBtnText: { color: 'white', fontSize: 16, fontWeight: '800' },
+    printBtn: {
+        marginHorizontal: 16, marginBottom: 12,
+        backgroundColor: '#1C1C1E', padding: 18, borderRadius: 16,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+        shadowColor: '#1C1C1E', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+    },
+    printBtnText: { color: 'white', fontSize: 16, fontWeight: '800' },
     backBtn: {
         marginHorizontal: 16,
         borderWidth: 1.5, borderColor: COLORS.primary,

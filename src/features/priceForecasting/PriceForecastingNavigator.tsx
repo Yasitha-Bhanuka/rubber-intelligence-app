@@ -1,15 +1,19 @@
-
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { withLazy } from '../../shared/components/LazyScreen';
+
+// Only the initial screen is eagerly loaded
 import { DashboardScreen } from './screens/DashboardScreen';
-import { PriceForecastingScreen } from './screens/PriceForecastingScreen';
-import { ReportScreen } from './screens/ReportScreen';
-import { AuctionBiddingScreen } from './screens/AuctionBiddingScreen';
-import { PlaceBidConfirmScreen } from './screens/PlaceBidConfirmScreen';
-import { CreateLotScreen } from './screens/CreateLotScreen';
-import { TraceabilityScreen } from './screens/TraceabilityScreen';
-import { MyAuctionsScreen } from './screens/MyAuctionsScreen';
-import { AuctionHistoryScreen } from './screens/AuctionHistoryScreen';
+
+// All other screens are lazy-loaded on first navigation
+const PriceForecastingScreen = withLazy(() => import('./screens/PriceForecastingScreen').then(m => ({ default: m.PriceForecastingScreen })));
+const ReportScreen = withLazy(() => import('./screens/ReportScreen').then(m => ({ default: m.ReportScreen })));
+const AuctionBiddingScreen = withLazy(() => import('./screens/AuctionBiddingScreen').then(m => ({ default: m.AuctionBiddingScreen })));
+const PlaceBidConfirmScreen = withLazy(() => import('./screens/PlaceBidConfirmScreen').then(m => ({ default: m.PlaceBidConfirmScreen })));
+const CreateLotScreen = withLazy(() => import('./screens/CreateLotScreen').then(m => ({ default: m.CreateLotScreen })));
+const TraceabilityScreen = withLazy(() => import('./screens/TraceabilityScreen').then(m => ({ default: m.TraceabilityScreen })));
+const MyAuctionsScreen = withLazy(() => import('./screens/MyAuctionsScreen').then(m => ({ default: m.MyAuctionsScreen })));
+const AuctionHistoryScreen = withLazy(() => import('./screens/AuctionHistoryScreen').then(m => ({ default: m.AuctionHistoryScreen })));
 
 const Stack = createNativeStackNavigator();
 
