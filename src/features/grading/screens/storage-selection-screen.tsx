@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../../shared/styles/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const ESP32_IP = "http://10.148.43.34"; // Replace with your ESP32 IP
+const ESP32_IP = "http://10.93.197.34"; // Replace with your ESP32 IP
 
 interface StorageDetails {
     suitability: string;
@@ -134,7 +134,7 @@ export default function StorageSelectionScreen() {
 
     const validateInputs = () => {
         if (!humidity.trim() || !temperature.trim() || !airTemperature.trim()) {
-            Alert.alert('Missing Information', 'Please enter humidity, temperature, and air temperature values');
+            Alert.alert('Missing Information', ' humidity, temperature, and air temperature values');
             return false;
         }
 
@@ -562,7 +562,7 @@ export default function StorageSelectionScreen() {
                         <View style={styles.errorContainer}>
                             <MaterialCommunityIcons name="wifi-off" size={24} color="#EF4444" />
                             <Text style={styles.errorText}>
-                                Cannot connect to ESP32. Please enter values manually.
+                               Unable to connect to the ESP32. Please verify that the device is properly connected.
                             </Text>
                             <TouchableOpacity style={styles.retryButton} onPress={fetchLiveData}>
                                 <Text style={styles.retryButtonText}>Retry</Text>
