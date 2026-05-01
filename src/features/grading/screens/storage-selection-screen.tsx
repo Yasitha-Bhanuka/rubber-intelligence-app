@@ -533,13 +533,7 @@ export default function StorageSelectionScreen() {
                             </View>
 
                             <View style={styles.liveDataGrid}>
-                                {/* Latex Temperature Display */}
-                                {/* <View style={styles.liveDataItem}>
-                                    <MaterialCommunityIcons name="thermometer" size={24} color={colors.primary} />
-                                    <Text style={styles.liveDataLabel}>Latex Temp</Text>
-                                    <Text style={styles.liveDataValue}>{liveData.temperature.toFixed(1)}°C</Text>
-                                </View> */}
-
+                              
                                 {/* Humidity Display */}
                                 <View style={styles.liveDataItem}>
                                     <MaterialCommunityIcons name="water-percent" size={24} color={colors.primary} />
@@ -584,6 +578,8 @@ export default function StorageSelectionScreen() {
                     <Text style={styles.sectionSubtitle}>Enter humidity, temperature, and air temperature for rubber latex</Text>
 
                     <View style={styles.inputWrapper}>
+
+                      {/* Air Humidity Input Field */}   
                         <View style={styles.inputContainer}>
                             <View style={styles.inputIconContainer}>
                                 <MaterialCommunityIcons name="water-percent" size={24} color={colors.primary} />
@@ -598,23 +594,7 @@ export default function StorageSelectionScreen() {
                                 maxLength={5}
                                 editable={false}
                             />
-                        </View>
-
-                        {/* <View style={styles.inputContainer}>
-                            <View style={styles.inputIconContainer}>
-                                <MaterialCommunityIcons name="thermometer" size={24} color={colors.primary} />
-                            </View>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Latex Temperature (°C)"
-                                value={temperature}
-                                onChangeText={setTemperature}
-                                keyboardType="numeric"
-                                placeholderTextColor="#9CA3AF"
-                                maxLength={6}
-                                editable={false}
-                            />
-                        </View> */}
+                        </View>                 
 
                         {/* Air Temperature Input Field */}
                         <View style={styles.inputContainer}>
