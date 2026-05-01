@@ -9,7 +9,10 @@ import { useStore } from '../../../store';
 import { colors } from '../../../shared/styles/colors';
 
 export const AlertsScreen = () => {
-    const { alerts, alertsLoading, fetchAlerts, markAlertRead } = useStore();
+    const alerts = useStore(s => s.alerts);
+    const alertsLoading = useStore(s => s.alertsLoading);
+    const fetchAlerts = useStore(s => s.fetchAlerts);
+    const markAlertRead = useStore(s => s.markAlertRead);
 
     useEffect(() => {
         fetchAlerts();

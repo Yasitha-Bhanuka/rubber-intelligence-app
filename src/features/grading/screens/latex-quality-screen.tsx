@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { latexQualityService, LatexQualityRequest } from "../../../core/services/latexQualityService";
 
-const ESP32_IP = "http://10.148.43.34"; // Replace with your ESP32 IP
+const ESP32_IP = "http://10.189.36.34"; // Replace with your ESP32 IP
 const { width } = Dimensions.get("window");
 
 // Define types for sensor data
@@ -57,6 +57,7 @@ const LiveSensorScreen = () => {
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
+  const failCount = useRef(0);
 
   const [testDate] = useState<string>(() => {
     return new Date().toLocaleDateString("en-US", {
@@ -117,6 +118,7 @@ const LiveSensorScreen = () => {
         humidity: Number(data.hum ?? 0),
       };
 
+      failCount.current = 0;
       setLiveSensorData(newData);
       setConnectionError(false);
       setLastUpdated(new Date().toLocaleTimeString());
@@ -134,7 +136,10 @@ const LiveSensorScreen = () => {
       } else {
         console.error("Error fetching sensor data:", err);
       }
-      setConnectionError(true);
+      failCount.current += 1;
+      if (failCount.current >= 3) {
+        setConnectionError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -304,7 +309,7 @@ const LiveSensorScreen = () => {
           <Animated.View entering={FadeInUp.duration(500)} style={styles.errorContainer}>
             <MaterialCommunityIcons name="wifi-off" size={24} color="#EF4444" />
             <Text style={styles.errorText}>
-              Cannot connect to ESP32. Using manual input mode.
+              Unable to connect the device. Please make sure device is power on and connected to the network properly.
             </Text>
             <TouchableOpacity style={styles.retryButton} onPress={fetchSensorData}>
               <Text style={styles.retryButtonText}>Retry</Text>
@@ -314,35 +319,51 @@ const LiveSensorScreen = () => {
 
         {liveSensorData && !connectionError && (
           <Animated.View entering={FadeInUp.duration(500)} style={styles.liveDataContainer}>
-            <View style={styles.liveDataHeader}>
-              <MaterialCommunityIcons name="access-point" size={20} color="#10B981" />
-              <Text style={styles.liveDataTitle}>Live Sensor Readings</Text>
-              {lastUpdated ? (
-                <Text style={styles.lastUpdated}>Updated: {lastUpdated}</Text>
-              ) : null}
-            </View>
-            <View style={styles.liveDataGrid}>
-              <View style={styles.liveDataItem}>
-                <Text style={styles.liveDataLabel}>Temperature</Text>
-                <Text style={styles.liveDataValue}>{liveSensorData.temperature.toFixed(1)}°C</Text>
+            <LinearGradient
+              colors={["#E0F2FE", "#F0FDF4"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.liveDataGradient}
+            >
+              <View style={styles.liveDataHeader}>
+                <View style={styles.liveDataIconWrapper}>
+                  <MaterialCommunityIcons name="access-point" size={22} color="#059669" />
+                </View>
+                <Text style={styles.liveDataTitle}>Live Sensor Readings</Text>
+                {lastUpdated ? (
+                  <View style={styles.lastUpdatedBadge}>
+                    <Text style={styles.lastUpdated}>Updated: {lastUpdated}</Text>
+                  </View>
+                ) : null}
               </View>
-              <View style={styles.liveDataItem}>
-                <Text style={styles.liveDataLabel}>Turbidity</Text>
-                <Text style={styles.liveDataValue}>{liveSensorData.turbidity.toFixed(0)} NTU</Text>
+              <View style={styles.liveDataGrid}>
+                <View style={[styles.liveDataItem, styles.tempItem]}>
+                  <MaterialCommunityIcons name="thermometer" size={20} color="#EF4444" style={styles.itemIcon} />
+                  <Text style={styles.liveDataLabel}>Temperature</Text>
+                  <Text style={[styles.liveDataValue, { color: "#991B1B" }]}>{liveSensorData.temperature.toFixed(1)}°C</Text>
+                </View>
+                <View style={[styles.liveDataItem, styles.turbidityItem]}>
+                  <MaterialCommunityIcons name="water-opacity" size={20} color="#3B82F6" style={styles.itemIcon} />
+                  <Text style={styles.liveDataLabel}>Turbidity</Text>
+                  <Text style={[styles.liveDataValue, { color: "#1E40AF" }]}>{liveSensorData.turbidity.toFixed(0)} NTU</Text>
+                </View>
+                <View style={[styles.liveDataItem, styles.phItem]}>
+                  <MaterialCommunityIcons name="ph" size={20} color="#8B5CF6" style={styles.itemIcon} />
+                  <Text style={styles.liveDataLabel}>pH Level</Text>
+                  <Text style={[styles.liveDataValue, { color: "#5B21B6" }]}>{liveSensorData.ph.toFixed(1)}</Text>
+                </View>
+                <View style={[styles.liveDataItem, styles.airTempItem]}>
+                  <MaterialCommunityIcons name="weather-partly-cloudy" size={20} color="#F59E0B" style={styles.itemIcon} />
+                  <Text style={styles.liveDataLabel}>Air Temp</Text>
+                  <Text style={[styles.liveDataValue, { color: "#B45309" }]}>{liveSensorData.airTemperature.toFixed(1)}°C</Text>
+                </View>
+                <View style={[styles.liveDataItem, styles.humidityItem]}>
+                  <MaterialCommunityIcons name="water-percent" size={20} color="#10B981" style={styles.itemIcon} />
+                  <Text style={styles.liveDataLabel}>Humidity</Text>
+                  <Text style={[styles.liveDataValue, { color: "#047857" }]}>{liveSensorData.humidity.toFixed(0)}%</Text>
+                </View>
               </View>
-              <View style={styles.liveDataItem}>
-                <Text style={styles.liveDataLabel}>pH Level</Text>
-                <Text style={styles.liveDataValue}>{liveSensorData.ph.toFixed(1)}</Text>
-              </View>
-              <View style={styles.liveDataItem}>
-                <Text style={styles.liveDataLabel}>Air Temp</Text>
-                <Text style={styles.liveDataValue}>{liveSensorData.airTemperature.toFixed(1)}°C</Text>
-              </View>
-              <View style={styles.liveDataItem}>
-                <Text style={styles.liveDataLabel}>Humidity</Text>
-                <Text style={styles.liveDataValue}>{liveSensorData.humidity.toFixed(0)}%</Text>
-              </View>
-            </View>
+            </LinearGradient>
           </Animated.View>
         )}
 
@@ -433,7 +454,7 @@ const LiveSensorScreen = () => {
               status={getTemperatureStatus(sensorData.temperature)}
               optimalRange="Optimal Range: (27-32)°C"
               placeholder={`e.g., ${sampleValues.temperature}`}
-              editable={!isSubmitting}
+              editable={false}
               isSubmitting={isSubmitting}
             />
 
@@ -456,7 +477,7 @@ const LiveSensorScreen = () => {
               status={getTurbidityStatus(sensorData.turbidity)}
               optimalRange="Optimal Range: ≤(-3500)NTU"
               placeholder={`e.g., ${sampleValues.turbidity}`}
-              editable={!isSubmitting}
+              editable={false}
               isSubmitting={isSubmitting}
             />
 
@@ -479,7 +500,7 @@ const LiveSensorScreen = () => {
               status={getpHStatus(sensorData.pH)}
               optimalRange="Optimal Range: (6.5-7.2)pH"
               placeholder={`e.g., ${sampleValues.pH}`}
-              editable={!isSubmitting}
+              editable={false}
               isSubmitting={isSubmitting}
             />
           </View>
@@ -751,59 +772,95 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   liveDataContainer: {
-    backgroundColor: "white",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: "#059669",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    overflow: "hidden",
+  },
+  liveDataGradient: {
+    padding: 20,
   },
   liveDataHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 20,
     flexWrap: "wrap",
   },
-  liveDataTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1E293B",
-    marginLeft: 8,
+  liveDataIconWrapper: {
+    backgroundColor: "rgba(16, 185, 129, 0.2)",
+    padding: 8,
+    borderRadius: 12,
     marginRight: 12,
   },
+  liveDataTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#064E3B",
+    flex: 1,
+  },
+  lastUpdatedBadge: {
+    backgroundColor: "rgba(100, 116, 139, 0.1)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
   lastUpdated: {
-    fontSize: 12,
-    color: "#64748B",
-    fontWeight: "500",
+    fontSize: 11,
+    color: "#475569",
+    fontWeight: "600",
   },
   liveDataGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
+    justifyContent: "space-between",
   },
   liveDataItem: {
     flex: 1,
-    minWidth: (width - 72) / 3,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    padding: 12,
+    minWidth: (width - 76) / 3,
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderRadius: 16,
+    padding: 14,
     alignItems: "center",
+    borderWidth: 1,
+  },
+  tempItem: {
+    borderColor: "rgba(239, 68, 68, 0.2)",
+    backgroundColor: "rgba(254, 242, 242, 0.8)",
+  },
+  turbidityItem: {
+    borderColor: "rgba(59, 130, 246, 0.2)",
+    backgroundColor: "rgba(239, 246, 255, 0.8)",
+  },
+  phItem: {
+    borderColor: "rgba(139, 92, 246, 0.2)",
+    backgroundColor: "rgba(245, 243, 255, 0.8)",
+  },
+  airTempItem: {
+    borderColor: "rgba(245, 158, 11, 0.2)",
+    backgroundColor: "rgba(255, 251, 235, 0.8)",
+  },
+  humidityItem: {
+    borderColor: "rgba(16, 185, 129, 0.2)",
+    backgroundColor: "rgba(236, 253, 245, 0.8)",
+  },
+  itemIcon: {
+    marginBottom: 6,
   },
   liveDataLabel: {
     fontSize: 12,
     color: "#64748B",
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 4,
+    textAlign: "center",
   },
   liveDataValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1E293B",
+    fontSize: 18,
+    fontWeight: "800",
   },
   section: {
     marginBottom: 28,

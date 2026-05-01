@@ -11,7 +11,13 @@ export const DiseaseResultScreen = ({ route, navigation }: any) => {
             <View>
                 <Image source={{ uri: imageUri }} style={styles.image} />
                 <TouchableOpacity
-                    onPress={() => navigation.goBack()}
+                    onPress={() => {
+                        if (navigation.canGoBack()) {
+                            navigation.goBack();
+                        } else {
+                            navigation.navigate('DiseaseHome');
+                        }
+                    }}
                     style={styles.backBtn}
                 >
                     <Ionicons name="arrow-back" size={24} color="#FFF" />
