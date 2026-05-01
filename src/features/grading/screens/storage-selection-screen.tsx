@@ -254,7 +254,7 @@ export default function StorageSelectionScreen() {
         }
 
         // High-Temperature Storage
-        if (temp > 30 && temp <= 35) {
+        if (temp > 33 && temp <= 38) {
             locations.push({
                 name: 'High-Temperature Storage Zone',
                 type: 'Emergency/Short-term Storage',

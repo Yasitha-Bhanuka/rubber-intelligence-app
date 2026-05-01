@@ -8,7 +8,6 @@ import {
     ScrollView,
     KeyboardAvoidingView,
     Platform,
-    Image,
     Dimensions
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";

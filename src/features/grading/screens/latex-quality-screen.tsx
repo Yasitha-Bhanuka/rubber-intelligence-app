@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 6,
-    width: 285
+    width: 320
   },
   assessmentItem: {
     flex: 1,
