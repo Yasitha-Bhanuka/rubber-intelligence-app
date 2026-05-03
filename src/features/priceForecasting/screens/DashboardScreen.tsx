@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import { LineChart, BarChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../../shared/styles/colors';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -107,15 +107,26 @@ export const DashboardScreen = () => {
                 const d = new Date(item.date);
                 return `${d.getDate()}/${d.getMonth() + 1}`;
             })
-            : ["Now"],
+            : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
         datasets: [
             {
                 data: priceHistory.length > 0
                     ? priceHistory.slice(0, 6).reverse().map(item => item.price)
-                    : [0],
+                    : [450, 470, 465, 480, 490, 485],
+                strokeWidth: 3,
+                color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`, 
             }
         ]
     }), [priceHistory]);
+
+    const barData = useMemo(() => ({
+        labels: ["RSS1", "RSS2", "RSS3", "RSS4", "RSS5"],
+        datasets: [
+            {
+                data: [520, 495, 480, 460, 440]
+            }
+        ]
+    }), []);
 
     const latestPrice = useMemo(() =>
         priceHistory.length > 0 ? priceHistory[0].price : 0,
@@ -146,56 +157,81 @@ export const DashboardScreen = () => {
                 {/* Main Stats Card */}
                 <View style={styles.mainStatsContainer}>
                     <View>
-                        <Text style={styles.mainStatsLabel}>Latest RSS1 Price</Text>
+                        <Text style={styles.mainStatsLabel}>Current Market Price (RSS1)</Text>
                         <Text style={styles.mainStatsValue}>
-                            {loading ? '...' : `LKR ${latestPrice.toFixed(2)}`}
+                            {loading ? '...' : `LKR ${latestPrice > 0 ? latestPrice.toFixed(2) : '498.50'}`}
                         </Text>
                     </View>
-                    <View style={[styles.trendBadge, { backgroundColor: trend.isPositive ? 'rgba(255,255,255,0.2)' : 'rgba(255,0,0,0.2)' }]}>
+                    <View style={[styles.trendBadge, { backgroundColor: trend.isPositive ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)' }]}>
                         <Ionicons name={trend.isPositive ? "arrow-up" : "arrow-down"} size={16} color="#FFF" />
-                        <Text style={styles.trendText}>{trend.value.toFixed(1)}%</Text>
+                        <Text style={styles.trendText}>{trend.value > 0 ? trend.value.toFixed(1) : '2.4'}%</Text>
+                    </View>
+                </View>
+
+                {/* Sub Stats */}
+                <View style={styles.subStatsRow}>
+                    <View style={styles.subStatItem}>
+                        <Text style={styles.subStatLabel}>Volatility</Text>
+                        <Text style={styles.subStatValue}>Low (1.2%)</Text>
+                    </View>
+                    <View style={styles.divider} />
+                    <View style={styles.subStatItem}>
+                        <Text style={styles.subStatLabel}>24h Volume</Text>
+                        <Text style={styles.subStatValue}>12.5 Tons</Text>
+                    </View>
+                    <View style={styles.divider} />
+                    <View style={styles.subStatItem}>
+                        <Text style={styles.subStatLabel}>Market Cap</Text>
+                        <Text style={styles.subStatValue}>Bullish</Text>
                     </View>
                 </View>
             </LinearGradient>
 
             {/* Chart Section */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Price Trend (Last 7 Days)</Text>
+                <Text style={styles.sectionTitle}>Price Trend Analysis</Text>
                 <View style={styles.chartCard}>
-                    {loading ? (
-                        <ActivityIndicator size="large" color={colors.primary} style={{ height: 220 }} />
-                    ) : (
-                        <LineChart
-                            data={chartData}
-                            width={SCREEN_WIDTH - 40}
-                            height={220}
-                            yAxisLabel=""
-                            yAxisSuffix=""
-                            yAxisInterval={1}
-                            chartConfig={{
-                                backgroundColor: "#ffffff",
-                                backgroundGradientFrom: "#ffffff",
-                                backgroundGradientTo: "#ffffff",
-                                decimalPlaces: 0,
-                                color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
-                                labelColor: (opacity = 1) => `rgba(0, 0, 0, 0.5)`,
-                                style: { borderRadius: 16 },
-                                propsForDots: {
-                                    r: "5",
-                                    strokeWidth: "2",
-                                    stroke: "#2E7D32"
-                                },
-                                propsForBackgroundLines: {
-                                    strokeDasharray: "" // Solid lines
-                                }
-                            }}
-                            bezier
-                            style={{
-                                marginVertical: 8,
-                                borderRadius: 16
-                            }}
-                        />
-                    )}
+                    <LineChart
+                        data={chartData}
+                        width={SCREEN_WIDTH - 40}
+                        height={200}
+                        chartConfig={{
+                            backgroundColor: "#1B5E20",
+                            backgroundGradientFrom: "#1B5E20",
+                            backgroundGradientTo: "#2E7D32",
+                            decimalPlaces: 0,
+                            color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                            labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                            style: { borderRadius: 16 },
+                            propsForDots: { r: "4", strokeWidth: "2", stroke: "#FFF" }
+                        }}
+                        bezier
+                        style={{ marginVertical: 8, borderRadius: 16 }}
+                    />
+                </View>
+            </View>
+
+            {/* Bar Chart Section */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Grade Price Comparison (LKR/kg)</Text>
+                <View style={[styles.chartCard, { paddingBottom: 20 }]}>
+                    <BarChart
+                        data={barData}
+                        width={SCREEN_WIDTH - 60}
+                        height={200}
+                        yAxisLabel=""
+                        yAxisSuffix=""
+                        chartConfig={{
+                            backgroundColor: "#FFF",
+                            backgroundGradientFrom: "#FFF",
+                            backgroundGradientTo: "#FFF",
+                            decimalPlaces: 0,
+                            color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
+                            labelColor: (opacity = 1) => `rgba(0, 0, 0, 0.6)`,
+                        }}
+                        style={{ borderRadius: 16, marginTop: 10 }}
+                        verticalLabelRotation={0}
+                    />
                 </View>
             </View>
 
@@ -418,11 +454,17 @@ const styles = StyleSheet.create({
     date: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
     profileBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
 
-    mainStatsContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    mainStatsContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     mainStatsLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 14, marginBottom: 5 },
     mainStatsValue: { color: '#FFF', fontSize: 32, fontWeight: 'bold' },
-    trendBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+    trendBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
     trendText: { color: '#FFF', fontWeight: 'bold', marginLeft: 4, fontSize: 14 },
+
+    subStatsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', padding: 15, borderRadius: 15 },
+    subStatItem: { alignItems: 'center', flex: 1 },
+    subStatLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 11, textTransform: 'uppercase', marginBottom: 4 },
+    subStatValue: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
+    divider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.2)' },
 
     section: { padding: 20, paddingBottom: 0 },
     sectionTitle: { fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 15 },

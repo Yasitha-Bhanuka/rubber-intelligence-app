@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 // Find it with: ipconfig (Windows) → look for "Wireless LAN adapter WiFi" → IPv4 Address.
 
 
-const MACHINE_IP = '10.148.43.12';
+const MACHINE_IP = '192.168.43.241';
 //192.168.43.188
 
 
