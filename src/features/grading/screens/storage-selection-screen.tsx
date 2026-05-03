@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../../shared/styles/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const ESP32_IP = "http://10.148.43.34"; // Replace with your ESP32 IP
+const ESP32_IP = "http://10.93.197.34"; // Replace with your ESP32 IP
 
 interface StorageDetails {
     suitability: string;
@@ -97,6 +97,11 @@ export default function StorageSelectionScreen() {
             setConnectionError(false);
             setLastUpdated(new Date().toLocaleTimeString());
 
+            // Auto-fill inputs from live data
+            setHumidity(newData.humidity.toString());
+            setTemperature(newData.temperature.toString());
+            setAirTemperature(newData.airTemperature.toString());
+
         } catch (err: any) {
             if (err.name === "AbortError") {
                 console.warn("Fetch timed out. ESP32 might be slow or offline.");
@@ -129,7 +134,7 @@ export default function StorageSelectionScreen() {
 
     const validateInputs = () => {
         if (!humidity.trim() || !temperature.trim() || !airTemperature.trim()) {
-            Alert.alert('Missing Information', 'Please enter humidity, temperature, and air temperature values');
+            Alert.alert('Missing Information', ' humidity, temperature, and air temperature values');
             return false;
         }
 
@@ -249,7 +254,7 @@ export default function StorageSelectionScreen() {
         }
 
         // High-Temperature Storage
-        if (temp > 30 && temp <= 35) {
+        if (temp > 33 && temp <= 38) {
             locations.push({
                 name: 'High-Temperature Storage Zone',
                 type: 'Emergency/Short-term Storage',
@@ -528,13 +533,7 @@ export default function StorageSelectionScreen() {
                             </View>
 
                             <View style={styles.liveDataGrid}>
-                                {/* Latex Temperature Display */}
-                                {/* <View style={styles.liveDataItem}>
-                                    <MaterialCommunityIcons name="thermometer" size={24} color={colors.primary} />
-                                    <Text style={styles.liveDataLabel}>Latex Temp</Text>
-                                    <Text style={styles.liveDataValue}>{liveData.temperature.toFixed(1)}°C</Text>
-                                </View> */}
-
+                              
                                 {/* Humidity Display */}
                                 <View style={styles.liveDataItem}>
                                     <MaterialCommunityIcons name="water-percent" size={24} color={colors.primary} />
@@ -549,15 +548,6 @@ export default function StorageSelectionScreen() {
                                     <Text style={styles.liveDataValue}>{liveData.airTemperature.toFixed(1)}°C</Text>
                                 </View>
                             </View>
-
-                            {/* Use Live Data Button */}
-                            <TouchableOpacity
-                                style={styles.useLiveButton}
-                                onPress={useLiveData}
-                            >
-                                <MaterialCommunityIcons name="flash" size={18} color="#FFF" />
-                                <Text style={styles.useLiveButtonText}>Use Live Data</Text>
-                            </TouchableOpacity>
                         </View>
                     )}
 
@@ -566,7 +556,7 @@ export default function StorageSelectionScreen() {
                         <View style={styles.errorContainer}>
                             <MaterialCommunityIcons name="wifi-off" size={24} color="#EF4444" />
                             <Text style={styles.errorText}>
-                                Cannot connect to ESP32. Please enter values manually.
+                               Unable to connect to the ESP32. Please verify that the device is properly connected.
                             </Text>
                             <TouchableOpacity style={styles.retryButton} onPress={fetchLiveData}>
                                 <Text style={styles.retryButtonText}>Retry</Text>
@@ -588,6 +578,8 @@ export default function StorageSelectionScreen() {
                     <Text style={styles.sectionSubtitle}>Enter humidity, temperature, and air temperature for rubber latex</Text>
 
                     <View style={styles.inputWrapper}>
+
+                      {/* Air Humidity Input Field */}   
                         <View style={styles.inputContainer}>
                             <View style={styles.inputIconContainer}>
                                 <MaterialCommunityIcons name="water-percent" size={24} color={colors.primary} />
@@ -600,23 +592,9 @@ export default function StorageSelectionScreen() {
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={5}
+                                editable={false}
                             />
-                        </View>
-
-                        {/* <View style={styles.inputContainer}>
-                            <View style={styles.inputIconContainer}>
-                                <MaterialCommunityIcons name="thermometer" size={24} color={colors.primary} />
-                            </View>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Latex Temperature (°C)"
-                                value={temperature}
-                                onChangeText={setTemperature}
-                                keyboardType="numeric"
-                                placeholderTextColor="#9CA3AF"
-                                maxLength={6}
-                            />
-                        </View> */}
+                        </View>                 
 
                         {/* Air Temperature Input Field */}
                         <View style={styles.inputContainer}>
@@ -631,6 +609,7 @@ export default function StorageSelectionScreen() {
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={6}
+                                editable={false}
                             />
                         </View>
                     </View>

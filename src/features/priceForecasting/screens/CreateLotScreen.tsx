@@ -15,7 +15,8 @@ export const CreateLotScreen = () => {
         weight: '',
         location: '',
         moisture: 'Normal',
-        cleanliness: 'Clean'
+        cleanliness: 'Clean',
+        durationHours: 1
     });
 
     const handleMint = async () => {
@@ -31,7 +32,7 @@ export const CreateLotScreen = () => {
 
             // Generate a real Auction in the backend
             const endDate = new Date();
-            endDate.setMinutes(endDate.getMinutes() + 60); // Auction runs for exactly 1 hour
+            endDate.setMinutes(endDate.getMinutes() + (formData.durationHours * 60)); // Auction runs for selected duration
 
             // Assume default standard starting price based on grade for now
             let startingPrice = 400;
@@ -122,6 +123,21 @@ export const CreateLotScreen = () => {
                                 onPress={() => setFormData({ ...formData, moisture: m })}
                             >
                                 <Text style={[styles.selectText, formData.moisture === m && styles.activeSelectText]}>{m}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Auction Duration</Text>
+                    <View style={styles.selectRow}>
+                        {[1, 2, 4, 12, 24].map(h => (
+                            <TouchableOpacity
+                                key={h}
+                                style={[styles.selectBtn, formData.durationHours === h && styles.activeSelect]}
+                                onPress={() => setFormData({ ...formData, durationHours: h })}
+                            >
+                                <Text style={[styles.selectText, formData.durationHours === h && styles.activeSelectText]}>{h}h</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
