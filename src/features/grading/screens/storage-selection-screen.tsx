@@ -9,11 +9,13 @@ import {
     ScrollView,
     KeyboardAvoidingView,
     Platform,
-    Animated
+    Animated,
+    Modal
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../../shared/styles/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const ESP32_IP = "http://192.168.122.34"; // Replace with your ESP32 IP
 
@@ -61,6 +63,8 @@ export default function StorageSelectionScreen() {
     const [prediction, setPrediction] = useState<Prediction | null>(null);
     const [storageType, setStorageType] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     // Live data states
     const [liveData, setLiveData] = useState<LiveSensorData | null>(null);
@@ -414,7 +418,7 @@ export default function StorageSelectionScreen() {
                     locations: recommendedLocations
                 };
             } else {
-                type = 'Non-Standard Conditions';
+                type = 'Out of Standard Storage Conditions';
                 confidence = 'Low';
                 icon = 'alert-circle';
                 recommendation = 'Conditions outside optimal range for latex storage';
@@ -441,6 +445,7 @@ export default function StorageSelectionScreen() {
                 recommendedLocations
             });
             setIsLoading(false);
+            showSuccessPopup(`Latex storage analysis completed successfully.\n\nResult: ${type}`);
         }, 1000);
     };
 
@@ -493,6 +498,11 @@ export default function StorageSelectionScreen() {
         } else {
             Alert.alert('No Live Data', 'Please wait for sensor data to load or check connection.');
         }
+    };
+
+    const showSuccessPopup = (message: string) => {
+        setSuccessMessage(message);
+        setShowSuccessModal(true);
     };
 
     return (
@@ -810,6 +820,57 @@ export default function StorageSelectionScreen() {
                     )}
                 </View>
             </ScrollView>
+
+            <Modal
+                visible={showSuccessModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowSuccessModal(false)}
+            >
+                <View style={styles.successModalOverlay}>
+                    <View style={styles.successModalCard}>
+                        <LinearGradient
+                            colors={['#22C55E', '#14B8A6', '#0EA5E9']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.successModalHeader}
+                        >
+                            <View style={styles.successIconBadge}>
+                                <MaterialCommunityIcons name="check-decagram" size={44} color="#FFFFFF" />
+                            </View>
+                            <Text style={styles.successModalEyebrow}>Storage Ready</Text>
+                            <Text style={styles.successModalTitle}>Analysis Complete</Text>
+                        </LinearGradient>
+
+                        <View style={styles.successModalBody}>
+                            <Text style={styles.successModalMessage}>{successMessage}</Text>
+
+                            <View style={styles.successResultPill}>
+                                <MaterialCommunityIcons name="barrel" size={18} color={colors.primary} />
+                                <Text style={styles.successResultPillText}>
+                                    {storageType || 'Latex Storage'}
+                                </Text>
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.successButtonWrap}
+                                onPress={() => setShowSuccessModal(false)}
+                                activeOpacity={0.85}
+                            >
+                                <LinearGradient
+                                    colors={[colors.primary, '#0F766E']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.successButton}
+                                >
+                                    <Text style={styles.successButtonText}>Done</Text>
+                                    <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </KeyboardAvoidingView>
     );
 }
@@ -1307,5 +1368,100 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#92400E',
         lineHeight: 20,
+    },
+    successModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.55)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    successModalCard: {
+        width: '100%',
+        maxWidth: 360,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 28,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 18,
+        elevation: 12,
+    },
+    successModalHeader: {
+        paddingHorizontal: 24,
+        paddingTop: 26,
+        paddingBottom: 22,
+        alignItems: 'center',
+    },
+    successIconBadge: {
+        width: 76,
+        height: 76,
+        borderRadius: 38,
+        backgroundColor: 'rgba(255,255,255,0.22)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 14,
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.28)',
+    },
+    successModalEyebrow: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: 'rgba(255,255,255,0.85)',
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        marginBottom: 6,
+    },
+    successModalTitle: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#FFFFFF',
+        textAlign: 'center',
+    },
+    successModalBody: {
+        padding: 24,
+        alignItems: 'center',
+    },
+    successModalMessage: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: '#475569',
+        textAlign: 'center',
+        marginBottom: 18,
+    },
+    successResultPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#ECFDF5',
+        borderColor: '#A7F3D0',
+        borderWidth: 1,
+        borderRadius: 999,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        marginBottom: 22,
+    },
+    successResultPillText: {
+        marginLeft: 8,
+        fontSize: 14,
+        fontWeight: '700',
+        color: colors.primary,
+    },
+    successButtonWrap: {
+        width: '100%',
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    successButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        gap: 8,
+    },
+    successButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '700',
     },
 });
