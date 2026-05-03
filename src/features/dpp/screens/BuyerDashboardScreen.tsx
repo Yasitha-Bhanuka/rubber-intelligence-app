@@ -99,7 +99,8 @@ export default function BuyerDashboardScreen() {
     const [selectedQr, setSelectedQr] = useState<string | null>(null);
     const [documents, setDocuments] = useState<DppDocument[]>([]);
     const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [docsLoading, setDocsLoading] = useState(false);
+    const [otherLoading, setOtherLoading] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
     const [msgCount, setMsgCount] = useState(0);
     const [showAllSales, setShowAllSales] = useState(false);
@@ -146,49 +147,124 @@ export default function BuyerDashboardScreen() {
         return { completedCount, pendingInvoice, uniqueExporters };
     }, [transactions]);
 
-    /* ── Data fetch ─────────────────────── */
+    /* ── Timeout wrapper for slow API calls ── */
+    const withTimeout = <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
+        Promise.race([
+            promise,
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+            ),
+        ]);
+
+    const API_TIMEOUT = 15000; // 15 seconds
+
+    /* ── Data fetch (decoupled: documents load independently) ── */
     const loadData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [docs, trans, pending, unread] = await Promise.all([
-                getBuyerDocuments(),
-                getMyTransactions(),
-                getPendingAccessRequests().catch(() => [] as any[]),
-                getUnreadMessageCount().catch(() => 0),
-            ]);
-            setDocuments(docs);
-            setTransactions(trans);
-            setPendingCount(pending.length);
-            setMsgCount(unread);
+        const loadStart = Date.now();
+
+        // ──────────────────────────────────────────────
+        // 1. Load documents FIRST — renders immediately
+        // ──────────────────────────────────────────────
+        setDocsLoading(true);
+        const docsPromise = (async () => {
+            try {
+                console.time('[BuyerDashboard] getBuyerDocuments');
+                const docs = await withTimeout(getBuyerDocuments(), API_TIMEOUT, 'getBuyerDocuments');
+                console.timeEnd('[BuyerDashboard] getBuyerDocuments');
+                setDocuments(docs);
+            } catch (err: any) {
+                console.warn('[BuyerDashboard] getBuyerDocuments failed:', err?.message);
+                // Keep existing documents on failure so UI doesn't flash empty
+            } finally {
+                setDocsLoading(false);
+            }
+        })();
+
+        // ──────────────────────────────────────────────
+        // 2. Load other data in parallel (does NOT block documents)
+        // ──────────────────────────────────────────────
+        setOtherLoading(true);
+        const otherPromise = (async () => {
+            let trans: MarketplaceTransaction[] = [];
+            let pending: any[] = [];
+
+            // Transactions
+            try {
+                console.time('[BuyerDashboard] getMyTransactions');
+                trans = await withTimeout(getMyTransactions(), API_TIMEOUT, 'getMyTransactions');
+                console.timeEnd('[BuyerDashboard] getMyTransactions');
+                setTransactions(trans);
+            } catch (err: any) {
+                console.warn('[BuyerDashboard] getMyTransactions failed:', err?.message);
+            }
+
+            // Pending access requests
+            try {
+                console.time('[BuyerDashboard] getPendingAccessRequests');
+                pending = await withTimeout(getPendingAccessRequests(), API_TIMEOUT, 'getPendingAccessRequests');
+                console.timeEnd('[BuyerDashboard] getPendingAccessRequests');
+                setPendingCount(pending.length);
+            } catch (err: any) {
+                console.warn('[BuyerDashboard] getPendingAccessRequests failed:', err?.message);
+            }
+
+            // Unread messages
+            try {
+                console.time('[BuyerDashboard] getUnreadMessageCount');
+                const unread = await withTimeout(getUnreadMessageCount(), API_TIMEOUT, 'getUnreadMessageCount');
+                console.timeEnd('[BuyerDashboard] getUnreadMessageCount');
+                setMsgCount(unread);
+            } catch (err: any) {
+                console.warn('[BuyerDashboard] getUnreadMessageCount failed:', err?.message);
+            }
 
             /* ── Detect new purchase requests (PendingInvoice transactions) ── */
-            const NOTIF_KEY = 'buyer_notified_purchase_ids';
-            const raw = await AsyncStorage.getItem(NOTIF_KEY);
-            const notifiedIds: string[] = raw ? JSON.parse(raw) : [];
-            const newPurchases = trans.filter(
-                (t: MarketplaceTransaction) =>
-                    t.status === 'PendingInvoice' && !notifiedIds.includes(t.id)
-            );
-            if (newPurchases.length > 0) {
-                const updatedIds = [...notifiedIds, ...newPurchases.map((t: MarketplaceTransaction) => t.id)];
-                await AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(updatedIds));
-                showNextNotif(newPurchases);
+            if (trans.length > 0) {
+                try {
+                    const NOTIF_KEY = 'buyer_notified_purchase_ids';
+                    const raw = await AsyncStorage.getItem(NOTIF_KEY);
+                    const notifiedIds: string[] = raw ? JSON.parse(raw) : [];
+                    const newPurchases = trans.filter(
+                        (t: MarketplaceTransaction) =>
+                            t.status === 'PendingInvoice' && !notifiedIds.includes(t.id)
+                    );
+                    if (newPurchases.length > 0) {
+                        const updatedIds = [...notifiedIds, ...newPurchases.map((t: MarketplaceTransaction) => t.id)];
+                        await AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(updatedIds));
+                        showNextNotif(newPurchases);
+                    }
+                } catch (err: any) {
+                    console.warn('[BuyerDashboard] Purchase notification check failed:', err?.message);
+                }
             }
 
             /* ── Detect new exporter interest requests (REQUESTED lots) ── */
-            const POSTS_NOTIF_KEY = 'buyer_notified_requested_post_ids';
-            const rawPosts = await AsyncStorage.getItem(POSTS_NOTIF_KEY);
-            const notifiedPostIds: string[] = rawPosts ? JSON.parse(rawPosts) : [];
-            const newRequestedPosts = (pending as SellingPost[]).filter(p => !notifiedPostIds.includes(p.id));
-            if (newRequestedPosts.length > 0) {
-                const updatedPostIds = [...notifiedPostIds, ...newRequestedPosts.map(p => p.id)];
-                await AsyncStorage.setItem(POSTS_NOTIF_KEY, JSON.stringify(updatedPostIds));
-                showInterestNotif(newRequestedPosts);
+            if (pending.length > 0) {
+                try {
+                    const POSTS_NOTIF_KEY = 'buyer_notified_requested_post_ids';
+                    const rawPosts = await AsyncStorage.getItem(POSTS_NOTIF_KEY);
+                    const notifiedPostIds: string[] = rawPosts ? JSON.parse(rawPosts) : [];
+                    const newRequestedPosts = (pending as SellingPost[]).filter(p => !notifiedPostIds.includes(p.id));
+                    if (newRequestedPosts.length > 0) {
+                        const updatedPostIds = [...notifiedPostIds, ...newRequestedPosts.map(p => p.id)];
+                        await AsyncStorage.setItem(POSTS_NOTIF_KEY, JSON.stringify(updatedPostIds));
+                        showInterestNotif(newRequestedPosts);
+                    }
+                } catch (err: any) {
+                    console.warn('[BuyerDashboard] Interest notification check failed:', err?.message);
+                }
             }
-        } finally {
-            setLoading(false);
-        }
-    }, [showNextNotif]);
+
+            setOtherLoading(false);
+        })();
+
+        // Wait for both streams to finish (for pull-to-refresh indicator)
+        await Promise.all([docsPromise, otherPromise]);
+        console.log(`[BuyerDashboard] Full load completed in ${Date.now() - loadStart}ms`);
+    }, [showNextNotif, showInterestNotif]);
+
+    /* ── Derived refreshing state for pull-to-refresh ── */
+    const refreshing = docsLoading || otherLoading;
 
     const lastFetchRef = useRef(0);
     const CACHE_TTL = 30000;
@@ -207,7 +283,7 @@ export default function BuyerDashboardScreen() {
             const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
             if (result.canceled) return;
             const file = result.assets[0];
-            setLoading(true);
+            setOtherLoading(true);
             const response = await uploadInvoice(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
             loadData();
             // Navigate to ClassificationResultScreen with isInvoice=true to show invoice-specific UI
@@ -225,7 +301,7 @@ export default function BuyerDashboardScreen() {
                 'Failed to upload invoice.';
             Alert.alert('Invoice Upload Failed', msg);
         } finally {
-            setLoading(false);
+            setOtherLoading(false);
         }
     };
     /* ── QIR upload ─────────────────────── */
@@ -234,7 +310,7 @@ export default function BuyerDashboardScreen() {
             const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
             if (result.canceled) return;
             const file = result.assets[0];
-            setLoading(true);
+            setOtherLoading(true);
             const response = await uploadQir(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
             loadData();
             // Reuse ClassificationResultScreen — pass isInvoice:false so header shows "Quality Inspection Report"
@@ -252,7 +328,7 @@ export default function BuyerDashboardScreen() {
                                 'Failed to upload Quality Inspection Report.');
             Alert.alert('QIR Upload Failed', msg);
         } finally {
-            setLoading(false);
+            setOtherLoading(false);
         }
     };
     /* ── Helpers ─────────────────────────── */
@@ -381,7 +457,7 @@ export default function BuyerDashboardScreen() {
                 style={s.scroll}
                 contentContainerStyle={s.scrollContent}
                 showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={loading} onRefresh={loadData} tintColor={C.primary} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadData} tintColor={C.primary} />}
             >
                 {/* ═══ Stat Indicators ══════════════════════════ */}
                 <View style={s.statsRow}>
@@ -578,7 +654,7 @@ export default function BuyerDashboardScreen() {
                     )}
                 </View>
 
-                {loading && documents.length === 0 ? (
+                {docsLoading && documents.length === 0 ? (
                     <View style={s.emptyWrap}>
                         <ActivityIndicator size="large" color={C.primary} />
                     </View>
