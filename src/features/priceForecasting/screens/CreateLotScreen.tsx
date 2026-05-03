@@ -20,8 +20,20 @@ export const CreateLotScreen = () => {
     });
 
     const handleMint = async () => {
-        if (!formData.weight || !formData.location) {
-            Alert.alert("Error", "Please fill in all mandatory fields");
+        // Validation logic
+        if (!formData.weight) {
+            Alert.alert("Missing Input", "Please enter the weight of the rubber lot.");
+            return;
+        }
+
+        const weightNum = parseFloat(formData.weight);
+        if (isNaN(weightNum) || weightNum <= 0) {
+            Alert.alert("Invalid Weight", "Please enter a valid weight in kilograms.");
+            return;
+        }
+
+        if (!formData.location || formData.location.trim().length < 3) {
+            Alert.alert("Location Required", "Please enter a valid production location (e.g., Kalutara).");
             return;
         }
 

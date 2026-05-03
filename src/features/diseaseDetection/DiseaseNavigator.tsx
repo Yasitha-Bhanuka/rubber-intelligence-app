@@ -1,16 +1,18 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { DiseaseCameraScreen } from './screens/DiseaseCameraScreen';
-import { DiseaseResultScreen } from './screens/DiseaseResultScreen';
-import { DiseaseHistoryScreen } from './screens/DiseaseHistoryScreen';
-import { DiseaseMapScreen } from './screens/DiseaseMapScreen';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../shared/styles/colors';
+import { withLazy } from '../../shared/components/LazyScreen';
+
+// Lazy-loaded screens — only parsed when the user navigates to them
+const DiseaseCameraScreen = withLazy(() => import('./screens/DiseaseCameraScreen').then(m => ({ default: m.DiseaseCameraScreen })));
+const DiseaseResultScreen = withLazy(() => import('./screens/DiseaseResultScreen').then(m => ({ default: m.DiseaseResultScreen })));
+const DiseaseHistoryScreen = withLazy(() => import('./screens/DiseaseHistoryScreen').then(m => ({ default: m.DiseaseHistoryScreen })));
+const DiseaseMapScreen = withLazy(() => import('./screens/DiseaseMapScreen').then(m => ({ default: m.DiseaseMapScreen })));
 
 const Stack = createNativeStackNavigator();
 
-// Simple Selection Screen
+// Simple Selection Screen (inline — eagerly loaded as initial screen)
 const DiseaseHomeScreen = ({ navigation }: any) => {
     return (
         <View style={styles.container}>
@@ -86,4 +88,3 @@ const styles = StyleSheet.create({
     iconBox: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     cardText: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333' },
 });
-

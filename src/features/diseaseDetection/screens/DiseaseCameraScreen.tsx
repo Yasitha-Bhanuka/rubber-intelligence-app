@@ -12,7 +12,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 export const DiseaseCameraScreen = ({ navigation, route }: any) => {
-    const { user } = useStore();
+    const user = useStore(state => state.user);
     const [permission, requestPermission] = useCameraPermissions();
     const [image, setImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -141,7 +141,13 @@ export const DiseaseCameraScreen = ({ navigation, route }: any) => {
                     <View style={[styles.overlay, StyleSheet.absoluteFill]}>
                         <View style={styles.topBar}>
                             <TouchableOpacity
-                                onPress={() => navigation.goBack()}
+                                onPress={() => {
+                                    if (navigation.canGoBack()) {
+                                        navigation.goBack();
+                                    } else {
+                                        navigation.navigate('DiseaseHome');
+                                    }
+                                }}
                                 style={styles.backBtn}
                             >
                                 <Ionicons name="arrow-back" size={24} color="#FFF" />
