@@ -6,15 +6,18 @@ import {
     ScrollView,
     TouchableOpacity,
     TextInput,
-    Alert
+    Alert,
+    Dimensions
 } from 'react-native';
+
+import { LineChart } from 'react-native-chart-kit';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../store';
 
-const ESP32_IP = "http://10.189.36.161";
+const ESP32_IP = "http://192.168.122.161";
 
 export const EnvironmentAlertDashboard = () => {
     const { user } = useStore();
@@ -23,10 +26,24 @@ export const EnvironmentAlertDashboard = () => {
     const [soilMoisture, setSoilMoisture] = useState('');
     const [humidity, setHumidity] = useState('');
     const [temperature, setTemperature] = useState('');
-    const [resultMessage, setResultMessage] = useState(
-        'Stress analysis will appear here'
-    );
+    const [alertStatus, setAlertStatus] = useState('Normal');
+    const [advice, setAdvice] = useState('Plantation conditions are within optimal range.');
+    const [viewMode, setViewMode] = useState<'live' | 'history'>('live');
     const failCount = useRef(0);
+    const lastAlertRef = useRef('Normal');
+
+    // Mock Historical Data
+    const historyData = {
+        labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        datasets: [
+            {
+                data: [45, 42, 38, 20, 15, 30, 48],
+                color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`, // Green
+                strokeWidth: 2
+            }
+        ],
+        legend: ["Soil Moisture (%)"]
+    };
 
     // ✅ Fetch sensor data from ESP32 every 3 seconds ONLY when screen is focused
     useFocusEffect(
@@ -43,10 +60,19 @@ export const EnvironmentAlertDashboard = () => {
                         setTemperature(String(data.temperature));
                         setHumidity(String(data.humidity));
                         setSoilMoisture(String(data.soilMoisture));
+                        setAlertStatus(data.alert);
+                        setAdvice(data.advice);
 
-                        setResultMessage(
-                            `Alert: ${data.alert}\nAdvice: ${data.advice}`
-                        );
+                        // Professional Real-time Notification logic
+                        if (data.alert !== 'Normal' && data.alert !== lastAlertRef.current) {
+                            Alert.alert(
+                                `🚨 ENVIRONMENT ALERT: ${data.alert}`,
+                                `Recommended Action: ${data.advice}`,
+                                [{ text: "I'm on it!", onPress: () => console.log("Alert acknowledged") }],
+                                { cancelable: false }
+                            );
+                        }
+                        lastAlertRef.current = data.alert;
                     })
                     .catch(err => {
                         clearTimeout(timeoutId);
@@ -56,7 +82,8 @@ export const EnvironmentAlertDashboard = () => {
                             setTemperature("");
                             setHumidity("");
                             setSoilMoisture("");
-                            setResultMessage("Cannot connect to ESP32");
+                            setAlertStatus("Offline");
+                            setAdvice("Cannot connect to ESP32 device.");
                         }
                     });
             }, 3000);
@@ -101,57 +128,121 @@ export const EnvironmentAlertDashboard = () => {
                         <Ionicons name="leaf" size={24} color="#FFF" />
                     </View>
                 </View>
+
+                {/* View Mode Toggle */}
+                <View style={styles.toggleContainer}>
+                    <TouchableOpacity
+                        style={[styles.toggleBtn, viewMode === 'live' && styles.toggleBtnActive]}
+                        onPress={() => setViewMode('live')}
+                    >
+                        <Text style={[styles.toggleText, viewMode === 'live' && styles.toggleTextActive]}>Live Data</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.toggleBtn, viewMode === 'history' && styles.toggleBtnActive]}
+                        onPress={() => setViewMode('history')}
+                    >
+                        <Text style={[styles.toggleText, viewMode === 'history' && styles.toggleTextActive]}>7-Day History</Text>
+                    </TouchableOpacity>
+                </View>
             </LinearGradient>
 
-            {/* Input Section */}
+            {/* Input / Data Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
-                    Real Time Sensor Measurements
+                    {viewMode === 'live' ? 'Real Time Sensor Measurements' : 'Historical Trends'}
                 </Text>
 
                 <View style={styles.inputCard}>
-                    {isConnected ? (
-                        <View style={styles.readingsContainer}>
-                            <View style={styles.readingRow}>
-                                <Text style={styles.readingLabel}>Soil Moisture</Text>
-                                <Text style={styles.readingValue}>{soilMoisture}%</Text>
+                    {viewMode === 'live' ? (
+                        isConnected ? (
+                            <View style={styles.readingsContainer}>
+                                <View style={styles.readingRow}>
+                                    <Text style={styles.readingLabel}>Soil Moisture</Text>
+                                    <Text style={styles.readingValue}>{soilMoisture}%</Text>
+                                </View>
+                                <View style={styles.readingRow}>
+                                    <Text style={styles.readingLabel}>Humidity</Text>
+                                    <Text style={styles.readingValue}>{humidity}%</Text>
+                                </View>
+                                <View style={styles.readingRow}>
+                                    <Text style={styles.readingLabel}>Temperature</Text>
+                                    <Text style={styles.readingValue}>{temperature}°C</Text>
+                                </View>
                             </View>
-                            <View style={styles.readingRow}>
-                                <Text style={styles.readingLabel}>Humidity</Text>
-                                <Text style={styles.readingValue}>{humidity}%</Text>
+                        ) : (
+                            <View style={styles.errorContainer}>
+                                <Ionicons name="warning-outline" size={48} color="#D32F2F" />
+                                <Text style={styles.errorText}>ESP32 Device Offline</Text>
+                                <Text style={styles.errorSubText}>Please check the connection</Text>
                             </View>
-                            <View style={styles.readingRow}>
-                                <Text style={styles.readingLabel}>Temperature</Text>
-                                <Text style={styles.readingValue}>{temperature}°C</Text>
-                            </View>
-                        </View>
+                        )
                     ) : (
-                        <View style={styles.errorContainer}>
-                            <Ionicons name="warning-outline" size={48} color="#D32F2F" />
-                            <Text style={styles.errorText}>ESP32 Device Offline</Text>
-                            <Text style={styles.errorSubText}>Please check the connection</Text>
+                        <View style={styles.chartContainer}>
+                            <LineChart
+                                data={historyData}
+                                width={Dimensions.get("window").width - 80}
+                                height={220}
+                                chartConfig={{
+                                    backgroundColor: "#FFF",
+                                    backgroundGradientFrom: "#FFF",
+                                    backgroundGradientTo: "#FFF",
+                                    decimalPlaces: 0,
+                                    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                    style: {
+                                        borderRadius: 16
+                                    },
+                                    propsForDots: {
+                                        r: "4",
+                                        strokeWidth: "2",
+                                        stroke: "#2E7D32"
+                                    }
+                                }}
+                                bezier
+                                style={{
+                                    marginVertical: 8,
+                                    borderRadius: 16
+                                }}
+                            />
                         </View>
                     )}
                 </View>
             </View>
 
-            {/* Result Section */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Analysis Result</Text>
+            {/* Professional Alert Section */}
+            {viewMode === 'live' && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Status & Recommended Action</Text>
 
-                <View style={styles.resultCard}>
-                    <Ionicons
-                        name={resultMessage.includes("Cannot connect") ? "alert-circle" : "information-circle"}
-                        size={32}
-                        color={resultMessage.includes("Cannot connect") ? "#D32F2F" : "#1565C0"}
-                        style={{ marginBottom: 10 }}
-                    />
+                    <View style={[
+                        styles.alertCard,
+                        alertStatus === 'Normal' ? styles.alertSuccess :
+                            alertStatus === 'Offline' ? styles.alertOffline : styles.alertWarning
+                    ]}>
+                        <View style={styles.alertHeader}>
+                            <Ionicons
+                                name={
+                                    alertStatus === 'Normal' ? "checkmark-circle" :
+                                        alertStatus === 'Offline' ? "cloud-offline" : "warning"
+                                }
+                                size={28}
+                                color="#FFF"
+                            />
+                            <Text style={styles.alertTitle}>
+                                {alertStatus.toUpperCase()}
+                            </Text>
+                        </View>
 
-                    <Text style={[styles.resultMessage, resultMessage.includes("Cannot connect") && { color: "#D32F2F" }]}>
-                        {resultMessage}
-                    </Text>
+                        <Text style={styles.adviceText}>{advice}</Text>
+
+                        {alertStatus !== 'Normal' && alertStatus !== 'Offline' && (
+                            <TouchableOpacity style={styles.actionButton}>
+                                <Text style={styles.actionButtonText}>ACKNOWLEDGE ALERT</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
-            </View>
+            )}
 
             <View style={{ height: 40 }} />
         </ScrollView>
@@ -192,6 +283,29 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.2)',
         justifyContent: 'center',
         alignItems: 'center'
+    },
+    toggleContainer: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 25,
+        marginTop: 20,
+        padding: 4
+    },
+    toggleBtn: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center',
+        borderRadius: 20
+    },
+    toggleBtnActive: {
+        backgroundColor: '#FFF'
+    },
+    toggleText: {
+        color: '#FFF',
+        fontWeight: '600'
+    },
+    toggleTextActive: {
+        color: '#2E7D32'
     },
     section: {
         padding: 20,
@@ -247,22 +361,59 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 5
     },
-    resultCard: {
-        backgroundColor: '#E3F2FD',
-        borderRadius: 20,
-        padding: 20,
+    chartContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 120,
-        borderWidth: 1,
-        borderColor: '#BBDEFB'
+        paddingVertical: 10
     },
-    resultMessage: {
+    alertCard: {
+        borderRadius: 20,
+        padding: 20,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    alertSuccess: {
+        backgroundColor: '#2E7D32',
+    },
+    alertWarning: {
+        backgroundColor: '#E64A19',
+    },
+    alertOffline: {
+        backgroundColor: '#607D8B',
+    },
+    alertHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10
+    },
+    alertTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#FFF',
+        marginLeft: 10
+    },
+    adviceText: {
         fontSize: 16,
-        color: '#1565C0',
-        fontWeight: '600',
-        textAlign: 'center',
-        lineHeight: 24
+        color: 'rgba(255,255,255,0.9)',
+        lineHeight: 24,
+        fontWeight: '500'
+    },
+    actionButton: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingVertical: 10,
+        borderRadius: 10,
+        marginTop: 15,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.5)'
+    },
+    actionButtonText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 14
     },
     accessDeniedContainer: {
         flex: 1,
