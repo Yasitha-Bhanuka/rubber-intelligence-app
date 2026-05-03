@@ -9,7 +9,6 @@ import {
 import React from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-  Ionicons,
   MaterialCommunityIcons,
   MaterialIcons,
 } from "@expo/vector-icons";

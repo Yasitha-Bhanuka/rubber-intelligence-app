@@ -15,7 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../../shared/styles/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const ESP32_IP = "http://10.189.36.34"; // Replace with your ESP32 IP
+const ESP32_IP = "http://192.168.122.34"; // Replace with your ESP32 IP
+
 
 interface StorageDetails {
     suitability: string;
@@ -133,8 +134,9 @@ export default function StorageSelectionScreen() {
     }, [prediction]);
 
     const validateInputs = () => {
-        if (!humidity.trim() || !airTemperature.trim()) {
-            Alert.alert('Missing Information', 'Please enter humidity and air temperature values');
+        if (!humidity.trim() || !temperature.trim() || !airTemperature.trim()) {
+            Alert.alert('Missing Information', ' humidity, temperature, and air temperature values');
+
             return false;
         }
 
@@ -318,10 +320,9 @@ export default function StorageSelectionScreen() {
             });
         }
 
-        // ==================== HIGH TEMPERATURE CONDITIONS (Above 30°C Air Temperature) ====================
+        // High-Temperature Storage
+        if (temp > 33 && temp <= 38) {
 
-        // Hot Climate Storage (30-35°C Air Temperature)
-        if (airTemp > 30 && airTemp <= 35) {
             locations.push({
                 name: 'Hot Climate Storage Zone',
                 type: 'High-Temperature Storage',
@@ -837,6 +838,8 @@ export default function StorageSelectionScreen() {
                             </View>
 
                             <View style={styles.liveDataGrid}>
+                              
+=======
                                 {/* Humidity Display */}
                                 <View style={styles.liveDataItem}>
                                     <MaterialCommunityIcons name="water-percent" size={24} color={colors.primary} />
@@ -864,7 +867,7 @@ export default function StorageSelectionScreen() {
                         <View style={styles.errorContainer}>
                             <MaterialCommunityIcons name="wifi-off" size={24} color="#EF4444" />
                             <Text style={styles.errorText}>
-                                Cannot connect to ESP32. Please enter values manually.
+                               Unable to connect to the ESP32. Please verify that the device is properly connected.
                             </Text>
                             <TouchableOpacity style={styles.retryButton} onPress={fetchLiveData}>
                                 <Text style={styles.retryButtonText}>Retry</Text>
@@ -886,6 +889,8 @@ export default function StorageSelectionScreen() {
                     <Text style={styles.sectionSubtitle}>Enter humidity and air temperature for rubber latex storage analysis</Text>
 
                     <View style={styles.inputWrapper}>
+
+                      {/* Air Humidity Input Field */}   
                         <View style={styles.inputContainer}>
                             <View style={styles.inputIconContainer}>
                                 <MaterialCommunityIcons name="water-percent" size={24} color={colors.primary} />
@@ -900,7 +905,10 @@ export default function StorageSelectionScreen() {
                                 maxLength={5}
                                 editable={false}
                             />
+                        </View>                 
+=======
                         </View>
+
 
                         {/* Air Temperature Input Field */}
                         <View style={styles.inputContainer}>
