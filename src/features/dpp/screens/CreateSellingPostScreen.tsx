@@ -5,9 +5,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { getBuyerDocuments } from '../services/dppService';
+import * as Location from 'expo-location';
 import { createSellingPost } from '../services/marketplaceService';
-import { DppDocument } from '../types';
 
 const GREEN = '#2E7D32';
 const GREEN_LIGHT = '#4CAF50';
@@ -22,20 +21,49 @@ export default function CreateSellingPostScreen() {
     const [quantity, setQuantity] = useState('');
     const [price, setPrice] = useState('');
     const [location, setLocation] = useState('');
-    const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-
-    const [myDocs, setMyDocs] = useState<DppDocument[]>([]);
+    const [locationLoading, setLocationLoading] = useState(false);
 
     const GRADE_OPTIONS = ['RSS1', 'RSS2', 'RSS3', 'RSS4', 'RSS5'];
     const [showGradePicker, setShowGradePicker] = useState(false);
 
-    useEffect(() => {
-        loadDocs();
-    }, []);
-
-    const loadDocs = async () => {
-        const docs = await getBuyerDocuments();
-        setMyDocs(docs);
+    const fetchGPSLocation = async () => {
+        setLocationLoading(true);
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert(
+                    'Permission Denied',
+                    'Location access is required to auto-fill your dispatch address. Please enable it in settings.'
+                );
+                return;
+            }
+            const coords = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.High,
+            });
+            const [place] = await Location.reverseGeocodeAsync({
+                latitude: coords.coords.latitude,
+                longitude: coords.coords.longitude,
+            });
+            if (place) {
+                const parts = [
+                    place.name,
+                    place.street,
+                    place.district,
+                    place.city,
+                    place.region,
+                    place.country,
+                ].filter(Boolean);
+                setLocation(parts.join(', '));
+            } else {
+                setLocation(
+                    `${coords.coords.latitude.toFixed(6)}, ${coords.coords.longitude.toFixed(6)}`
+                );
+            }
+        } catch {
+            Alert.alert('GPS Error', 'Could not retrieve your location. Please try again or enter manually.');
+        } finally {
+            setLocationLoading(false);
+        }
     };
 
     const handleSubmit = async () => {
@@ -50,8 +78,7 @@ export default function CreateSellingPostScreen() {
                 grade,
                 quantityKg: parseFloat(quantity),
                 pricePerKg: parseFloat(price),
-                location,
-                dppDocumentId: selectedDocId || undefined
+                location
             });
             Alert.alert('Success', 'Selling Post Created!');
             navigation.goBack();
@@ -138,68 +165,50 @@ export default function CreateSellingPostScreen() {
                     </View>
 
                     <Text style={styles.label}>Dispatched Address</Text>
-                    <View style={[styles.inputWrap, { alignItems: 'flex-start', paddingTop: 14 }]}>
+
+                    {/* GPS Auto-Fill Button */}
+                    <TouchableOpacity
+                        style={[styles.gpsBtn, locationLoading && { opacity: 0.7 }]}
+                        onPress={fetchGPSLocation}
+                        disabled={locationLoading}
+                        activeOpacity={0.8}
+                    >
+                        {locationLoading ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Ionicons name="locate" size={18} color="#fff" />
+                        )}
+                        <Text style={styles.gpsBtnText}>
+                            {locationLoading ? 'Getting Location...' : 'Use My Current GPS Location'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Address Display / Manual Override */}
+                    <View style={[styles.inputWrap, { alignItems: 'flex-start', paddingTop: 14, marginTop: 10 }]}>
                         <Ionicons name="navigate-outline" size={18} color={GREEN_LIGHT} style={{ marginTop: 2 }} />
                         <TextInput
                             style={[styles.input, { height: 72, textAlignVertical: 'top' }]}
-                            placeholder="e.g. 123 Rubber Estate, Kalutara"
+                            placeholder="Auto-filled from GPS or enter manually..."
                             placeholderTextColor="#bbb"
                             value={location}
                             onChangeText={setLocation}
                             multiline
                             numberOfLines={3}
                         />
-                    </View>
-                </View>
-
-                {/* Section: DPP Document */}
-                <View style={styles.sectionCard}>
-                    <View style={styles.sectionHeader}>
-                        <Ionicons name="shield-checkmark" size={18} color={GREEN} />
-                        <Text style={styles.sectionTitle}>Attach Proof (DPP)</Text>
-                    </View>
-
-                    <Text style={styles.helperText}>
-                        Select the Certified Digital Product Passport that corresponds to this rubber lot.
-                        This proves the origin and quality to the buyer.
-                    </Text>
-
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.docSelector}>
-                        {myDocs.map((doc) => (
-                            <TouchableOpacity
-                                key={doc.id}
-                                style={[styles.docChip, selectedDocId === doc.id && styles.docChipSelected]}
-                                onPress={() => setSelectedDocId(selectedDocId === doc.id ? null : doc.id)}
-                            >
-                                <Ionicons
-                                    name="shield-checkmark"
-                                    size={16}
-                                    color={selectedDocId === doc.id ? '#fff' : GREEN_LIGHT}
-                                />
-                                <View style={{ flex: 1 }}>
-                                    <Text
-                                        style={[styles.docText, selectedDocId === doc.id && { color: '#fff' }]}
-                                        numberOfLines={1}
-                                    >
-                                        {doc.originalFileName}
-                                    </Text>
-                                    <Text style={[styles.docDate, selectedDocId === doc.id && { color: 'rgba(255,255,255,0.8)' }]}>
-                                        {new Date(doc.uploadedAt).toLocaleDateString()}
-                                    </Text>
-                                </View>
+                        {location.length > 0 && (
+                            <TouchableOpacity onPress={() => setLocation('')} style={{ paddingTop: 12 }}>
+                                <Ionicons name="close-circle" size={20} color="#ccc" />
                             </TouchableOpacity>
-                        ))}
-                        {myDocs.length === 0 && (
-                            <View style={styles.noDocs}>
-                                <Ionicons name="document-text-outline" size={24} color="#ccc" />
-                                <Text style={styles.noDocsText}>No certified documents found.</Text>
-                                <TouchableOpacity onPress={() => navigation.navigate('DocumentUpload')}>
-                                    <Text style={styles.uploadLink}>Upload & Certify a Document</Text>
-                                </TouchableOpacity>
-                            </View>
                         )}
-                    </ScrollView>
+                    </View>
+                    {location.length > 0 && (
+                        <View style={styles.gpsConfirmedRow}>
+                            <Ionicons name="checkmark-circle" size={14} color={GREEN_LIGHT} />
+                            <Text style={styles.gpsConfirmedText}>Location captured</Text>
+                        </View>
+                    )}
                 </View>
+
 
                 {/* Submit Button */}
                 <TouchableOpacity
@@ -381,6 +390,41 @@ const styles = StyleSheet.create({
     pickerValue: { fontSize: 15, color: '#222' },
     pickerPlaceholder: { fontSize: 15, color: '#bbb' },
 
+    // GPS Button
+    gpsBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: GREEN,
+        paddingVertical: 13,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        justifyContent: 'center',
+        shadowColor: GREEN_DARK,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 5,
+        elevation: 4,
+    },
+    gpsBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 14,
+        letterSpacing: 0.2,
+    },
+    gpsConfirmedRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        marginTop: 6,
+        marginLeft: 4,
+    },
+    gpsConfirmedText: {
+        fontSize: 11,
+        color: GREEN_LIGHT,
+        fontWeight: '600',
+    },
+
     // Helper
     helperText: {
         fontSize: 12,
@@ -413,38 +457,6 @@ const styles = StyleSheet.create({
         fontSize: 17,
         letterSpacing: 0.3,
     },
-
-    // Doc Selector
-    docSelector: {
-        flexDirection: 'row',
-        paddingBottom: 4,
-    },
-    docChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        backgroundColor: GREEN_PALE,
-        padding: 12,
-        borderRadius: 14,
-        borderWidth: 1.5,
-        borderColor: '#C8E6C9',
-        marginRight: 10,
-        maxWidth: 200,
-    },
-    docChipSelected: {
-        backgroundColor: GREEN,
-        borderColor: GREEN,
-    },
-    docText: { fontSize: 13, fontWeight: '600', color: '#333' },
-    docDate: { fontSize: 10, color: '#777', marginTop: 2 },
-
-    noDocs: {
-        alignItems: 'center',
-        padding: 16,
-        gap: 6,
-    },
-    noDocsText: { color: '#999', fontStyle: 'italic', fontSize: 13 },
-    uploadLink: { color: GREEN, fontWeight: 'bold', fontSize: 13 },
 
     // Modal
     modalOverlay: {

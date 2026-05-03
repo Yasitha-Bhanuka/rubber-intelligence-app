@@ -9,7 +9,8 @@ interface NotificationBellProps {
 }
 
 export const NotificationBell = ({ onPress }: NotificationBellProps) => {
-    const { unreadCount, fetchUnreadCount } = useStore();
+    const unreadCount = useStore(s => s.unreadCount);
+    const fetchUnreadCount = useStore(s => s.fetchUnreadCount);
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {

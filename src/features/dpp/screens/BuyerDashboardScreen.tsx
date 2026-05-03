@@ -1,16 +1,18 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    Modal, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform
+    Modal, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Animated
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import { getBuyerDocuments, getPendingAccessRequests } from '../services/dppService';
-import { getMyTransactions, uploadInvoice } from '../services/marketplaceService';
-import { DppDocument, MarketplaceTransaction } from '../types';
+import { getMyTransactions, uploadInvoice, uploadQir } from '../services/marketplaceService';
+import { getUnreadMessageCount } from '../services/messagesService';
+import { DppDocument, MarketplaceTransaction, SellingPost } from '../types';
 import { useStore } from '../../../store';
 
 /* ─── Colors ─────────────────────────────────────────────────────── */
@@ -99,8 +101,42 @@ export default function BuyerDashboardScreen() {
     const [transactions, setTransactions] = useState<MarketplaceTransaction[]>([]);
     const [loading, setLoading] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
+    const [msgCount, setMsgCount] = useState(0);
     const [showAllSales, setShowAllSales] = useState(false);
     const [showAllDocs, setShowAllDocs] = useState(false);
+    const [purchaseNotifs, setPurchaseNotifs] = useState<MarketplaceTransaction[]>([]);
+    const notifAnim = useRef(new Animated.Value(0)).current;
+
+    /* ── Show / dismiss purchase notification ── */
+    const showNextNotif = useCallback((queue: MarketplaceTransaction[]) => {
+        if (queue.length === 0) return;
+        setPurchaseNotifs(queue);
+        notifAnim.setValue(0);
+        Animated.spring(notifAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }).start();
+    }, [notifAnim]);
+
+    const dismissNotif = useCallback(() => {
+        Animated.timing(notifAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
+            setPurchaseNotifs([])
+        );
+    }, [notifAnim]);
+
+    /* ── Show / dismiss exporter interest notification ── */
+    const [interestNotifs, setInterestNotifs] = useState<SellingPost[]>([]);
+    const interestNotifAnim = useRef(new Animated.Value(0)).current;
+
+    const showInterestNotif = useCallback((posts: SellingPost[]) => {
+        if (posts.length === 0) return;
+        setInterestNotifs(posts);
+        interestNotifAnim.setValue(0);
+        Animated.spring(interestNotifAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }).start();
+    }, [interestNotifAnim]);
+
+    const dismissInterestNotif = useCallback(() => {
+        Animated.timing(interestNotifAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
+            setInterestNotifs([])
+        );
+    }, [interestNotifAnim]);
 
     /* ── Derived stats ──────────────────── */
     const stats = useMemo(() => {
@@ -114,18 +150,45 @@ export default function BuyerDashboardScreen() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [docs, trans, pending] = await Promise.all([
+            const [docs, trans, pending, unread] = await Promise.all([
                 getBuyerDocuments(),
                 getMyTransactions(),
                 getPendingAccessRequests().catch(() => [] as any[]),
+                getUnreadMessageCount().catch(() => 0),
             ]);
             setDocuments(docs);
             setTransactions(trans);
             setPendingCount(pending.length);
+            setMsgCount(unread);
+
+            /* ── Detect new purchase requests (PendingInvoice transactions) ── */
+            const NOTIF_KEY = 'buyer_notified_purchase_ids';
+            const raw = await AsyncStorage.getItem(NOTIF_KEY);
+            const notifiedIds: string[] = raw ? JSON.parse(raw) : [];
+            const newPurchases = trans.filter(
+                (t: MarketplaceTransaction) =>
+                    t.status === 'PendingInvoice' && !notifiedIds.includes(t.id)
+            );
+            if (newPurchases.length > 0) {
+                const updatedIds = [...notifiedIds, ...newPurchases.map((t: MarketplaceTransaction) => t.id)];
+                await AsyncStorage.setItem(NOTIF_KEY, JSON.stringify(updatedIds));
+                showNextNotif(newPurchases);
+            }
+
+            /* ── Detect new exporter interest requests (REQUESTED lots) ── */
+            const POSTS_NOTIF_KEY = 'buyer_notified_requested_post_ids';
+            const rawPosts = await AsyncStorage.getItem(POSTS_NOTIF_KEY);
+            const notifiedPostIds: string[] = rawPosts ? JSON.parse(rawPosts) : [];
+            const newRequestedPosts = (pending as SellingPost[]).filter(p => !notifiedPostIds.includes(p.id));
+            if (newRequestedPosts.length > 0) {
+                const updatedPostIds = [...notifiedPostIds, ...newRequestedPosts.map(p => p.id)];
+                await AsyncStorage.setItem(POSTS_NOTIF_KEY, JSON.stringify(updatedPostIds));
+                showInterestNotif(newRequestedPosts);
+            }
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [showNextNotif]);
 
     const lastFetchRef = useRef(0);
     const CACHE_TTL = 30000;
@@ -149,20 +212,61 @@ export default function BuyerDashboardScreen() {
             loadData();
             // Navigate to ClassificationResultScreen with isInvoice=true to show invoice-specific UI
             navigation.navigate('ClassificationResult', { result: response, isInvoice: true });
-        } catch {
-            Alert.alert('Error', 'Failed to upload invoice');
+        } catch (error: any) {
+            const msg =
+                error?.response?.data?.error ||
+                error?.response?.data?.message ||
+                (error?.response?.status === 429 ? 'Gemini API quota exceeded. Please try again later.' : null) ||
+                (error?.response?.status === 403 ? 'Access denied. This transaction does not belong to your account.' : null) ||
+                (error?.response?.status === 404 ? 'Transaction not found.' : null) ||
+                (error?.code === 'ECONNABORTED' ? 'Request timed out. The server is processing — please retry in a moment.' : null) ||
+                (!error?.response ? 'Network error — check your connection and ensure the server is running.' : null) ||
+                error?.message ||
+                'Failed to upload invoice.';
+            Alert.alert('Invoice Upload Failed', msg);
         } finally {
             setLoading(false);
         }
     };
-
+    /* ── QIR upload ─────────────────────── */
+    const handleUploadQir = async (transactionId: string) => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+            if (result.canceled) return;
+            const file = result.assets[0];
+            setLoading(true);
+            const response = await uploadQir(transactionId, { uri: file.uri, name: file.name, mimeType: file.mimeType });
+            loadData();
+            // Reuse ClassificationResultScreen — pass isInvoice:false so header shows "Quality Inspection Report"
+            navigation.navigate('ClassificationResult', { result: response, isInvoice: false, isQir: true });
+        } catch (error: any) {
+            const status = error?.response?.status;
+            const apiMsg = error?.response?.data?.error as string | undefined;
+            const msg =
+                apiMsg ||
+                (status === 503 ? 'Gemini AI is temporarily unavailable due to high demand. Please try again in a few minutes.' :
+                    status === 429 ? 'Gemini AI is rate-limited. Please wait a moment and try again.' :
+                        status === 500 ? 'Server error during OCR processing. Please try again.' :
+                            !error?.response ? 'Network error — check your connection and ensure the server is running.' :
+                                error?.message ||
+                                'Failed to upload Quality Inspection Report.');
+            Alert.alert('QIR Upload Failed', msg);
+        } finally {
+            setLoading(false);
+        }
+    };
     /* ── Helpers ─────────────────────────── */
     const statusColor = (status: string) =>
-        status === 'Completed' ? C.green : status === 'InvoiceUploaded' ? C.blue : C.orange;
+        status === 'Completed' ? C.green
+            : status === 'QirUploaded' ? C.accent
+                : status === 'InvoiceUploaded' ? C.blue
+                    : C.orange;
 
     const statusLabel = (status: string) =>
         status === 'Completed' ? 'Payment Completed'
-            : status === 'PendingInvoice' ? 'Pending Invoice' : 'Invoice Uploaded';
+            : status === 'QirUploaded' ? 'QIR Uploaded'
+                : status === 'PendingInvoice' ? 'Pending Invoice'
+                    : 'Invoice Uploaded';
 
     const getInitials = (name?: string) => {
         if (!name) return 'B';
@@ -238,14 +342,14 @@ export default function BuyerDashboardScreen() {
                     >
                         <View style={s.notifInner}>
                             <Ionicons
-                                name={pendingCount > 0 ? 'notifications' : 'notifications-outline'}
+                                name={(pendingCount + msgCount) > 0 ? 'notifications' : 'notifications-outline'}
                                 size={24}
                                 color="#fff"
                             />
-                            {pendingCount > 0 && (
+                            {(pendingCount + msgCount) > 0 && (
                                 <View style={s.notifBadge}>
                                     <Text style={s.notifBadgeText}>
-                                        {pendingCount > 9 ? '9+' : pendingCount}
+                                        {(pendingCount + msgCount) > 9 ? '9+' : (pendingCount + msgCount)}
                                     </Text>
                                 </View>
                             )}
@@ -391,6 +495,28 @@ export default function BuyerDashboardScreen() {
                                         </TouchableOpacity>
                                     )}
 
+                                    {/* Step 2 — upload QIR after invoice */}
+                                    {t.status === 'InvoiceUploaded' && (
+                                        <TouchableOpacity
+                                            style={[s.txBtn, { backgroundColor: C.primary }]}
+                                            onPress={() => handleUploadQir(t.id)}
+                                        >
+                                            <Ionicons name="clipboard" size={14} color="#FFF" />
+                                            <Text style={s.txBtnText}>Upload QIR</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {/* View QIR extracted fields once uploaded */}
+                                    {(t.status === 'QirUploaded' || t.status === 'Completed') && t.qirFields && (
+                                        <TouchableOpacity
+                                            style={[s.txBtn, { backgroundColor: C.accent }]}
+                                            onPress={() => navigation.navigate('QirExtractedFields', { transactionId: t.id })}
+                                        >
+                                            <Ionicons name="analytics" size={14} color="#FFF" />
+                                            <Text style={s.txBtnText}>View QIR</Text>
+                                        </TouchableOpacity>
+                                    )}
+
                                     {!t.dppDocumentId && (
                                         <TouchableOpacity
                                             style={[s.txBtn, { backgroundColor: C.primary }]}
@@ -419,6 +545,15 @@ export default function BuyerDashboardScreen() {
                                     >
                                         <Ionicons name="receipt-outline" size={14} color="#FFF" />
                                         <Text style={s.txBtnText}>Receipt</Text>
+                                    </TouchableOpacity>
+
+                                    {/* ── DOWNLOAD DPP QR SCAN TAG ── */}
+                                    <TouchableOpacity
+                                        style={[s.txBtn, { backgroundColor: '#1C1C1E' }]}
+                                        onPress={() => navigation.navigate('DppPassport', { dppId: t.id })}
+                                    >
+                                        <Ionicons name="download-outline" size={14} color="#FFF" />
+                                        <Text style={s.txBtnText}>Download QR</Text>
                                     </TouchableOpacity>
                                 </View>
                             </SectionCard>
@@ -524,27 +659,26 @@ export default function BuyerDashboardScreen() {
                     <Divider />
                     <StepRow
                         step="2"
-                        icon="document-text-outline"
-                        iconBg={C.primaryLight}
-                        label="Upload & Secure Document"
-                        sublabel="Step A — Gemini extracts, classifies & encrypts"
-                        onPress={() => navigation.navigate('DocumentUpload')}
+                        icon="checkmark-done-outline"
+                        iconBg={C.green}
+                        label="Accept Exporter Sale"
+                        sublabel="Finalize an order from an interested exporter"
                     />
                     <Divider />
                     <StepRow
                         step="3"
-                        icon="eye-outline"
-                        iconBg="#FF9F0A"
-                        label="Review Classification"
-                        sublabel="Verify confidential (red) vs public (green) fields"
+                        icon="document-attach-outline"
+                        iconBg={C.primaryLight}
+                        label="Link DPP to Order"
+                        sublabel="Upload document (Step A — Gemini Extract)"
                     />
                     <Divider />
                     <StepRow
                         step="4"
-                        icon="shield-checkmark-outline"
-                        iconBg={C.green}
-                        label="Generate DPP Passport"
-                        sublabel="Step B — Strips financials, mints SHA-256 hash"
+                        icon="eye-outline"
+                        iconBg="#FF9F0A"
+                        label="Review & Generate Passport"
+                        sublabel="Verify classification & Mint SHA-256 Hash"
                     />
                     <Divider />
                     <StepRow
@@ -566,6 +700,147 @@ export default function BuyerDashboardScreen() {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
+
+            {/* ── Purchase Notification Modal ─────────────── */}
+            <Modal
+                visible={purchaseNotifs.length > 0}
+                transparent
+                animationType="none"
+                statusBarTranslucent
+                onRequestClose={dismissNotif}
+            >
+                <View style={s.notifOverlay}>
+                    <Animated.View style={[
+                        s.notifCard,
+                        {
+                            opacity: notifAnim,
+                            transform: [{ scale: notifAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }],
+                        },
+                    ]}>
+                        <LinearGradient
+                            colors={[C.primaryDark, C.primary]}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            style={s.notifAccentBar}
+                        />
+                        <View style={s.notifIconWrap}>
+                            <LinearGradient colors={[C.primaryLight, C.primaryDark]} style={s.notifIconCircle}>
+                                <Ionicons name="bag-check" size={32} color="#fff" />
+                            </LinearGradient>
+                        </View>
+                        <Text style={s.notifTitle}>Purchase Request!</Text>
+                        <Text style={s.notifSubtitle}>
+                            {purchaseNotifs.length === 1
+                                ? `${purchaseNotifs[0].exporterName || 'An exporter'} wants to buy your rubber lot.`
+                                : `${purchaseNotifs.length} exporters have requested to buy your lots.`}
+                        </Text>
+                        {purchaseNotifs.length === 1 && (
+                            <View style={s.notifDetails}>
+                                <View style={s.notifDetailRow}>
+                                    <View style={s.notifDetailIcon}><Ionicons name="person" size={14} color={C.primary} /></View>
+                                    <Text style={s.notifDetailLabel}>Exporter</Text>
+                                    <Text style={s.notifDetailVal}>{purchaseNotifs[0].exporterName || 'Unknown'}</Text>
+                                </View>
+                                <View style={s.notifDetailRow}>
+                                    <View style={s.notifDetailIcon}><Ionicons name="cash" size={14} color={C.green} /></View>
+                                    <Text style={s.notifDetailLabel}>Offer Price</Text>
+                                    <Text style={[s.notifDetailVal, { color: C.green, fontWeight: '700' }]}>
+                                        LKR {purchaseNotifs[0].offerPrice.toLocaleString()}
+                                    </Text>
+                                </View>
+                                <View style={s.notifDetailRow}>
+                                    <View style={s.notifDetailIcon}><Ionicons name="time" size={14} color={C.orange} /></View>
+                                    <Text style={s.notifDetailLabel}>Action needed</Text>
+                                    <Text style={[s.notifDetailVal, { color: C.orange }]}>Upload Invoice</Text>
+                                </View>
+                            </View>
+                        )}
+                        <View style={s.notifActions}>
+                            <TouchableOpacity style={s.notifDismissBtn} onPress={dismissNotif} activeOpacity={0.7}>
+                                <Text style={s.notifDismissText}>Later</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={s.notifViewBtn}
+                                activeOpacity={0.85}
+                                onPress={() => {
+                                    dismissNotif();
+                                    if (purchaseNotifs.length === 1) {
+                                        navigation.navigate('OrderReceipt', { transactionId: purchaseNotifs[0].id });
+                                    } else {
+                                        scrollRef.current?.scrollTo({ y: 0, animated: true });
+                                    }
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={[C.primary, C.primaryDark]}
+                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                    style={s.notifViewBtnInner}
+                                >
+                                    <Ionicons name="eye" size={16} color="#fff" />
+                                    <Text style={s.notifViewText}>View Order</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+                </View>
+            </Modal>
+
+            {/* ── Exporter Interest Notification Modal ──────── */}
+            <Modal
+                visible={interestNotifs.length > 0}
+                transparent
+                animationType="none"
+                statusBarTranslucent
+                onRequestClose={dismissInterestNotif}
+            >
+                <View style={s.notifOverlay}>
+                    <Animated.View style={[
+                        s.notifCard,
+                        {
+                            opacity: interestNotifAnim,
+                            transform: [{ scale: interestNotifAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }],
+                        },
+                    ]}>
+                        <LinearGradient
+                            colors={[C.primaryDark, C.primary]}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            style={s.notifAccentBar}
+                        />
+                        <View style={s.notifIconWrap}>
+                            <LinearGradient colors={[C.primaryLight, C.primaryDark]} style={s.notifIconCircle}>
+                                <Ionicons name="hand-right" size={32} color="#fff" />
+                            </LinearGradient>
+                        </View>
+                        <Text style={s.notifTitle}>Exporter Interest!</Text>
+                        <Text style={s.notifSubtitle}>
+                            {interestNotifs.length === 1
+                                ? `An exporter is interested in your ${interestNotifs[0].grade} lot (${interestNotifs[0].quantityKg} kg).`
+                                : `${interestNotifs.length} of your lots have received exporter interest requests.`}
+                        </Text>
+                        <View style={s.notifActions}>
+                            <TouchableOpacity style={s.notifDismissBtn} onPress={dismissInterestNotif} activeOpacity={0.7}>
+                                <Text style={s.notifDismissText}>Later</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={s.notifViewBtn}
+                                activeOpacity={0.85}
+                                onPress={() => {
+                                    dismissInterestNotif();
+                                    navigation.navigate('PendingRequests');
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={[C.primary, C.primaryDark]}
+                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                    style={s.notifViewBtnInner}
+                                >
+                                    <Ionicons name="people" size={16} color="#fff" />
+                                    <Text style={s.notifViewText}>Review Requests</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+                </View>
+            </Modal>
 
             {/* ── QR Modal ──────────────────────────────────── */}
             <Modal visible={!!selectedQr} transparent animationType="fade">
@@ -772,6 +1047,59 @@ const s = StyleSheet.create({
         backgroundColor: C.accent, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, marginTop: 8,
     },
     emptyBtnText: { color: '#FFF', fontWeight: '600', fontSize: 14 },
+
+    /* ── Purchase Notification Modal ────── */
+    notifOverlay: {
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+        justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24,
+    },
+    notifCard: {
+        backgroundColor: '#fff', borderRadius: 24, width: '100%',
+        overflow: 'hidden',
+        shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 0, height: 8 },
+        elevation: 12,
+    },
+    notifAccentBar: { height: 5, width: '100%' },
+    notifIconWrap: { alignItems: 'center', marginTop: 28, marginBottom: 12 },
+    notifIconCircle: {
+        width: 72, height: 72, borderRadius: 36,
+        justifyContent: 'center', alignItems: 'center',
+    },
+    notifTitle: {
+        fontSize: 22, fontWeight: '800', color: C.text,
+        textAlign: 'center', marginBottom: 6, paddingHorizontal: 20,
+    },
+    notifSubtitle: {
+        fontSize: 14, color: C.sub, textAlign: 'center',
+        lineHeight: 20, paddingHorizontal: 24, marginBottom: 20,
+    },
+    notifDetails: {
+        marginHorizontal: 20, backgroundColor: C.primaryPale,
+        borderRadius: 14, padding: 14, marginBottom: 20, gap: 10,
+    },
+    notifDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    notifDetailIcon: {
+        width: 26, height: 26, borderRadius: 8, backgroundColor: '#fff',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    notifDetailLabel: { flex: 1, fontSize: 13, color: C.sub, fontWeight: '500' },
+    notifDetailVal: { fontSize: 13, color: C.text, fontWeight: '600' },
+    notifActions: {
+        flexDirection: 'row', gap: 10,
+        paddingHorizontal: 20, paddingBottom: 24,
+    },
+    notifDismissBtn: {
+        flex: 1, paddingVertical: 14, borderRadius: 14,
+        backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: C.border,
+    },
+    notifDismissText: { fontSize: 15, fontWeight: '600', color: C.sub },
+    notifViewBtn: { flex: 2, borderRadius: 14, overflow: 'hidden' },
+    notifViewBtnInner: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 6, paddingVertical: 14,
+    },
+    notifViewText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
     /* ── QR Modal ────── */
     modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },

@@ -14,7 +14,7 @@ interface DiseaseMapParams {
 }
 
 export const DiseaseMapScreen = ({ route, navigation }: any) => {
-    const { user } = useStore();
+    const user = useStore(state => state.user);
     const mapRef = useRef<MapView>(null);
     const [mapData, setMapData] = useState<MapDataPoint[]>([]);
     const [loading, setLoading] = useState(true);
@@ -122,7 +122,13 @@ export const DiseaseMapScreen = ({ route, navigation }: any) => {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => route?.params?.navigation?.goBack() || navigation.goBack()} style={{ marginRight: 4 }}>
+                <TouchableOpacity onPress={() => {
+                    if (navigation.canGoBack()) {
+                        navigation.goBack();
+                    } else {
+                        navigation.navigate('DiseaseHome');
+                    }
+                }} style={{ marginRight: 4 }}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Ionicons name="map" size={24} color={colors.primary} />

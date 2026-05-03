@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import Animated, {
 import { latexQualityService, LatexQualityRequest } from "../../../core/services/latexQualityService";
 
 const ESP32_IP = "http://192.168.122.34"; // Replace with your ESP32 IP
+
 const { width } = Dimensions.get("window");
 
 // Define types for sensor data
@@ -57,6 +58,7 @@ const LiveSensorScreen = () => {
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
+  const failCount = useRef(0);
 
   const [testDate] = useState<string>(() => {
     return new Date().toLocaleDateString("en-US", {
@@ -117,6 +119,7 @@ const LiveSensorScreen = () => {
         humidity: Number(data.hum ?? 0),
       };
 
+      failCount.current = 0;
       setLiveSensorData(newData);
       setConnectionError(false);
       setLastUpdated(new Date().toLocaleTimeString());
@@ -134,7 +137,10 @@ const LiveSensorScreen = () => {
       } else {
         console.error("Error fetching sensor data:", err);
       }
-      setConnectionError(true);
+      failCount.current += 1;
+      if (failCount.current >= 3) {
+        setConnectionError(true);
+      }
     } finally {
       setLoading(false);
     }
