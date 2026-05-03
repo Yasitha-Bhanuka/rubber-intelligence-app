@@ -661,16 +661,6 @@ export default function StorageSelectionScreen() {
         setSuccessMessage('');
     };
 
-    const useLiveData = () => {
-        if (!liveData) {
-            Alert.alert('No Live Data', 'Please wait for sensor data to load or check connection.');
-            return;
-        }
-
-        setHumidity(liveData.humidity.toString());
-        setAirTemperature(liveData.airTemperature.toString());
-    };
-
     const recommendedLocationName =
         prediction?.recommendedLocations?.find((location) => location.recommended)?.name ||
         storageType ||
@@ -727,17 +717,6 @@ export default function StorageSelectionScreen() {
                                     <Text style={styles.liveDataValue}>{liveData.airTemperature.toFixed(1)}°C</Text>
                                 </View>
                             </View>
-
-                            <TouchableOpacity
-                                style={[styles.useLiveButton, liveDataLoading && styles.useLiveButtonDisabled]}
-                                onPress={useLiveData}
-                                disabled={liveDataLoading}
-                            >
-                                <MaterialCommunityIcons name="refresh" size={18} color="#FFF" />
-                                <Text style={styles.useLiveButtonText}>
-                                    {liveDataLoading ? 'Refreshing...' : 'Use Live Data'}
-                                </Text>
-                            </TouchableOpacity>
                         </View>
                     )}
 
@@ -765,7 +744,7 @@ export default function StorageSelectionScreen() {
 
                     <Text style={styles.sectionTitle}>Storage Conditions</Text>
                     <Text style={styles.sectionSubtitle}>
-                        Enter humidity and air temperature for rubber latex storage analysis
+                        Live humidity and air temperature measurements are applied automatically
                     </Text>
 
                     <View style={styles.inputWrapper}>
@@ -774,14 +753,14 @@ export default function StorageSelectionScreen() {
                                 <MaterialCommunityIcons name="water-percent" size={24} color={colors.primary} />
                             </View>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, styles.readOnlyInput]}
                                 placeholder="Humidity (%)"
                                 value={humidity}
-                                onChangeText={setHumidity}
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={5}
-                                editable={!isLoading}
+                                editable={false}
+                                selectTextOnFocus={false}
                             />
                         </View>
 
@@ -790,14 +769,14 @@ export default function StorageSelectionScreen() {
                                 <MaterialCommunityIcons name="weather-sunny" size={24} color={colors.primary} />
                             </View>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, styles.readOnlyInput]}
                                 placeholder="Air Temperature (°C)"
                                 value={airTemperature}
-                                onChangeText={setAirTemperature}
                                 keyboardType="numeric"
                                 placeholderTextColor="#9CA3AF"
                                 maxLength={6}
-                                editable={!isLoading}
+                                editable={false}
+                                selectTextOnFocus={false}
                             />
                         </View>
                     </View>
@@ -1165,24 +1144,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#1E293B'
     },
-    useLiveButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.primary,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 12
-    },
-    useLiveButtonDisabled: {
-        opacity: 0.7
-    },
-    useLiveButtonText: {
-        color: '#FFF',
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8
-    },
     errorContainer: {
         backgroundColor: '#FEF2F2',
         borderRadius: 12,
@@ -1272,6 +1233,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#1F2937',
         paddingVertical: 16
+    },
+    readOnlyInput: {
+        color: '#475569'
     },
     predictButton: {
         backgroundColor: colors.primary,
