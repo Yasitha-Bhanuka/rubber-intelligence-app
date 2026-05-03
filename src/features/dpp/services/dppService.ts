@@ -11,7 +11,10 @@ export const uploadDppDocument = async (
     formData.append('File', { uri: fileUri, name: fileName, type: fileType } as any);
 
     const response = await apiClient.post<DppUploadResponse>('/dpp/upload', formData, {
-        transformRequest: [(data: any) => data],
+        // Let React Native/XHR generate the multipart boundary automatically.
+        // Using transformRequest here can break FormData uploads and surface as a Network Error.
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
     });
     return response.data;
 };

@@ -67,6 +67,8 @@ export default function DocumentUploadScreen() {
         } catch (error: any) {
             if (error.response?.status === 429) {
                 Alert.alert('Quota Exceeded', 'Gemini API quota exceeded. Please try again later.');
+            } else if (error.code === 'ECONNABORTED') {
+                Alert.alert('Upload Timeout', 'The server took too long to respond. Please try again in a moment.');
             } else if (error.response?.status >= 500) {
                 Alert.alert('Server Error', 'The server encountered an error. Please try again.');
             } else if (error.response) {

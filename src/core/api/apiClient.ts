@@ -2,6 +2,13 @@ import axios from 'axios';
 import { ENV } from '../config/environment';
 import { getToken } from '../auth/tokenStorage';
 
+type RetryState = {
+    count: number;
+    maxRetries: number;
+    delay: number;
+    triedFallbackUrls: string[];
+};
+
 const apiClient = axios.create({
     baseURL: ENV.API_URL,
     headers: {
@@ -18,43 +25,64 @@ apiClient.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const config = error.config;
+        const config = error.config as any;
 
-        // Handle 401 Unauthorized
-        if (error.response && error.response.status === 401) {
+        if (error.response?.status === 401) {
             const url: string = config?.url ?? '';
-            // Suppress warning for auth endpoints — 401 there is expected
-            // (no session, expired token, wrong credentials)
             if (!url.includes('/auth/')) {
                 console.warn('Session expired - please log in again');
             }
             return Promise.reject(error);
         }
 
-        // Setup retry logic for transient errors (Network errors, 5xx server errors, timeouts)
-        if (!config || !config.retry) {
-            // First time failing
-            config.retry = { count: 0, maxRetries: 2, delay: 1000 };
+        if (!config) {
+            return Promise.reject(error);
         }
 
-        const isNetworkError = !error.response || (error.response.status >= 500 && error.response.status <= 599);
+        if (!config.retry) {
+            config.retry = {
+                count: 0,
+                maxRetries: 2,
+                delay: 1000,
+                triedFallbackUrls: [],
+            } satisfies RetryState;
+        }
 
-        if (isNetworkError && config.retry.count < config.retry.maxRetries) {
-            config.retry.count += 1;
-            console.log(`[Axios] Transient error detected. Retrying request (${config.retry.count}/${config.retry.maxRetries})...`);
+        const retry = config.retry as RetryState;
+        const isNetworkError =
+            !error.response || (error.response.status >= 500 && error.response.status <= 599);
 
-            // Wait for delay
-            await new Promise(resolve => setTimeout(resolve, config.retry.delay));
+        if (isNetworkError) {
+            const currentBaseUrl = config.baseURL || apiClient.defaults.baseURL || ENV.API_URL;
+            const fallbackUrl = ENV.API_FALLBACK_URLS.find(
+                (url) => url !== currentBaseUrl && !retry.triedFallbackUrls.includes(url)
+            );
 
-            // Retry the original request
+            if (fallbackUrl) {
+                retry.triedFallbackUrls.push(fallbackUrl);
+                config.baseURL = fallbackUrl;
+                apiClient.defaults.baseURL = fallbackUrl;
+
+                console.warn(`[Axios] Network error. Switching API base URL to ${fallbackUrl} and retrying...`);
+
+                await new Promise((resolve) => setTimeout(resolve, retry.delay));
+                return apiClient(config);
+            }
+        }
+
+        if (isNetworkError && retry.count < retry.maxRetries) {
+            retry.count += 1;
+            console.log(
+                `[Axios] Transient error detected. Retrying request (${retry.count}/${retry.maxRetries})...`
+            );
+
+            await new Promise((resolve) => setTimeout(resolve, retry.delay));
             return apiClient(config);
         }
 
