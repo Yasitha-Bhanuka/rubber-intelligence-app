@@ -149,6 +149,7 @@ export default function ExporterDppViewScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [downloadingInv, setDownloadingInv] = useState(false);
+    const [downloadingPlain, setDownloadingPlain] = useState(false);
 
     // Document Viewer Modal State
     const [viewerVisible, setViewerVisible] = useState(false);
@@ -166,6 +167,20 @@ export default function ExporterDppViewScreen() {
             Alert.alert('Decrypt Failed', e.message || 'Could not fetch or decrypt the document.');
         } finally {
             setDownloadingInv(false);
+        }
+    };
+
+    const handleViewPlainInvoice = async () => {
+        setDownloadingPlain(true);
+        try {
+            const { uri, mimeType } = await getInvoiceFileUri(transactionId);
+            setViewerUri(uri);
+            setViewerMime(mimeType);
+            setViewerVisible(true);
+        } catch (e: any) {
+            Alert.alert('Could Not Open Document', e.message || 'Could not fetch the source document.');
+        } finally {
+            setDownloadingPlain(false);
         }
     };
 
@@ -344,21 +359,40 @@ export default function ExporterDppViewScreen() {
                                 accentColor={C.blue}
                             />
 
-                            <TouchableOpacity
-                                style={st.downloadDocBtn}
-                                onPress={handleViewInvoice}
-                                disabled={downloadingInv}
-                            >
-                                <Ionicons name="document-lock-outline" size={20} color={C.blue} />
-                                <Text style={st.downloadDocBtnText}>
-                                    {downloadingInv ? 'Decrypting Source Document...' : 'View Decrypted Source Document'}
-                                </Text>
-                                {downloadingInv ? (
-                                    <ActivityIndicator size="small" color={C.blue} />
-                                ) : (
-                                    <Ionicons name="download-outline" size={20} color={C.blue} />
-                                )}
-                            </TouchableOpacity>
+                            {/* ── CONFIDENTIAL: show decrypt button ── */}
+                            {dpp.invoiceClassification === 'CONFIDENTIAL' && (
+                                <TouchableOpacity
+                                    style={st.downloadDocBtn}
+                                    onPress={handleViewInvoice}
+                                    disabled={downloadingInv}
+                                >
+                                    <Ionicons name="document-lock-outline" size={20} color={C.blue} />
+                                    <Text style={st.downloadDocBtnText}>
+                                        {downloadingInv ? 'Decrypting Source Document...' : 'View Decrypted Source Document'}
+                                    </Text>
+                                    {downloadingInv
+                                        ? <ActivityIndicator size="small" color={C.blue} />
+                                        : <Ionicons name="lock-open-outline" size={20} color={C.blue} />}
+                                </TouchableOpacity>
+                            )}
+
+                            {/* ── NON_CONFIDENTIAL: show plain view button ── */}
+                            {dpp.invoiceClassification !== 'CONFIDENTIAL' && dpp.invoiceClassification != null && (
+                                <TouchableOpacity
+                                    style={st.viewPlainDocBtn}
+                                    onPress={handleViewPlainInvoice}
+                                    disabled={downloadingPlain}
+                                >
+                                    <Ionicons name="document-outline" size={20} color={C.primary} />
+                                    <Text style={st.viewPlainDocBtnText}>
+                                        {downloadingPlain ? 'Opening Document...' : 'View Non-Confidential Document'}
+                                    </Text>
+                                    {downloadingPlain
+                                        ? <ActivityIndicator size="small" color={C.primary} />
+                                        : <Ionicons name="eye-outline" size={20} color={C.primary} />}
+                                </TouchableOpacity>
+                            )}
+
                             {dpp.invoiceFields.map((f, i) => (
                                 <FieldRow key={`inv-${i}`} field={f} accent={C.blue} />
                             ))}
@@ -600,7 +634,7 @@ const st = StyleSheet.create({
     },
     footerText: { fontSize: 11, color: C.textSub, flex: 1, lineHeight: 16 },
 
-    /* Action Button for Docs */
+    /* Action Button for Docs — CONFIDENTIAL (blue, lock) */
     downloadDocBtn: {
         flexDirection: 'row', alignItems: 'center',
         backgroundColor: '#E3F2FD', padding: 14,
@@ -610,6 +644,18 @@ const st = StyleSheet.create({
     downloadDocBtnText: {
         flex: 1, marginLeft: 10,
         color: '#1565C0', fontWeight: '700', fontSize: 13
+    },
+
+    /* Action Button for Docs — NON_CONFIDENTIAL (green, open) */
+    viewPlainDocBtn: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#E8F5E9', padding: 14,
+        borderRadius: 12, marginBottom: 16,
+        borderWidth: 1, borderColor: '#C8E6C9'
+    },
+    viewPlainDocBtnText: {
+        flex: 1, marginLeft: 10,
+        color: '#2E7D32', fontWeight: '700', fontSize: 13
     },
 
     /* Scan QR Button */
