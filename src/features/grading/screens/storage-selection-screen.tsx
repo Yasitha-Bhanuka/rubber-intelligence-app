@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../../shared/styles/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const ESP32_IP = "http://10.93.197.34"; // Replace with your ESP32 IP
+const ESP32_IP = "http://192.168.122.34"; // Replace with your ESP32 IP
 
 interface StorageDetails {
     suitability: string;
