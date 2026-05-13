@@ -17,7 +17,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../../shared/styles/colors';
 
-const ESP32_IP = 'http://192.168.122.34';
+const ESP32_IP = 'http://192.168.95.34';
 
 interface StorageLocation {
     name: string;

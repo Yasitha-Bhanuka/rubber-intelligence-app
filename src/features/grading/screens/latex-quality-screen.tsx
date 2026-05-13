@@ -22,7 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { latexQualityService, LatexQualityRequest } from "../../../core/services/latexQualityService";
 
-const ESP32_IP = "http://192.168.122.34"; // Replace with your ESP32 IP
+const ESP32_IP = "http://192.168.95.34"; // Replace with your ESP32 IP
 
 const { width } = Dimensions.get("window");
 
@@ -341,7 +341,7 @@ const LiveSensorScreen = () => {
                 <View style={[styles.liveDataItem, styles.tempItem]}>
                   <MaterialCommunityIcons name="thermometer" size={20} color="#EF4444" style={styles.itemIcon} />
                   <Text style={styles.liveDataLabel}>Temperature</Text>
-                      <Text style={[styles.liveDataValue, { color: "#991B1B" }]}>{liveSensorData.temperature.toFixed(1)}°C</Text>  
+                  <Text style={[styles.liveDataValue, { color: "#991B1B" }]}>{liveSensorData.temperature.toFixed(1)}°C</Text>
                 </View>
                 <View style={[styles.liveDataItem, styles.turbidityItem]}>
                   <MaterialCommunityIcons name="water-opacity" size={20} color="#3B82F6" style={styles.itemIcon} />
@@ -436,10 +436,10 @@ const LiveSensorScreen = () => {
           <View style={[styles.sensorContainer, styles.leftBorderContainer]}>
             <View style={styles.borderAccent} />
 
-            {/* Temperature Input */}       
+            {/* Temperature Input */}
             <InputField
               label="Temperature"
-              value={sensorData.temperature}          
+              value={sensorData.temperature}
               onChangeText={(text: string) => {
                 if (text === "") {
                   setSensorData(prev => ({ ...prev, temperature: "" }));

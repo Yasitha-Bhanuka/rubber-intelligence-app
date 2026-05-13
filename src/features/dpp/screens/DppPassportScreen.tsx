@@ -20,7 +20,7 @@ const COLORS = {
     border: '#E5E5EA',
     green: '#34C759',
     red: '#FF3B30',
-    purple: '#5856D6',
+    purple: '#31aca4ff',
     orange: '#FF9500',
 };
 
